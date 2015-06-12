@@ -43,7 +43,7 @@ object TopologicalSort {
       case Some(set) if set.isEmpty => result + currentPath
       case Some(set) =>
         set.foldLeft(result) { (acc, e) => {
-            collectPaths(e, acc, currentPath.+((currentDot,e)))
+            collectPaths(e, acc, currentPath + Tuple2(currentDot,e))
           }
         }
     }

@@ -1,8 +1,9 @@
-package routing
+package routing.request
 
 import akka.actor._
 import spray.http.StatusCodes._
 import spray.routing._
+
 import scala.concurrent.duration._
 
 object PerRequest {
@@ -10,11 +11,13 @@ object PerRequest {
   case object NotOk
 }
 
-trait PerRequest extends Actor with Directives {
+trait PerRequest extends Actor with ActorLogging with Directives {
 
   import context._
 
-  setReceiveTimeout(10.seconds)
+  val URI = extract(ctx => java.net.URI.create(ctx.request.uri.toString))
+
+  //setReceiveTimeout(10.seconds)
 
   def ctx: RequestContext
 
@@ -36,5 +39,14 @@ trait PerRequest extends Actor with Directives {
   def response(finalStep: Route): Unit = {
     finalStep(ctx)
     stop(self)
+  }
+
+  def responseWithoutStopActor(finalStep: Route): Unit = {
+    finalStep(ctx)
+  }
+
+  override def unhandled(message: Any): Unit = message match {
+    case _ =>
+      log.info(s"unhandled message: $message")
   }
 }

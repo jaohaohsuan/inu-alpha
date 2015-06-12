@@ -18,6 +18,7 @@ object Library {
   val sigar = "org.fusesource" % "sigar" % "1.6.4"
   val json4sNative             = "org.json4s"             %% "json4s-native"                    % "3.2.10"
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"            % "2.3"
+  val elastic4s                = "com.sksamuel.elastic4s" %% "elastic4s"                        % "1.5.13"
 }
 
 object Dependencies {
@@ -38,6 +39,7 @@ object Dependencies {
     sprayRouting,
     sigar,
     json4sNative,
-    scalaJsonCollection
+    scalaJsonCollection,
+    elastic4s
   )
 }

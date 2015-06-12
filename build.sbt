@@ -11,3 +11,6 @@ val project = Project(
       "-Djava.library.path=./sigar")
     )
 )
+
+
+fork in run := true

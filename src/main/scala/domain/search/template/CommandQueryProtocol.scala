@@ -15,16 +15,18 @@ object CommandQueryProtocol {
   sealed trait Ack extends Message
 
   case class NewTemplateSavedAck(templateId: String) extends Ack
-  case class ClauseAddedAck(templateId: String, clauseId: String) extends Ack
+  case class ClauseAddedAck(templateId: String, version: Int, clauseId: String) extends Ack
   case class ClauseRemovedAck(templateId: String, clauseId: Int, clause: BoolQueryClause) extends Ack
 
   sealed trait Query extends Message
 
   case class GetAsBoolClauseQuery(templateId: String) extends Query
+  case class GetVersion(templateId: String) extends Query
 
   sealed trait Response  extends Message
 
-  case class BoolClauseResponse(templateId: String, templateName: String,clauses: List[BoolQueryClause]) extends Response
+  case class BoolClauseResponse(templateId: String, templateName: String,clauses: List[BoolQueryClause], version: Int) extends Response
+  case class VersionResponse(templateId: String, version: Int) extends Response
 
   val templateRegion =  s"/user/sharding/${domain.search.template.Template.shardName}"
 

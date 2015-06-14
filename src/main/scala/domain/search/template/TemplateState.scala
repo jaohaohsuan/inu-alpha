@@ -2,7 +2,7 @@ package domain.search.template
 
 object TemplateState {
 
-  def empty(): TemplateState = TemplateState("", Map.empty)
+  def empty(): TemplateState = TemplateState("", Map.empty, 0)
 
   trait DomainEvent
   case class Named(name: String) extends DomainEvent
@@ -13,18 +13,20 @@ object TemplateState {
 }
 
 case class TemplateState private (val name: String,
-                                  val clauses: Map[Int,BoolQueryClause]) {
+                                  val clauses: Map[Int,BoolQueryClause], val version: Int) {
 
   import TemplateState._
+
+  def nextVersion = version + 1
 
   def update(event: DomainEvent): TemplateState = event match {
 
     case Named(newName) =>
-      copy(name = newName)
+      copy(name = newName, version = nextVersion)
     case ClauseAdded(id, clause) =>
-      copy(clauses = clauses + (id -> clause))
+      copy(clauses = clauses + (id -> clause), version = nextVersion)
     case ClauseRemoved(id, _) =>
-      copy(clauses = clauses - id)
+      copy(clauses = clauses - id, version = nextVersion)
 
   }
 }

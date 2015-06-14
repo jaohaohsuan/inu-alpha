@@ -46,7 +46,7 @@ class Template extends PersistentActor with ActorLogging {
     case AddClauseCommand(templateId, clause) =>
       val eventHandler = (ref: ActorRef, event: ClauseAdded) => {
         templateState = templateState.update(event)
-        ref ! ClauseAddedAck(templateId, event.id.toString)
+        ref ! ClauseAddedAck(templateId, templateState.version, event.id.toString)
       }
       persist(ClauseAdded(clause.hashCode(), clause))(eventHandler(sender(), _))
 

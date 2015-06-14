@@ -57,7 +57,7 @@ class Graph extends PersistentActor with ActorLogging {
       }
     }
     case Get(templateId) => {
-      startRouting(templateId, templateClauses)
+      startRouting(sender(), templateId, templateClauses)
     }
   }
 
@@ -69,14 +69,20 @@ class Graph extends PersistentActor with ActorLogging {
     }
   }
 
-  def startRouting(start: String, clauses: Map[(String, String), (String, String)]) = {
-
-     Try(graphState.getUpdateRoutes(start).flatMap { _.map {
+  def startRouting(senderRef: ActorRef, start: String, clauses: Map[(String, String), (String, String)]) = {
+    log.info(s"collecting path")
+    val trySegments = Try(graphState.getUpdateRoutes(start).flatMap { _.map {
       case (provider, consumer) => (consumer, templateClauses get Tuple2(consumer, provider) get)
-    }}.toList).map{ sender() ! Routes(_)
-     }.recover {
-       case e => sender() ! Inconsistency(e.getMessage)
-     }
+    }}.toList)
+
+    trySegments.map { segments =>
+      senderRef ! Routes(segments)
+      log.info(s"Send $segments to ${sender()}")
+    }.recover {
+      case e =>
+        log.info(s"Inconsistency: ${e.getMessage}")
+        senderRef ! Inconsistency(e.getMessage)
+    }
   }
 
   override def receiveRecover: Receive = {

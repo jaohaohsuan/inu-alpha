@@ -81,6 +81,6 @@ trait SearchTemplateRoute extends HttpService with Json4sSupport {
       }
 
   def handle(entity: Entity)(implicit templateId: String, ctx: RequestContext): Unit = {
-    actorRefFactory.actorOf(SearchTemplateRoute.props(entity, clusterClient), s"$templateId-${entity.getClass.getSimpleName}")
+    actorRefFactory.actorOf(SearchTemplateRoute.props(entity, clusterClient))
   }
 }

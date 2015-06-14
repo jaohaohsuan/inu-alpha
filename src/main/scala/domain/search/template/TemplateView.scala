@@ -38,6 +38,7 @@ class TemplateView extends PersistentView {
   var boolQueryState = boolQuery()
   var clauses: Map[Int, BoolQueryClause] = Map.empty
   var name: String = ""
+  var version: Int = 0
 
   import scala.language.implicitConversions
 
@@ -47,11 +48,16 @@ class TemplateView extends PersistentView {
   def receive: Receive = {
 
     case Named(text) => name = text
+      version += 1
     case ClauseAdded(_, clause) =>
       boolQueryState = add(boolQueryState, clause)
       clauses = clauses + (clause.hashCode() -> clause)
+      version += 1
+
     case GetAsBoolClauseQuery(templateId) =>
-      sender() ! BoolClauseResponse(templateId, name, clauses.values.toList)
+      sender() ! BoolClauseResponse(templateId, name, clauses.values.toList, version)
+    case GetVersion(templateId) =>
+      sender() ! VersionResponse(templateId ,version)
   }
 
   def add(qb: BoolQueryBuilder, clause: BoolQueryClause): BoolQueryBuilder = {

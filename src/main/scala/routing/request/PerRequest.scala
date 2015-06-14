@@ -32,7 +32,7 @@ trait PerRequest extends Actor with ActorLogging with Directives {
       }
     case res =>
       response {
-        complete(InternalServerError, res.toString)
+        complete(InternalServerError, s"unexpected message: $res")
       }
   }
 

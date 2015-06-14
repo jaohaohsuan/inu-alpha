@@ -20,18 +20,14 @@ class Gathering(clusterClient: ActorRef, private var segments: List[(String, (St
   import CommandQueryProtocol._
   import Gathering._
 
-  import context.dispatcher
-
   def scheduler = context.system.scheduler
 
   log.info(s"There are ${segments.length} $segments to gather.")
 
-//  val templateRegion: ActorRef = ClusterSharding(context.system).shardRegion(Template.shardName)
-//  val templateViewRegion: ActorRef = ClusterSharding(context.system).shardRegion(TemplateView.shardName)
-
   self ! Tick
 
   def receive: Receive = {
+
     case Tick =>
       if (segments == Nil) {
         log.info(s"Gathering is completed")
@@ -41,29 +37,21 @@ class Gathering(clusterClient: ActorRef, private var segments: List[(String, (St
         val namedClause = NamedBoolClause(clauseTemplateId, occur = occur)
         context.become(processing(templateId, namedClause, xs), discardOld = false)
         log.info(s"$templateId consuming $clauseTemplateId")
-        sendMessage2TemplateViewRegion(GetAsBoolClauseQuery(clauseTemplateId))
+        clusterClient ! Send(templateViewRegion, GetAsBoolClauseQuery(clauseTemplateId), localAffinity = true)
       }
   }
 
   def processing(consumerId: String, clause: NamedBoolClause, tail: List[(String, (String, String))]): Receive = {
-    case BoolClauseResponse(_, name, clauses) =>
+
+    case BoolClauseResponse(_, name, clauses, version) =>
       log.info(s"${clause.templateId} provides $clauses")
-      sendMessage2TemplateRegion(AddClauseCommand(consumerId, clause.copy(clauses = clauses, templateName = name)))
-    case ClauseAddedAck(_, id) =>
+      clusterClient ! Send(templateRegion, AddClauseCommand(consumerId, clause.copy(clauses = clauses, templateName = name)), localAffinity = true)
+
+    case ClauseAddedAck(_, _, id) =>
       log.info(s"NamedBoolClause($id) Added")
         segments = tail
         context.unbecome()
         self ! Tick
-//    case ReceiveTimeout =>
-//      scheduler.scheduleOnce(3.seconds, templateViewRegion, GetAsBoolClauseQuery(clause.templateId))
-  }
-
-  def sendMessage2TemplateRegion(message: Any) = {
-    clusterClient ! Send(templateRegion, message, localAffinity = true)
-  }
-
-  def sendMessage2TemplateViewRegion(message: Any) = {
-    clusterClient ! Send(templateViewRegion, message, localAffinity = true)
   }
 }
 

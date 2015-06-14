@@ -14,7 +14,7 @@ object Graph {
 
   def props: Props = Props[Graph]
 
-  case class AddNamedClause(templateId: String, clauseTemplateId: String, occur: String)
+  case class AddEdgeCommand(templateId: String, clauseTemplateId: String, occur: String)
   case class Get(templateId: String)
   case object DirectedCyclesNotAccepted
   case class Inconsistency(error: String)
@@ -44,7 +44,7 @@ class Graph extends PersistentActor with ActorLogging {
   private var templateClauses = Map[(String, String), (String, String)]()
 
   override def receiveCommand = {
-    case AddNamedClause(templateId, clauseTemplateId, occur) => {
+    case AddEdgeCommand(templateId, clauseTemplateId, occur) => {
 
       val edge = (templateId, clauseTemplateId)
 

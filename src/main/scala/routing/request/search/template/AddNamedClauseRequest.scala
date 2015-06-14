@@ -15,7 +15,7 @@ import domain.search.template.CommandQueryProtocol._
                                    clauseTemplateId: String,
                                    occur: String) extends PerRequest with AutoGathering {
 
-    clusterClient ! SendToAll(graphSingleton, Graph.AddNamedClause(templateId, clauseTemplateId, occur))
+    clusterClient ! SendToAll(graphSingleton, Graph.AddEdgeCommand(templateId, clauseTemplateId, occur))
 
     def processResult: Receive = {
       case Graph.DirectedCyclesNotAccepted =>
@@ -29,7 +29,7 @@ import domain.search.template.CommandQueryProtocol._
       case Graph.PersistedAck(event) =>
         responseWithoutStopActor {
           URI { href =>
-            respondWithHeader(RawHeader("Location", href.resolve(s"match/${clauseTemplateId.hashCode}").toString)) {
+            respondWithHeader(RawHeader("Location", href.resolve(s"named/${clauseTemplateId.hashCode}").toString)) {
               complete(Accepted)
             }
           }

@@ -7,7 +7,7 @@ object TemplateState {
   trait DomainEvent
   case class Named(name: String) extends DomainEvent
   case class ClauseAdded(id: Int,clause: BoolQueryClause) extends DomainEvent
-  case class ClauseRemoved(id: Int) extends DomainEvent
+  case class ClauseRemoved(id: Int, clause: BoolQueryClause) extends DomainEvent
 
   //case class GatheringNamedClause
 }
@@ -23,7 +23,7 @@ case class TemplateState private (val name: String,
       copy(name = newName)
     case ClauseAdded(id, clause) =>
       copy(clauses = clauses + (id -> clause))
-    case ClauseRemoved(id) =>
+    case ClauseRemoved(id, _) =>
       copy(clauses = clauses - id)
 
   }

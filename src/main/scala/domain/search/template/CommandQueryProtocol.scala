@@ -10,13 +10,13 @@ object CommandQueryProtocol {
 
   case class SaveAsCommand(templateId: String, newTemplateName: String) extends Command
   case class AddClauseCommand(templateId: String, clause: BoolQueryClause) extends Command
-
+  case class RemoveClauseCommand(templateId: String, clauseId: Int) extends Command
 
   sealed trait Ack extends Message
 
   case class NewTemplateSavedAck(templateId: String) extends Ack
   case class ClauseAddedAck(templateId: String, clauseId: String) extends Ack
-
+  case class ClauseRemovedAck(templateId: String, clauseId: Int, clause: BoolQueryClause) extends Ack
 
   sealed trait Query extends Message
 
@@ -26,19 +26,10 @@ object CommandQueryProtocol {
 
   case class BoolClauseResponse(templateId: String, templateName: String,clauses: List[BoolQueryClause]) extends Response
 
+  val templateRegion =  s"/user/sharding/${domain.search.template.Template.shardName}"
+
+  val templateViewRegion = s"/user/sharding/${domain.search.template.TemplateView.shardName}"
+
+  val graphSingleton = "/user/searchTemplateGraph/active"
+
 }
-
-/*
-
-  case object Ok
-  case object NotOk
-
-  case class PropagatingRequest(routes: Set[Set[(String, String)]])
-
-  case class AddNamedClause(edge: (String, String))
-
-  case class NamedClauseAdded(edge: (String, String))
-
-  case object Ack
-
- */

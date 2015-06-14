@@ -59,11 +59,11 @@ class Gathering(clusterClient: ActorRef, private var segments: List[(String, (St
   }
 
   def sendMessage2TemplateRegion(message: Any) = {
-    clusterClient ! Send(s"/user/sharding/${domain.search.template.Template.shardName}", message, localAffinity = true)
+    clusterClient ! Send(templateRegion, message, localAffinity = true)
   }
 
   def sendMessage2TemplateViewRegion(message: Any) = {
-    clusterClient ! Send(s"/user/sharding/${domain.search.template.TemplateView.shardName}", message, localAffinity = true)
+    clusterClient ! Send(templateViewRegion, message, localAffinity = true)
   }
 }
 

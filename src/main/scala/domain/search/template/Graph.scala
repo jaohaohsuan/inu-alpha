@@ -17,7 +17,7 @@ object Graph {
   case class AddNamedClause(templateId: String, clauseTemplateId: String, occur: String)
   case class Get(templateId: String)
   case object DirectedCyclesNotAccepted
-  case class GraphInconsistency(error: String)
+  case class Inconsistency(error: String)
   case class Routes(segments: List[(String, (String, String))])
   //case object TraverseComplete
 
@@ -71,17 +71,11 @@ class Graph extends PersistentActor with ActorLogging {
 
   def startRouting(start: String, clauses: Map[(String, String), (String, String)]) = {
 
-    val trySegments = Try(graphState.getUpdateRoutes(start).flatMap { _.map {
-      case (provider, consumer) => {
-        (consumer, templateClauses get Tuple2(consumer, provider) get)
-      }
-    }}.toList)
-
-     trySegments.map{ segments =>
-       sender() ! Routes(segments)
+     Try(graphState.getUpdateRoutes(start).flatMap { _.map {
+      case (provider, consumer) => (consumer, templateClauses get Tuple2(consumer, provider) get)
+    }}.toList).map{ sender() ! Routes(_)
      }.recover {
-       case e =>
-         sender() ! GraphInconsistency(e.getMessage)
+       case e => sender() ! Inconsistency(e.getMessage)
      }
   }
 

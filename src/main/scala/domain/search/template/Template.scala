@@ -44,12 +44,24 @@ class Template extends PersistentActor with ActorLogging {
   override def receiveCommand: Receive = {
 
     case AddClauseCommand(templateId, clause) =>
-
       val eventHandler = (ref: ActorRef, event: ClauseAdded) => {
         templateState = templateState.update(event)
         ref ! ClauseAddedAck(templateId, event.id.toString)
       }
       persist(ClauseAdded(clause.hashCode(), clause))(eventHandler(sender(), _))
+
+    case RemoveClauseCommand(templateId, clauseId) => {
+      templateState.clauses.get(clauseId) match {
+        case None =>
+          log.info(s"The clause $clauseId doesn't exist")
+        case Some(clause) =>
+          val eventHandler = (ref: ActorRef, event: ClauseRemoved) => {
+            templateState = templateState.update(event)
+            ref ! ClauseRemovedAck(templateId, event.id, event.clause)
+          }
+          persist(ClauseRemoved(clauseId, clause))(eventHandler(sender(), _))
+      }
+    }
   }
 
   override def persistenceId: String = self.path.parent.name + "-" + self.path.name

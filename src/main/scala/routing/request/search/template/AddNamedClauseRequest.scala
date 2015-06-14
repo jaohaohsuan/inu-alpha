@@ -1,52 +1,41 @@
 package routing.request.search.template
 
-import java.util.UUID
-
-import akka.actor.{ActorRef, Terminated, Props}
+import akka.actor.ActorRef
 import akka.contrib.pattern.ClusterClient.SendToAll
-import akka.contrib.pattern.ClusterSingletonProxy
-import akka.util.Timeout
+import domain.search.template.Graph
 import routing.request.PerRequest
-import spray.routing._
-import domain.search.template.Graph._
-import scala.concurrent.duration._
-import worker.{ Master, Work }
-import akka.pattern._
+import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
-import domain.search.template.Graph.Routes
-import domain.search.template._
+import spray.routing._
+import domain.search.template.CommandQueryProtocol._
 
-  case class AddNamedClauseRequest(ctx: RequestContext, clusterClient: ActorRef, templateId: String, clauseTemplateId: String, occur: String) extends PerRequest {
+  case class AddNamedClauseRequest(ctx: RequestContext,
+                                   clusterClient: ActorRef,
+                                   templateId: String,
+                                   clauseTemplateId: String,
+                                   occur: String) extends PerRequest with AutoGathering {
 
-    clusterClient ! SendToAll("/user/searchTemplateGraph/active", AddNamedClause(templateId, clauseTemplateId, occur))
-
-    import context.dispatcher
-    def scheduler = context.system.scheduler
-
+    clusterClient ! SendToAll(graphSingleton, Graph.AddNamedClause(templateId, clauseTemplateId, occur))
 
     def processResult: Receive = {
-      case DirectedCyclesNotAccepted =>
+      case Graph.DirectedCyclesNotAccepted =>
         response {
           complete(NotAcceptable)
         }
-      case GraphInconsistency(error) =>
+      case Graph.Inconsistency(error) =>
         response {
           complete(InternalServerError, error)
         }
-      case PersistedAck(event) =>
+      case Graph.PersistedAck(event) =>
         responseWithoutStopActor {
-          complete(NoContent)
-        }
-        clusterClient ! SendToAll("/user/searchTemplateGraph/active", Get(templateId))
-      case Routes(segments) =>
-        scheduler.scheduleOnce(2.seconds, new Runnable {
-          def run(): Unit = {
-            context.watch(context.actorOf(Gathering.props(clusterClient,(templateId, (clauseTemplateId, occur)) :: segments), name = "gathering"))
+          URI { href =>
+            respondWithHeader(RawHeader("Location", href.resolve(s"match/${clauseTemplateId.hashCode}").toString)) {
+              complete(Accepted)
+            }
           }
-        })
-      case Terminated(child) =>
-        log.info(s"$child is terminated")
-        context.stop(self)
+        }
+        context.become(gathering(initialSegments = (templateId, (clauseTemplateId, occur)) :: Nil))
+        clusterClient ! SendToAll(graphSingleton, Graph.Get(templateId))
     }
   }
 

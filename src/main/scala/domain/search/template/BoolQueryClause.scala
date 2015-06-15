@@ -6,7 +6,7 @@ sealed trait BoolQueryClause {
 
 //case class TemplateClause(templateId: String, id: Option[Int], occur: String) extends BoolQueryClause
 
-case class NamedBoolClause(templateId: String, templateName: String = "", clauses: List[BoolQueryClause] = List.empty, occur: String) extends BoolQueryClause {
+case class NamedBoolClause(templateId: String, templateName: Option[String], occur: String, clauses: List[BoolQueryClause] = List.empty) extends BoolQueryClause {
   override def hashCode(): Int = templateId.hashCode
 
 }

@@ -16,7 +16,8 @@ object CommandQueryProtocol {
 
   case class NewTemplateSavedAck(templateId: String) extends Ack
   case class ClauseAddedAck(templateId: String, version: Int, clauseId: String) extends Ack
-  case class ClauseRemovedAck(templateId: String, clauseId: Int, clause: BoolQueryClause) extends Ack
+  case class ClauseRemovedAck(templateId: String, version: Int, clauseId: Int, clause: BoolQueryClause) extends Ack
+  case object ClauseNotFoundAck
 
   sealed trait Query extends Message
 

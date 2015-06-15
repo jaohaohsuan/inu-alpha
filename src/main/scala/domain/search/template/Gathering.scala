@@ -2,8 +2,6 @@ package domain.search.template
 
 import akka.actor._
 import akka.contrib.pattern.ClusterClient.Send
-import akka.contrib.pattern.ClusterSharding
-import scala.concurrent.duration._
 
 
 object Gathering {
@@ -34,8 +32,7 @@ class Gathering(clusterClient: ActorRef, private var segments: List[(String, (St
         context.stop(self)
       } else {
         val ((templateId, (clauseTemplateId, occur)) :: xs) = segments
-        val namedClause = NamedBoolClause(clauseTemplateId, occur = occur)
-        context.become(processing(templateId, namedClause, xs), discardOld = false)
+        context.become(processing(templateId,  NamedBoolClause(clauseTemplateId, None ,occur), xs), discardOld = false)
         log.info(s"$templateId consuming $clauseTemplateId")
         clusterClient ! Send(templateViewRegion, GetAsBoolClauseQuery(clauseTemplateId), localAffinity = true)
       }
@@ -45,10 +42,9 @@ class Gathering(clusterClient: ActorRef, private var segments: List[(String, (St
 
     case BoolClauseResponse(_, name, clauses, version) =>
       log.info(s"${clause.templateId} provides $clauses")
-      clusterClient ! Send(templateRegion, AddClauseCommand(consumerId, clause.copy(clauses = clauses, templateName = name)), localAffinity = true)
+      clusterClient ! Send(templateRegion, AddClauseCommand(consumerId, clause.copy(clauses = clauses, templateName = Some(name))), localAffinity = true)
 
-    case ClauseAddedAck(_, _, id) =>
-      log.info(s"NamedBoolClause($id) Added")
+    case ClauseAddedAck(templateId, _, id) =>
         segments = tail
         context.unbecome()
         self ! Tick

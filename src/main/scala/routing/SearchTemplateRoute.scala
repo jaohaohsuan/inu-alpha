@@ -2,24 +2,12 @@ package routing
 
 import akka.actor.{ActorRef, Props}
 import org.json4s.{Formats, DefaultFormats}
+import routing.request.search.template.{AddClauseRequest, RemoveClauseRequest}
 import spray.httpx.Json4sSupport
 
 import spray.routing._
 
 object SearchTemplateRoute {
-
-  import routing.request.search.template._
-
-  def props(entity: Entity, clusterClient: ActorRef)(implicit templateId: String, ctx: RequestContext): Props = {
-    entity match {
-      case MatchClause(query, operator, occur) =>
-        Props(classOf[AddMatchClauseRequest], ctx, clusterClient, templateId, query, operator, occur)
-      case NamedClause(clauseTemplateId, occur) =>
-        Props(classOf[AddNamedClauseRequest], ctx, clusterClient, templateId, clauseTemplateId, occur)
-      case NewTemplate(newName) =>
-        Props(classOf[SaveAsNewRequest], ctx, templateId, newName)
-    }
-  }
 
   sealed trait Entity
 
@@ -72,15 +60,13 @@ trait SearchTemplateRoute extends HttpService with Json4sSupport {
       delete {
         pathPrefix("_query" / "template" / Segment) { implicit templateId =>
           path( """^match$|^near$|^named$""".r / IntNumber) { (clauseType, clauseId) => {
-            complete(spray.http.StatusCodes.OK)
+            implicit ctx => actorRefFactory.actorOf(Props(classOf[RemoveClauseRequest], ctx, clusterClient, templateId, clauseType, clauseId))
           }
           }
-
         }
-
       }
 
   def handle(entity: Entity)(implicit templateId: String, ctx: RequestContext): Unit = {
-    actorRefFactory.actorOf(SearchTemplateRoute.props(entity, clusterClient))
+    actorRefFactory.actorOf(Props(classOf[AddClauseRequest], ctx, clusterClient, templateId)) ! entity
   }
 }

@@ -2,8 +2,8 @@ package domain.search.template
 
 import akka.actor.{ActorLogging, ActorRef, Props}
 import akka.cluster.Cluster
-import akka.contrib.pattern.{ClusterSharding, ShardRegion}
-import akka.persistence.{RecoveryCompleted, PersistentActor}
+import akka.contrib.pattern.ShardRegion
+import akka.persistence.{PersistentActor, RecoveryCompleted}
 
 
 object Template {
@@ -27,8 +27,8 @@ class Template extends PersistentActor with ActorLogging {
 
   //val readRegion: ActorRef = ClusterSharding(context.system).shardRegion(TemplateView.shardName)
 
-  import TemplateState._
   import CommandQueryProtocol._
+  import TemplateState._
 
   var templateState = TemplateState.empty()
 
@@ -45,6 +45,7 @@ class Template extends PersistentActor with ActorLogging {
 
     case AddClauseCommand(templateId, clause) =>
       val eventHandler = (ref: ActorRef, event: ClauseAdded) => {
+        log.info(s"${clause.getClass.getSimpleName}(${event.id}) is added")
         templateState = templateState.update(event)
         ref ! ClauseAddedAck(templateId, templateState.version, event.id.toString)
       }
@@ -54,10 +55,11 @@ class Template extends PersistentActor with ActorLogging {
       templateState.clauses.get(clauseId) match {
         case None =>
           log.info(s"The clause $clauseId doesn't exist")
+          sender() ! ClauseNotFoundAck
         case Some(clause) =>
           val eventHandler = (ref: ActorRef, event: ClauseRemoved) => {
             templateState = templateState.update(event)
-            ref ! ClauseRemovedAck(templateId, event.id, event.clause)
+            ref ! ClauseRemovedAck(templateId, templateState.version ,event.id, event.clause)
           }
           persist(ClauseRemoved(clauseId, clause))(eventHandler(sender(), _))
       }

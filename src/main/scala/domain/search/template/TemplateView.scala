@@ -35,7 +35,7 @@ class TemplateView extends PersistentView {
 
   override val persistenceId: String = s"${Template.shardName}-${self.path.name}"
 
-  var boolQueryState = boolQuery()
+  //var boolQueryState = boolQuery()
   var clauses: Map[Int, BoolQueryClause] = Map.empty
   var name: String = ""
   var version: Int = 0
@@ -45,13 +45,21 @@ class TemplateView extends PersistentView {
   implicit def asMatchQueryBuilderOperator(operator: String): MatchQueryBuilder.Operator =
     MatchQueryBuilder.Operator.valueOf(operator)
 
+  def updateState(event: DomainEvent) = {
+
+    event match {
+      case Named(text) => name = text
+      case ClauseAdded(_, clause) =>
+        clauses = clauses + (clause.hashCode() -> clause)
+      case ClauseRemoved(id, _) =>
+        clauses = clauses - id
+    }
+  }
+
   def receive: Receive = {
 
-    case Named(text) => name = text
-      version += 1
-    case ClauseAdded(_, clause) =>
-      boolQueryState = add(boolQueryState, clause)
-      clauses = clauses + (clause.hashCode() -> clause)
+    case event: DomainEvent =>
+      updateState(event)
       version += 1
 
     case GetAsBoolClauseQuery(templateId) =>
@@ -70,7 +78,7 @@ class TemplateView extends PersistentView {
           qb.clause(spanTermQuery("dialogs.content", term)) }
           .inOrder(inOrder)
           .collectPayloads(false)
-      case NamedBoolClause(_,_, clauses, occur) =>
+      case NamedBoolClause(_, _, _, clauses) =>
         clauses.foldLeft(boolQuery()){ (qb, e) =>
           add(qb, e)
         }

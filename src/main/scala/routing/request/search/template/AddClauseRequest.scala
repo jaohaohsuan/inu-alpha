@@ -1,38 +1,57 @@
 package routing.request.search.template
 
-import akka.actor.{Terminated, ActorRef}
-import akka.contrib.pattern.ClusterClient.{ Send, SendToAll }
-import domain.search.template.Graph.{Routes, Inconsistency, Get}
-import domain.search.template.{Gathering, NamedBoolClause, Graph}
+import akka.actor.{ActorRef, Props, Terminated}
+import akka.contrib.pattern.ClusterClient.{Send, SendToAll}
+import domain.search.template.CommandQueryProtocol._
+import domain.search.template.Graph.{Edge, Get, Inconsistency, Routes}
+import domain.search.template.{Gathering, Graph, MatchClause, NamedBoolClause}
+import routing.SearchTemplateRoute
 import routing.request.PerRequest
 import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing._
-import domain.search.template.CommandQueryProtocol._
+
 import scala.concurrent.duration._
 
-  case class AddNamedClauseRequest(ctx: RequestContext,
-                                   clusterClient: ActorRef,
-                                   templateId: String,
-                                   clauseTemplateId: String,
-                                   occur: String) extends PerRequest {
+case class ProcessingState(clausePath: String, lastVersion: Int, gatherProps: Option[Props] = None)
 
-    clusterClient ! SendToAll(graphSingleton, Graph.AddEdgeCommand(templateId, clauseTemplateId, occur))
+  case class AddClauseRequest(ctx: RequestContext,
+                                   clusterClient: ActorRef,
+                                   templateId: String) extends PerRequest {
 
     def processResult: Receive = {
+
+      case SearchTemplateRoute.NamedClause(clauseTemplateId, occur) =>
+        context.become(addingNamedBoolClause(NamedBoolClause(clauseTemplateId, None, occur)))
+        clusterClient ! SendToAll(graphSingleton, Graph.AddEdgeCommand(Edge(templateId, clauseTemplateId), occur))
+
+      case SearchTemplateRoute.MatchClause(query, operator, occur) =>
+        context.become(addingMatchClause())
+        clusterClient ! Send(templateRegion, AddClauseCommand(templateId, MatchClause(query, operator, occur)), localAffinity = true)
+
+    }
+    
+    def addingNamedBoolClause(clause: NamedBoolClause): Receive = {
+
       case Graph.DirectedCyclesNotAccepted =>
         response {
           complete(NotAcceptable)
         }
-      case Graph.PersistedAck(event) =>
-        clusterClient ! Send(templateViewRegion, GetAsBoolClauseQuery(clauseTemplateId), localAffinity = true)
+      case Graph.PersistedAck(_) =>
+        clusterClient ! Send(templateViewRegion, GetAsBoolClauseQuery(clause.templateId), localAffinity = true)
 
-      case BoolClauseResponse(_, name, clauses, version) =>
-        clusterClient ! Send(templateRegion, AddClauseCommand(templateId, NamedBoolClause(clauseTemplateId, name, clauses, occur)), localAffinity = true)
+      case BoolClauseResponse(clauseTemplateId , name, clauses, version) =>
+        clusterClient ! Send(templateRegion, AddClauseCommand(templateId, clause.copy(clauses = clauses)), localAffinity = true)
 
       case ClauseAddedAck(_, version, clauseId) =>
         start(ProcessingState(s"named/$clauseId", version))
     }
+
+    def addingMatchClause() : Receive = {
+      case ClauseAddedAck(_, version, clauseId) =>
+        start(ProcessingState(s"match/$clauseId", version))
+    }
+
 
     def start(state: ProcessingState): Unit = {
       log.info(s"Start gathering from $templateId")

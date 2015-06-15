@@ -1,26 +1,30 @@
 package domain.search.template
 
 
+import domain.search.template.Graph.Edge
+
 import scala.util.Try
 
 object GraphState {
-  def empty[A]() = GraphState[A](Map.empty[A, Set[A]])
-
-  trait DomainEvent
-  case class EdgeAdded[A](edge: (A,A), clause: (A, String)) extends  DomainEvent
+  def empty() = GraphState(edges = Set.empty)
 }
 
-case class GraphState[A] private (preds: Map[A, Set[A]]) {
+case class GraphState private (val edges: Set[Edge]) {
 
   import algorithm.TopologicalSort._
 
-  def isAccepted(edge: (A, A)) = {
-    Try(sort(append(preds, edge))).isSuccess
+  def isAccepted(edge: Edge) = {
+    Try(sort(append(toPredecessor(edges.map { e => (e.consumer, e.provider) }), (edge.consumer, edge.provider)))).isSuccess
   }
 
-  def getUpdateRoutes(start: A) = collectPaths(start)(preds)
+  def getUpdateRoutes(start: String) = collectPaths(start)(toPredecessor(edges.map { e => (e.consumer, e.provider) }))
 
-  def update(edge: (A, A)): GraphState[A] = {
-    copy(preds = append(preds, edge))
+  def update(edge: Edge): GraphState = {
+    copy(edges = edges + edge)
   }
+
+  def remove(edge: Edge): GraphState = {
+    copy(edges = edges - edge)
+  }
+
 }

@@ -15,6 +15,7 @@ object Library {
   val akkaContrib          = "com.typesafe.akka"      %% "akka-contrib"                  % Version.akka
   val spray                = "io.spray"               %% "spray-can"                     % Version.spray
   val sprayRouting         = "io.spray"               %% "spray-routing"                 % Version.spray
+  val logbackClassic       = "ch.qos.logback"         %  "logback-classic"               % "1.1.2"
   val sigar = "org.fusesource" % "sigar" % "1.6.4"
   val json4sNative             = "org.json4s"             %% "json4s-native"                    % "3.2.10"
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"            % "2.3"
@@ -40,6 +41,7 @@ object Dependencies {
     sigar,
     json4sNative,
     scalaJsonCollection,
-    elastic4s
+    elastic4s,
+    logbackClassic
   )
 }

@@ -1,39 +1,37 @@
-package domain.search.template
+package domain.search
 
 import akka.actor.Props
 import akka.contrib.pattern.ShardRegion
 import akka.persistence.PersistentView
-
-
-import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder}
 
-object TemplateView {
+object StoredQueryView {
 
-  import domain.search.template.CommandQueryProtocol.{ Query }
+  import domain.search.StoredQueryCommandQueryProtocol.Query
 
-  def props(): Props = Props[TemplateView]
+  def props(): Props = Props[StoredQueryView]
 
   val idExtractor: ShardRegion.IdExtractor = {
-    case m: Query => (m.templateId, m)
+    case m: Query => (m.storedQueryId, m)
   }
 
   val shardResolver: ShardRegion.ShardResolver = {
-    case m: Query => (math.abs(m.templateId.hashCode) % 100).toString
+    case m: Query => (math.abs(m.storedQueryId.hashCode) % 100).toString
   }
 
   val shardName: String = "SearchTemplateView"
 
 }
 
-class TemplateView extends PersistentView {
+class StoredQueryView extends PersistentView {
 
-  import TemplateState._
-  import domain.search.template.CommandQueryProtocol._
+  import StoredQueryState._
+  import domain.search.StoredQueryCommandQueryProtocol._
 
   override val viewId: String = self.path.parent.name + "-" + self.path.name
 
-  override val persistenceId: String = s"${Template.shardName}-${self.path.name}"
+  override val persistenceId: String = s"${StoredQuery.shardName}-${self.path.name}"
 
   //var boolQueryState = boolQuery()
   var clauses: Map[Int, BoolQueryClause] = Map.empty
@@ -84,7 +82,7 @@ class TemplateView extends PersistentView {
         }
     }
 
-    clause.occur match {
+    clause.occurrence match {
       case "must" =>
         qb.must(query)
       case "must_not" =>

@@ -1,27 +1,41 @@
-package routing.request.search.template
+package routing.request.search
 
-import akka.contrib.pattern.ClusterSharding
+import akka.actor.ActorRef
+import akka.contrib.pattern.ClusterClient.{Send, SendToAll}
+import domain.search.DependencyGraph.Edge
 import routing.request.PerRequest
+import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing._
 
-case class SaveAsNewRequest(ctx: RequestContext, sourceTemplateId: String, newName: String) extends PerRequest {
+case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, sourceTemplateId: String, newName: String) extends PerRequest {
 
-  import domain.search.template._
-  import CommandQueryProtocol._
+  import domain.search._
+  import StoredQueryCommandQueryProtocol._
 
-  //def nextWorkId(): String = UUID.randomUUID().toString
-
-  val searchTemplateRegion = ClusterSharding(context.system).shardRegion(Template.shardName)
-
-  searchTemplateRegion ! SaveAsCommand(sourceTemplateId, newName)
+  clusterClient ! Send(storedQueryViewRegion, GetAsBoolClauseQuery(sourceTemplateId), localAffinity = true)
 
   def processResult = {
-    case NewTemplateSavedAck =>
-      response {
-        complete(Accepted)
+    case BoolClauseResponse(_, _, clauses, _) => {
+
+      val templateId = newName
+
+      clauses.foldLeft(Unit) { (acc, clause) =>
+        clause match {
+          case NamedBoolClause(clauseTemplateId, occur, _, _) =>
+            clusterClient ! SendToAll(dependencyGraphSingleton, DependencyGraph.AddOccurredEdgeCommand(Edge(templateId, clauseTemplateId), occur))
+          case _ =>
+        }
+        clusterClient ! Send(storedQueryRegion, AddClauseCommand(templateId, clause), localAffinity = true)
+        acc
       }
-
+      response {
+        URI { href =>
+          respondWithHeader(RawHeader("Location", href.resolve(templateId).toString)) {
+            complete(Created)
+          }
+        }
+      }
+    }
   }
-
 }

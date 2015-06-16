@@ -2,7 +2,7 @@ package routing
 
 import akka.actor.{ActorRef, Props}
 import org.json4s.{Formats, DefaultFormats}
-import routing.request.search.template.{AddClauseRequest, RemoveClauseRequest}
+import routing.request.search.{SaveAsNewRequest, AddClauseRequest, RemoveClauseRequest}
 import spray.httpx.Json4sSupport
 
 import spray.routing._
@@ -34,7 +34,7 @@ trait SearchTemplateRoute extends HttpService with Json4sSupport {
         path(Segment) { implicit templateId =>
           entity(as[NewTemplate]) { entity =>
             implicit ctx =>
-              handle(entity)
+              actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, templateId, entity.newName))
           }
         }
       }
@@ -50,11 +50,6 @@ trait SearchTemplateRoute extends HttpService with Json4sSupport {
               implicit ctx => handle(entity)
             }
           }
-        }
-      } ~
-      get {
-        path("api") {
-          complete("hello spray.io")
         }
       } ~
       delete {

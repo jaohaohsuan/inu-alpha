@@ -8,7 +8,7 @@ import akka.pattern._
 import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import domain.search.template.Graph
+import domain.search.DependencyGraph
 import spray.can.Http
 import worker._
 
@@ -20,7 +20,7 @@ object Main {
     if(args.isEmpty){
       startBackend(2551)
       //Thread.sleep(5000)
-      startBackend(2552)
+      //startBackend(2552)
 
       //startQueryTemplateUpdatingWorker(0)
       Thread.sleep(5000)
@@ -47,29 +47,29 @@ object Main {
 //    ), name = "master")
 
     system.actorOf(ClusterSingletonManager.props(
-      singletonProps = Graph.props,
+      singletonProps = DependencyGraph.props,
       singletonName = "active",
       terminationMessage = PoisonPill,
       role = Some(role)
     ), name = "searchTemplateGraph")
 
-    val searchTemplateRegion = ClusterSharding(system).start(
-      typeName = domain.search.template.Template.shardName,
-      entryProps = Some(domain.search.template.Template.props()),
-      idExtractor = domain.search.template.Template.idExtractor,
-      shardResolver = domain.search.template.Template.shardResolver
+    val storedQueryRegion = ClusterSharding(system).start(
+      typeName = domain.search.StoredQuery.shardName,
+      entryProps = Some(domain.search.StoredQuery.props()),
+      idExtractor = domain.search.StoredQuery.idExtractor,
+      shardResolver = domain.search.StoredQuery.shardResolver
     )
 
-    ClusterReceptionistExtension(system).registerService(searchTemplateRegion)
+    ClusterReceptionistExtension(system).registerService(storedQueryRegion)
 
-    val searchTemplateViewRegion = ClusterSharding(system).start(
-      typeName = domain.search.template.TemplateView.shardName,
-      entryProps = Some(domain.search.template.TemplateView.props()),
-      idExtractor = domain.search.template.TemplateView.idExtractor,
-      shardResolver = domain.search.template.TemplateView.shardResolver
+    val storedQueryViewRegion = ClusterSharding(system).start(
+      typeName = domain.search.StoredQueryView.shardName,
+      entryProps = Some(domain.search.StoredQueryView.props()),
+      idExtractor = domain.search.StoredQueryView.idExtractor,
+      shardResolver = domain.search.StoredQueryView.shardResolver
     )
 
-    ClusterReceptionistExtension(system).registerService(searchTemplateViewRegion)
+    ClusterReceptionistExtension(system).registerService(storedQueryViewRegion)
   }
 
   def startFrontend(port: Int): Unit = {

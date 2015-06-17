@@ -8,7 +8,7 @@ import akka.pattern._
 import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import domain.search.DependencyGraph
+import domain.search.{StoredQueryRepo, DependencyGraph}
 import spray.can.Http
 import worker._
 
@@ -51,7 +51,14 @@ object Main {
       singletonName = "active",
       terminationMessage = PoisonPill,
       role = Some(role)
-    ), name = "searchTemplateGraph")
+    ), name = "storedQueryDependencyGraph")
+
+    system.actorOf(ClusterSingletonManager.props(
+      singletonProps = StoredQueryRepo.props,
+      singletonName = "active",
+      terminationMessage = PoisonPill,
+      role = Some(role)
+  ), name = "storedQueryRepo")
 
     val storedQueryRegion = ClusterSharding(system).start(
       typeName = domain.search.StoredQuery.shardName,

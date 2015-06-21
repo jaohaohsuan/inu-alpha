@@ -8,7 +8,7 @@ object StoredQueryCommandQueryProtocol {
 
   sealed trait Command extends Message
 
-  case class SaveAsCommand(storedQueryId: String, newTemplateName: String) extends Command
+  case class NameCommand(storedQueryId: String, name: String) extends Command
   case class AddClauseCommand(storedQueryId: String, clause: BoolQueryClause) extends Command
   case class RemoveClauseCommand(storedQueryId: String, clauseId: Int) extends Command
 
@@ -18,7 +18,7 @@ object StoredQueryCommandQueryProtocol {
     val version: Int
   }
 
-  case class NewTemplateSavedAck(storedQueryId: String) extends Ack
+  case class NamedAck(storedQueryId: String) extends Ack
 
   case class ClauseAddedAck(storedQueryId: String, version: Int, clauseId: Int) extends UpdatedAck
   case class ClauseRemovedAck(storedQueryId: String, version: Int, clauseId: Int, clause: BoolQueryClause) extends UpdatedAck
@@ -28,16 +28,22 @@ object StoredQueryCommandQueryProtocol {
 
   case class GetAsBoolClauseQuery(storedQueryId: String) extends Query
   case class GetVersion(storedQueryId: String) extends Query
+  case class StoredQueryQuery(storedQueryId: String, occurrence: String) extends Query
+  case class ClauseQuery(storedQueryId: String, clauseId: String) extends Query
 
   sealed trait Response  extends Message
 
-  case class BoolClauseResponse(storedQueryId: String, templateName: String,clauses: List[BoolQueryClause], version: Int) extends Response
+  case class BoolClauseResponse(storedQueryId: String, storedQueryName: String,clauses: List[BoolQueryClause], version: Int) extends Response
   case class VersionResponse(storedQueryId: String, version: Int) extends Response
+  case class StoredQueryResponse(storedQueryId: String, clauses: List[BoolQueryClause]) extends Response
+  case class ClauseQueryResponse(storedQueryId: String, clauseId: String, clause: BoolQueryClause) extends Response
 
   val storedQueryRegion =  s"/user/sharding/${domain.search.StoredQuery.shardName}"
 
   val storedQueryViewRegion = s"/user/sharding/${domain.search.StoredQueryView.shardName}"
 
-  val dependencyGraphSingleton = "/user/searchTemplateGraph/active"
+  val storedQueryDependencyGraphSingleton = "/user/storedQueryDependencyGraph/active"
+  
+  val storedQueryRepoSingleton = "/user/storedQueryRepo/active"
 
 }

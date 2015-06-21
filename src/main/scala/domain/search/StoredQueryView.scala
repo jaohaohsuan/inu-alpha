@@ -64,6 +64,9 @@ class StoredQueryView extends PersistentView {
       sender() ! BoolClauseResponse(templateId, name, clauses.values.toList, version)
     case GetVersion(templateId) =>
       sender() ! VersionResponse(templateId ,version)
+
+    case StoredQueryQuery(storedQueryId, occurrence) =>
+      sender() ! StoredQueryResponse(storedQueryId, clauses.values.filter(_.occurrence == occurrence).toList)
   }
 
   def add(qb: BoolQueryBuilder, clause: BoolQueryClause): BoolQueryBuilder = {

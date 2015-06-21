@@ -27,7 +27,7 @@ case class RemoveClauseRequest(ctx: RequestContext, clusterClient: ActorRef,
     case ack @ ClauseRemovedAck(_, _, _, clause: NamedBoolClause) =>
       import context.dispatcher
       implicit val timeout = Timeout(2.seconds)
-      (clusterClient ? SendToAll(dependencyGraphSingleton, RemoveOccurredEdgeCommand(Edge(storedQueryId, clause.storedQueryId), clause.occurrence))).map {
+      (clusterClient ? SendToAll(storedQueryDependencyGraphSingleton, RemoveOccurredEdgeCommand(Edge(storedQueryId, clause.storedQueryId), clause.occurrence))).map {
         case PersistedAck(_) =>
           watch(actorOf(Gathering.props(clusterClient, storedQueryId, Some(ack))))
       }.recover {

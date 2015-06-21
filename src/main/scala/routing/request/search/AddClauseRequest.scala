@@ -21,11 +21,11 @@ case class AddClauseRequest(ctx: RequestContext,
 
   def processResult: Receive = {
 
-    case routing.SearchTemplateRoute.NamedClause(clauseStoredQueryId, occur) =>
+    case routing.StoredQueryRoute.NamedClause(clauseStoredQueryId, name ,occur) =>
       become(addingNamedBoolClause(NamedBoolClause(clauseStoredQueryId, occur)))
-      clusterClient ! SendToAll(dependencyGraphSingleton, AddOccurredEdgeCommand(Edge(storedQueryId, clauseStoredQueryId), occur))
+      clusterClient ! SendToAll(storedQueryDependencyGraphSingleton, AddOccurredEdgeCommand(Edge(storedQueryId, clauseStoredQueryId), occur))
 
-    case routing.SearchTemplateRoute.MatchClause(query, operator, occur) =>
+    case routing.StoredQueryRoute.MatchClause(query, operator, occur) =>
       become(addingMatchClause())
       clusterClient ! Send(storedQueryRegion, AddClauseCommand(storedQueryId, MatchClause(query, operator, occur)), localAffinity = true)
 

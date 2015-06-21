@@ -13,12 +13,16 @@ case class NamedBoolClause(storedQueryId: String,
 }
 case class MatchClause(query: String, 
                        operator: String, 
-                       occurrence: String) extends BoolQueryClause
+                       occurrence: String) extends BoolQueryClause {
+  override def hashCode(): Int = query.hashCode
+}
 
 case class SpanNearClause(terms: List[String], 
                           slop: Option[Int], 
                           inOrder: Boolean, 
-                          occurrence: String) extends BoolQueryClause
+                          occurrence: String) extends BoolQueryClause{
+  override def hashCode(): Int = terms.mkString(",").hashCode
+}
 
 /*
 """

@@ -5,7 +5,7 @@ import routing._
 import spray.routing.HttpServiceActor
 
 class ServiceActor(clusterClientRef: ActorRef) extends HttpServiceActor
-  with SearchTemplateRoute {
+  with StoredQueryRoute {
 
   def receive = runRoute(queryTemplateRoute)
 

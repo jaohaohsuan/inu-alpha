@@ -1,13 +1,16 @@
 package domain.search
 
 import akka.actor.{ActorLogging, ActorRef, Props}
-import akka.contrib.pattern.ShardRegion
+import akka.contrib.pattern.{DistributedPubSubExtension, DistributedPubSubMediator, ShardRegion}
 import akka.persistence.{PersistentActor, RecoveryCompleted}
+import domain.search.StoredQuery.StoredQueryItem
 
 
 object StoredQuery {
 
   import StoredQueryCommandQueryProtocol.Command
+
+  case class StoredQueryItem(storedQueryId: String, name: String)
 
   def props(): Props = Props[StoredQuery]
 
@@ -27,31 +30,39 @@ class StoredQuery extends PersistentActor with ActorLogging {
   import StoredQueryCommandQueryProtocol._
   import StoredQueryState._
 
+  val mediator = DistributedPubSubExtension(context.system).mediator
+
   var templateState = StoredQueryState.empty()
 
   override def receiveCommand: Receive = {
 
-    case AddClauseCommand(templateId, clause) =>
-      persist(ClauseAdded(clause.hashCode(), clause))(afterPersisted(templateId, sender(), _))
+    case NameCommand(storedQueryId, name) =>
+      persist(Named(name))(afterPersisted(storedQueryId, sender(), _))
 
-    case RemoveClauseCommand(templateId, clauseId) =>
+    case AddClauseCommand(storedQueryId, clause) =>
+      persist(ClauseAdded(clause.hashCode(), clause))(afterPersisted(storedQueryId, sender(), _))
+
+    case RemoveClauseCommand(storedQueryId, clauseId) =>
       templateState.clauses.get(clauseId) match {
         case None =>
           sender() ! ClauseNotFoundAck
         case Some(clause) =>
-          persist(ClauseRemoved(clauseId, clause))(afterPersisted(templateId, sender(), _))
+          persist(ClauseRemoved(clauseId, clause))(afterPersisted(storedQueryId, sender(), _))
       }
   }
 
-  def afterPersisted(templateId: String, senderRef: ActorRef, event: DomainEvent) = {
+  def afterPersisted(storedQueryId: String, senderRef: ActorRef, event: DomainEvent) = {
 
     templateState = templateState.update(event)
 
     val ack = event match {
       case ClauseAdded(id, _) =>
-        ClauseAddedAck(templateId, templateState.version, id)
+        ClauseAddedAck(storedQueryId, templateState.version, id)
       case ClauseRemoved(id, clause) =>
-        ClauseRemovedAck(templateId, templateState.version , id, clause)
+        ClauseRemovedAck(storedQueryId, templateState.version , id, clause)
+      case Named(name) =>
+        mediator ! DistributedPubSubMediator.Publish("sortedQueryItem", StoredQueryItem(storedQueryId, name))
+        NamedAck(storedQueryId)
     }
 
     senderRef ! ack

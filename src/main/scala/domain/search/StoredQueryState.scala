@@ -5,7 +5,7 @@ object StoredQueryState {
   def empty(): StoredQueryState = StoredQueryState("", Map.empty, 0)
 
   trait DomainEvent
-  case class Named(name: String) extends DomainEvent
+  case class Named(text: String) extends DomainEvent
   case class ClauseAdded(id: Int,clause: BoolQueryClause) extends DomainEvent
   case class ClauseRemoved(id: Int, clause: BoolQueryClause) extends DomainEvent
 }

@@ -41,8 +41,8 @@ class DependencyGraph extends PersistentActor with ActorLogging {
   import DependencyGraph._
 
   override def persistenceId: String = Cluster(context.system).selfRoles.find(_.startsWith("backend-")) match {
-    case Some(role) => s"$role-searchTemplateGraph"
-    case None => "searchTemplateGraph"
+    case Some(role) => s"$role-storedQueryDependencyGraph"
+    case None => "storedQueryDependencyGraph"
   }
 
   ClusterReceptionistExtension(context.system).registerService(self)

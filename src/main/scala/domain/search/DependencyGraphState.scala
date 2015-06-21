@@ -31,5 +31,29 @@ case class DependencyGraphState private (val occurredEdges: Map[Edge, String]) {
     }
   }
 
+  /*
+    a -> b
+
+
+
+    change b 1  a get b
+    change b 2  a get b
+    change b 3  a get b
+
+    a get b
+
+    change b -> c  [b get c], [a get b]
+    change b x  c  [a get b]
+
+
+    a get b
+    a get b
+    a get b
+    b get c
+    a get b
+   [b kil c]
+    a get b
+
+   */
 
 }

@@ -28,7 +28,7 @@ class Gathering(clusterClient: ActorRef,
 
   var jobs = List[ChainLink]()
 
-  clusterClient ! SendToAll(dependencyGraphSingleton, ConsumerChainsQuery(from))
+  clusterClient ! SendToAll(storedQueryDependencyGraphSingleton, ConsumerChainsQuery(from))
 
   def receive: Receive = {
 

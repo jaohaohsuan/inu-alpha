@@ -35,7 +35,9 @@ object TopologicalSort {
     acc + (e._1 -> acc.getOrElse(e._1, Set())) + (e._2 -> (acc.getOrElse(e._2, Set()) + e._1))
   }
 
-  def collectPaths[A](currentDot: A, result: Set[Set[(A,A)]] = Set.empty[Set[(A,A)]], currentPath: Set[(A,A)] = Set.empty[(A,A)])
+  def collectPaths[A](currentDot: A,
+                      result: Set[Set[(A,A)]] = Set.empty[Set[(A,A)]],
+                      currentPath: Set[(A,A)] = Set.empty[(A,A)])
                      (implicit preds: Map[A, Set[A]])
                      : Set[Set[(A,A)]] = {
     preds get currentDot match {
@@ -45,6 +47,20 @@ object TopologicalSort {
         set.foldLeft(result) { (acc, e) => {
             collectPaths(e, acc, currentPath + Tuple2(currentDot,e))
           }
+        }
+    }
+  }
+
+  def collectPaths2[A](currentDot: A,
+                      result: List[A] = List.empty )
+                     (implicit preds: Map[A, Set[A]])
+  : List[A] = {
+    preds get currentDot match {
+      case None => currentDot :: result
+      case Some(list) if list.isEmpty => currentDot :: result
+      case Some(list) =>
+        currentDot :: list.foldLeft(result) { (acc, e) =>
+          collectPaths2(e, acc )
         }
     }
   }

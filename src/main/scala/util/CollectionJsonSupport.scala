@@ -5,10 +5,11 @@ import net.hamnaberg.json.collection.data.{DataApply, JavaReflectionData}
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.native.JsonMethods._
 import spray.http.{HttpEntity, MediaType, MediaTypes}
+import spray.httpx.Json4sSupport
 import spray.httpx.marshalling.Marshaller
 import spray.httpx.unmarshalling._
 
-object CollectionJsonSupport {
+trait CollectionJsonSupport extends Json4sSupport{
 
   val `application/vnd.collection+json` = MediaTypes.register(MediaType.custom("application/vnd.collection+json"))
 

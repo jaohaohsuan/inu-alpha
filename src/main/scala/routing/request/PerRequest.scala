@@ -17,6 +17,7 @@ trait PerRequest extends Actor with ActorLogging with Directives {
 
   val URI = extract(ctx => java.net.URI.create(ctx.request.uri.toString))
 
+
   //setReceiveTimeout(10.seconds)
 
   def ctx: RequestContext

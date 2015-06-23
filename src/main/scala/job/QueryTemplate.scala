@@ -1,7 +1,0 @@
-package job
-
-object QueryTemplate {
-
-
-
-}

@@ -1,47 +1,42 @@
 package routing.request.search
 
-import akka.actor.{ActorRef, Terminated}
-import akka.contrib.pattern.ClusterClient.{Send, SendToAll}
-import akka.pattern._
+import akka.actor.{ReceiveTimeout, ActorRef}
+import akka.contrib.pattern.ClusterClient.{SendToAll}
 import akka.util.Timeout
-import domain.search.StoredQueryCommandQueryProtocol._
-import domain.search.{DependencyGraph, Gathering, NamedBoolClause}
 import routing.request.PerRequest
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
-
+import akka.pattern._
 import scala.concurrent.duration._
 
-case class RemoveClauseRequest(ctx: RequestContext, clusterClient: ActorRef,
-                                storedQueryId: String,
-                                clauseType: String,
-                                clauseId: Int) extends PerRequest {
-  
-  import DependencyGraph._
-  import context._
+case class RemoveClauseRequest(ctx: RequestContext, clusterClient: ActorRef, storedQueryId: String) extends PerRequest {
 
-  clusterClient ! Send(storedQueryRegion, RemoveClauseCommand(storedQueryId, clauseId), localAffinity = true)
+  import domain.StoredQueryAggregateRoot._
+  import domain.StoredQueryItemsView._
+  import context.dispatcher
 
   def processResult: Receive = {
 
-    case ack @ ClauseRemovedAck(_, _, _, clause: NamedBoolClause) =>
-      import context.dispatcher
-      implicit val timeout = Timeout(2.seconds)
-      (clusterClient ? SendToAll(storedQueryDependencyGraphSingleton, RemoveOccurredEdgeCommand(Edge(storedQueryId, clause.storedQueryId), clause.occurrence))).map {
-        case PersistedAck(_) =>
-          watch(actorOf(Gathering.props(clusterClient, storedQueryId, Some(ack))))
+    case occurrence: String =>
+      implicit val timeout = Timeout(5.seconds)
+      (clusterClient ? SendToAll(storedQueryItemsViewSingleton, GetItemClauses(storedQueryId, occurrence))).map {
+        case ItemClausesResponse(clauses) =>
+          RemoveClauses(storedQueryId, clauses.keys.toList)
       }.recover {
-        case _ => response { complete(NotFound) }
+        case other =>
+          log.error(s"recover message: $other")
+          ItemNotFound
+      } pipeTo self
+
+    case ItemNotFound =>
+      response {
+        complete(NotFound)
       }
 
-    case ack : ClauseRemovedAck =>
-      watch(actorOf(Gathering.props(clusterClient, storedQueryId, Some(ack))))
+    case msg: RemoveClauses =>
+      clusterClient ! SendToAll(storedQueryAggregateRootSingleton, msg)
 
-    case ClauseNotFoundAck =>
-      response { complete(NotFound) }
-
-    case Terminated(child) =>
-      log.info(s"$child is terminated")
+    case ClausesRemovedAck =>
       response {
         complete(NoContent)
       }

@@ -1,22 +1,20 @@
 package routing
 
 import akka.actor.{ActorRef, Props}
-import akka.contrib.pattern.ClusterClient.SendToAll
-import domain.search.{StoredQueryRepo, StoredQueryCommandQueryProtocol}
-import akka.pattern._
 import net.hamnaberg.json.collection._
-
 import spray.routing._
 import spray.http.StatusCodes._
 import util.CollectionJsonSupport
+import scala.reflect.ClassTag
+import scala.reflect._
 
 object StoredQueryRoute {
 
   sealed trait Entity
 
-  case class NewTemplate(newName: String) extends Entity
+  case class NewTemplate(title: String) extends Entity
 
-  case class NamedClause(storedQueryId: String, name: String, occurrence: String) extends Entity
+  case class NamedClause(storedQueryId: String, title: String, occurrence: String) extends Entity
 
   case class MatchClause(query: String, operator: String, occurrence: String) extends Entity
 
@@ -24,7 +22,6 @@ object StoredQueryRoute {
                             slop: Option[Int],
                             inOrder: Boolean,
                             occurrence: String) extends Entity
-
 }
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
@@ -33,70 +30,93 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
   import StoredQueryRoute._
   import request.search._
+  import domain.StoredQueryItemsView._
 
   val URI = extract(ctx => java.net.URI.create(ctx.request.uri.toString))
+
+  def requestProps[T <: akka.actor.Actor: ClassTag](implicit storedQueryId: String, ctx: RequestContext) =
+    Props(classTag[T].runtimeClass, ctx, clusterClient, storedQueryId)
 
   val queryTemplateRoute =
     get {
       path("_query" / "template") {
-        implicit ctx =>
-          actorRefFactory.actorOf(Props(classOf[GetStoredQueryItemsRequest], ctx, clusterClient))
+        implicit ctx => actorRefFactory.actorOf(Props(classOf[QueryStoredQueryItemsRequest], ctx, clusterClient))
       } ~
-      pathPrefix("_query" / "template" / Segment) { storedQueryId =>
-        pathEnd {
-          URI { href =>
-
-            val links = List(
-                Link(href.resolve(s"$storedQueryId/must"), rel = "more", None, None, None),
-                Link(href.resolve(s"$storedQueryId/must_not"), rel = "more", None, None, None),
-                Link(href.resolve(s"$storedQueryId/should"), rel = "more", None, None, None)
-            )
-
-            complete(OK, JsonCollection(href, links, Item(href, List(Property("name", "temporary")), List.empty)))
-          }
+      pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
+        pathEndOrSingleSlash {
+          implicit ctx => actorRefFactory.actorOf(requestProps[GetStoredQueryItemRequest])
         } ~
         path( """^must$|^must_not$|^should$""".r) { occurrence =>
           implicit ctx =>
-            actorRefFactory.actorOf(Props(classOf[GetClausesRequest], ctx, clusterClient, storedQueryId, occurrence))
+            actorRefFactory.actorOf(requestProps[GetStoredQueryClausesRequest]) ! GetItemClauses(storedQueryId, occurrence)
         } ~
-          path( """^match$|^near$|^named$""".r / IntNumber) { (clauseType, clauseId) =>
+        pathPrefix( """^match$|^near$|^named$""".r ) { clauseType =>
+          pathEnd {
+           URI { href =>
+             val template = Template(clauseType match {
+               case "match" => MatchClause("", "", "")
+               case "near" => SpanNearClause("", Some(10), false, "")
+               case "named" => NamedClause("", "", "")
+             })
+             complete(OK, JsonCollection(href, List.empty, List.empty, List.empty, Some(template)))
+           }
+          } ~
+          path( IntNumber ) { clauseId =>
             implicit ctx =>
               complete(NoContent)
           }
+        }
       }
     } ~
       post {
-        pathPrefix("_query" / "template" / Segment) { implicit templateId =>
-          pathEnd {
-            entity(as[NewTemplate]) { entity =>
-              implicit ctx =>
-                actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, templateId, entity.newName))
-            }
-          } ~ path("named") {
-            entity(as[NamedClause]) { entity =>
-              implicit ctx => handle(entity)
-            }
-          } ~ path("match") {
-            entity(as[MatchClause]) { entity =>
-              implicit ctx => handle(entity)
+        pathPrefix("_query" / "template") {
+          /*pathEnd { implicit ctx =>
+            entity(as[NewTemplate]) { entity => implicit ctx => handle(entity)("temporary", ctx) }
+          } ~*/
+          pathPrefix(Segment) { implicit storedQueryId =>
+            pathEnd {
+              //save as new
+              entity(as[NewTemplate]) { entity => implicit ctx => handle(entity) }
+            } ~ path("named") {
+              entity(as[NamedClause]) { entity => implicit ctx => handle(entity) }
+            } ~ path("match") {
+              entity(as[MatchClause]) { entity => implicit ctx => handle(entity) }
             }
           }
         }
       } ~
       delete {
-        pathPrefix("_query" / "template" / Segment) { implicit templateId =>
+        import domain.StoredQueryAggregateRoot.RemoveClauses
+        pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
           path( """^match$|^near$|^named$""".r / IntNumber) { (clauseType, clauseId) =>
-            implicit ctx => actorRefFactory.actorOf(Props(classOf[RemoveClauseRequest], ctx, clusterClient, templateId, clauseType, clauseId))
+            implicit ctx =>
+              actorRefFactory.actorOf(requestProps[RemoveClauseRequest]) ! RemoveClauses(storedQueryId, List(clauseId))
+          } ~
+          path( """^must$|^must_not$|^should$""".r ) { occurrence =>
+            implicit ctx =>
+              actorRefFactory.actorOf(requestProps[RemoveClauseRequest]) ! occurrence
           }
-        } ~
-          path("_query" / "template" / Segment / """^must$|^must_not$|^should$""".r) { (storedQueryId, occurrence) =>
-            //delete all
-            complete(NoContent)
-          }
-
+        }
       }
 
-  def handle(entity: Entity)(implicit templateId: String, ctx: RequestContext): Unit = {
-    actorRefFactory.actorOf(Props(classOf[AddClauseRequest], ctx, clusterClient, templateId)) ! entity
+  def handle(entity: Entity)(implicit storedQueryId: String, ctx: RequestContext): Unit = {
+
+    import domain.StoredQueryAggregateRoot._
+
+    val requestProps = Props(classOf[AddClauseRequest], ctx, clusterClient, storedQueryId)
+
+    entity match {
+
+      case NamedClause(referredId, title, occurrence) =>
+        actorRefFactory.actorOf(requestProps) ! NamedBoolClause(referredId, title, occurrence)
+
+      case MatchClause(query, operator, occurrence) =>
+        actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, operator, occurrence)
+
+      case NewTemplate(title) =>
+        actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, storedQueryId, title))
+
+      case _ => complete(BadRequest)
+    }
   }
 }

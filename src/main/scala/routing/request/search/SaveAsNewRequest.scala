@@ -14,7 +14,7 @@ case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referr
   clusterClient ! SendToAll(storedQueryAggregateRootSingleton, CreateNewStoredQuery(title, referredId))
 
   def processResult = {
-    case ItemChanged(StoredQuery(id, title, _), _)  =>
+    case ItemCreated(StoredQuery(id, title, _), _)  =>
       response {
         URI { href =>
           respondWithHeader(RawHeader("Location", s"${href.resolve(id)}")){

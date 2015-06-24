@@ -73,7 +73,7 @@ object Main {
     val service = system.actorOf(Props(classOf[ServiceActor], clusterClient), "service")
 
     implicit val timeout = Timeout(5.seconds)
-    IO(Http) ? Http.Bind(service, interface = "127.0.0.1", port = httpPort)
+    IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = httpPort)
   }
 
   def startupSharedJournal(system: ActorSystem, startStore: Boolean, path: ActorPath): Unit = {

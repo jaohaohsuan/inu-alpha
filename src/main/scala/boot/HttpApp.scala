@@ -2,6 +2,8 @@ package boot
 
 import akka.actor.ActorRef
 import routing._
+import spray.http._
+import spray.http.HttpHeaders._
 import spray.routing.HttpServiceActor
 
 class ServiceActor(clusterClientRef: ActorRef) extends HttpServiceActor

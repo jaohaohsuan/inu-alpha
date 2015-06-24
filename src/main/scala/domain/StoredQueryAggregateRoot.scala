@@ -3,6 +3,7 @@ package domain
 import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
+import algorithm.TopologicalSort._
 
 import scala.util.{Try, Success, Failure}
 
@@ -21,9 +22,9 @@ object StoredQueryAggregateRoot {
 
   case object ClausesRemovedAck
 
-  case class ItemChanged(entity: StoredQuery, dependencies: Option[Map[(String, String), Int]] = None) extends Event
+  case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
 
-  case class ItemsChanged(items: Map[String, StoredQuery]) extends Event
+  case class ItemsChanged(items: Map[String, StoredQuery], changes: List[String], dependencies: Map[(String, String), Int]) extends Event
 
   sealed trait BoolClause {
     val occurrence: String
@@ -46,8 +47,6 @@ object StoredQueryAggregateRoot {
 
   case class RemoveClauses(storedQueryId: String, specified: List[Int]) extends Command
 
-  case object Sync extends Command
-
   val temporaryId: String = "temporary"
 
   case class CreateNewStoredQuery(title: String, referredId: String) extends Command
@@ -57,9 +56,9 @@ object StoredQueryAggregateRoot {
 
   case object CycleInDirectedGraphError
 
-  case class Active(private val items: Map[String, StoredQuery] = Map.empty,
-                    val clausesDependencies: Map[(String, String), Int] = Map.empty,
-                    private val changes: Set[String] = Set.empty) extends State {
+  case class Active(items: Map[String, StoredQuery] = Map.empty,
+                    clausesDependencies: Map[(String, String), Int] = Map.empty,
+                    changes: Set[String] = Set.empty) extends State {
 
     import algorithm.TopologicalSort._
 
@@ -81,36 +80,17 @@ object StoredQueryAggregateRoot {
       if (item.clauses.keys.exists(_ == id)) generateNewClauseId(item) else id
     }
 
-    def batchCascadingUpdate(): Map[String, StoredQuery] = {
-      changes.foldLeft(items) { (acc, storedQueryId) =>
-        acc ++ cascadingUpdate(storedQueryId, acc)
-      }
-    }
-
-    private def cascadingUpdate(from: String, zero: Map[String, StoredQuery]): Map[String, StoredQuery] = {
-      collectPaths(from)(toPredecessor(clausesDependencies.keys)).flatMap {
-        _.toList
-      }.foldLeft(zero) { (acc, link) => {
-        val (provider, consumer) = link
-        val clauseId = clausesDependencies((consumer, provider))
-        val updatedNamedBoolClause = acc(consumer).clauses(clauseId).asInstanceOf[NamedBoolClause]
-          .copy(clauses = acc(provider).clauses)
-        acc + (consumer -> acc(consumer).copy(clauses = acc(consumer).clauses + (clauseId -> updatedNamedBoolClause)))
-      }
-      }
-    }
-
     def getItem(id: String): Option[StoredQuery] = items.get(id)
 
     def update(event: Event): Active = {
 
       event match {
 
-        case ItemChanged(entity, dependencies) =>
-          copy(items = items + (entity.id -> entity), clausesDependencies = dependencies.getOrElse(clausesDependencies), changes = changes + entity.id)
+        case ItemCreated(entity, dp) =>
+          copy(items = items + (entity.id -> entity), clausesDependencies = dp, changes = changes + entity.id)
 
-        case ItemsChanged(xs) =>
-          copy(items = items ++ xs, changes = changes -- xs.keys)
+        case ItemsChanged(xs, changesList,dp) =>
+          copy(items = items ++ xs, clausesDependencies = dp, changes = changes ++ changesList)
 
       }
     }
@@ -155,11 +135,12 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
   ClusterReceptionistExtension(context.system).registerService(self)
 
   def receive: Receive = {
-    case ItemChanged(entity, dp) if isPersistent =>
-      log.info(s"${entity.id}, ${entity.title} was changed.")
+    case ItemCreated(entity, dp) if isPersistent =>
+      log.info(s"${entity.id}, ${entity.title} was created.")
       items = items + (entity.id -> entity)
 
-    case ItemsChanged(xs) =>
+    case ItemsChanged(xs, changes , _) =>
+      changes.foreach { id => log.info(s"$id, ${xs(id).title} was changed.")}
       items = items ++ xs
 
     case GetItem(id) =>
@@ -199,11 +180,19 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     case CreateNewStoredQuery(title, referredId) =>
       state.getItem(referredId) match {
         case Some(item) =>
-          def afterPersisted(`sender`: ActorRef, evt: ItemChanged) = {
+          def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
             state = state.update(evt)
             `sender` ! evt
           }
-          persist(ItemChanged(item.copy(id = state.generateNewItemId, title = title)))(afterPersisted(sender(), _))
+
+          val newItem = item.copy(id = state.generateNewItemId, title = title)
+
+          val itemCreated = ItemCreated(newItem, state.clausesDependencies ++ item.clauses.flatMap {
+            case (k, v: NamedBoolClause) => Some((newItem.id, v.storedQueryId) -> k)
+            case (k, v) => None
+          })
+
+          persist(itemCreated)(afterPersisted(sender(), _))
         case None =>
           sender() ! s"$referredId is not exist."
       }
@@ -212,9 +201,9 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
       state.getItem(storedQueryId) match {
         case Some(item) =>
           val newClauseId: Int = state.generateNewClauseId(item)
-          val itemChanged = ItemChanged(item.copy(clauses = item.clauses + (newClauseId -> clause)))
+          val zero = state.items + (storedQueryId -> item.copy(clauses = item.clauses + (newClauseId -> clause)))
 
-          def afterPersisted(`sender`: ActorRef, evt: ItemChanged) = {
+          def afterPersisted(`sender`: ActorRef, evt: ItemsChanged) = {
             state = state.update(evt)
             `sender` ! ClauseAddedAck(s"$newClauseId")
           }
@@ -222,13 +211,13 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
           clause match {
             case NamedBoolClause(clauseStoredQueryId, title, _, _) =>
               state.CreateAcyclicClauseDependencies(storedQueryId, clauseStoredQueryId, newClauseId) match {
-                case dp@Some(_) =>
-                  persist(itemChanged.copy(dependencies = dp))(afterPersisted(sender(), _))
+                case Some(dp) =>
+                  persist(cascadingUpdate(storedQueryId, zero, dp))(afterPersisted(sender(), _))
                 case None =>
                   sender() ! CycleInDirectedGraphError
               }
             case _ =>
-              persist(itemChanged)(afterPersisted(sender(), _))
+              persist(cascadingUpdate(storedQueryId, zero, state.clausesDependencies))(afterPersisted(sender(), _))
           }
         case None =>
           sender() ! s"$storedQueryId is not exist."
@@ -237,8 +226,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     case RemoveClauses(storedQueryId, specified) =>
       state.getItem(storedQueryId) match {
         case Some(item) =>
-
-          def afterPersisted(`sender`: ActorRef, evt: ItemChanged) = {
+          def afterPersisted(`sender`: ActorRef, evt: ItemsChanged) = {
             state = state.update(evt)
             `sender` ! ClausesRemovedAck
           }
@@ -247,18 +235,31 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
             case (k, v: NamedBoolClause) if specified.contains(k) => Some((storedQueryId, v.storedQueryId))
             case (k, v) => None
           }
-          persist(ItemChanged(item.copy(clauses = item.clauses -- specified), Some(state.clausesDependencies -- xs)))(afterPersisted(sender(), _))
+
+          val zero = state.items + (storedQueryId -> item.copy(clauses = item.clauses -- specified))
+
+          persist(cascadingUpdate(storedQueryId, zero, state.clausesDependencies -- xs))(afterPersisted(sender(), _))
 
         case None =>
           sender() ! s"$storedQueryId is not exist."
       }
+  }
 
-    case Sync =>
-      def afterPersisted(`sender`: ActorRef, evt: ItemsChanged) = {
-        state = state.update(evt)
-        `sender` ! evt
-      }
-      persist(ItemsChanged(state.batchCascadingUpdate()))(afterPersisted(sender(), _))
+  def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {
+
+    val zero = (items, List(from))
+
+    val (updatedItems, changesList) = collectPaths(from)(toPredecessor(dp.keys)).flatMap { _.toList }.foldLeft(zero) { (acc, link) => {
+      val (provider, consumer) = link
+      val (accItems, changes) = acc
+      val clauseId = dp((consumer, provider))
+      val updatedNamedBoolClause = accItems(consumer).clauses(clauseId).asInstanceOf[NamedBoolClause]
+        .copy(clauses = accItems(provider).clauses)
+      val updatedConsumer = accItems(consumer).copy(clauses = accItems(consumer).clauses + (clauseId -> updatedNamedBoolClause))
+      (accItems + (consumer -> updatedConsumer), consumer :: changes)
+    } }
+
+    ItemsChanged(updatedItems, changesList, dp)
   }
 
   val receiveRecover: Receive = {

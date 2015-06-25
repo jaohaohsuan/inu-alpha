@@ -13,6 +13,7 @@ val project = Project(
                                      "-unchecked"),
     javaOptions in run ++= Seq("-Djava.library.path=./sigar"),
     mainClass in Compile := Some("boot.Main")
+
     )
 ).enablePlugins(DockerPlugin)
 

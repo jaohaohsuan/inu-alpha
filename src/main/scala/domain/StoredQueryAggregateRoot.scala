@@ -58,7 +58,7 @@ object StoredQueryAggregateRoot {
 
   case class Active(items: Map[String, StoredQuery] = Map.empty,
                     clausesDependencies: Map[(String, String), Int] = Map.empty,
-                    changes: Set[String] = Set.empty) extends State {
+                    changes: Map[String, Int] = Map.empty) extends State {
 
     import algorithm.TopologicalSort._
 
@@ -87,10 +87,12 @@ object StoredQueryAggregateRoot {
       event match {
 
         case ItemCreated(entity, dp) =>
-          copy(items = items + (entity.id -> entity), clausesDependencies = dp, changes = changes + entity.id)
+          copy(items = items + (entity.id -> entity), clausesDependencies = dp,
+            changes = changes + (entity.id -> (changes.getOrElse(entity.id, 0) + 1)))
 
         case ItemsChanged(xs, changesList,dp) =>
-          copy(items = items ++ xs, clausesDependencies = dp, changes = changes ++ changesList)
+          copy(items = items ++ xs, clausesDependencies = dp, changes =
+            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) }.toMap)
 
       }
     }
@@ -168,6 +170,7 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
 class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
 
   import StoredQueryAggregateRoot._
+  import StoredQueryPercolatorProtocol._
 
   val persistenceId: String = "stored-query-aggregate-root"
 
@@ -243,6 +246,9 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
         case None =>
           sender() ! s"$storedQueryId is not exist."
       }
+
+    case Pull =>
+      sender() ! Changes((state.changes - temporaryId).keys.map { state.items(_) }.toList)
   }
 
   def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {

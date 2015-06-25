@@ -20,6 +20,7 @@ object Main {
       startBackend(2551)
       Thread.sleep(3000)
       startHttpApp(7879,0)
+      //startElasticsearchApp
     }
   }
 
@@ -74,6 +75,20 @@ object Main {
 
     implicit val timeout = Timeout(5.seconds)
     IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = httpPort)
+  }
+
+  def startElasticsearchApp: Unit = {
+    val conf = ConfigFactory.load("worker")
+    implicit val system = ActorSystem("ElasticSystem", conf)
+
+    val initialContacts = immutableSeq(conf.getStringList("contact-points")).map {
+      case AddressFromURIString(addr) => system.actorSelection(RootActorPath(addr) / "user" / "receptionist")
+    }
+
+    val clusterClient = system.actorOf(ClusterClient.props(initialContacts.toSet), "clusterClient")
+
+    system.actorOf(Props(classOf[domain.PercolatorWorker], clusterClient), "PercolatorWorker")
+
   }
 
   def startupSharedJournal(system: ActorSystem, startStore: Boolean, path: ActorPath): Unit = {

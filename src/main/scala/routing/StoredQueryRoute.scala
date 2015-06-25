@@ -4,25 +4,38 @@ import akka.actor.{ActorRef, Props}
 import net.hamnaberg.json.collection._
 import spray.routing._
 import spray.http.StatusCodes._
-import spray.http.{ AllOrigins }
 import util._
 import scala.reflect.ClassTag
 import scala.reflect._
 
 object StoredQueryRoute {
 
+  val OccurrenceRegex = """^must$|^must_not$|^should$""".r
+  val BoolQueryClauseRegex = """^match$|^near$|^named$""".r
+
   sealed trait Entity
 
   case class NewTemplate(title: String) extends Entity
 
-  case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String) extends Entity
+  case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String) extends Entity {
+    require(test)
+    def test = occurrence.matches(OccurrenceRegex.toString())
+  }
 
-  case class MatchClause(query: String, operator: String, occurrence: String) extends Entity
+  case class MatchClause(query: String, operator: String, occurrence: String) extends Entity {
+    require(test)
+    def test =
+      operator.matches("^[oO][rR]$|^[Aa][Nn][Dd]$") && occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
+  }
 
   case class SpanNearClause(query: String,
                             slop: Option[Int],
                             inOrder: Boolean,
-                            occurrence: String) extends Entity
+                            occurrence: String) extends Entity {
+    require(test)
+    def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty && (slop.isEmpty || slop.get > 0)
+
+  }
 }
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsSupport {
@@ -48,17 +61,17 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
             pathEndOrSingleSlash {
               implicit ctx => actorRefFactory.actorOf(requestProps[GetStoredQueryItemRequest])
             } ~
-              path( """^must$|^must_not$|^should$""".r) { occurrence =>
+              path( OccurrenceRegex ) { occurrence =>
                 implicit ctx =>
                   actorRefFactory.actorOf(requestProps[GetStoredQueryClausesRequest]) ! GetItemClauses(storedQueryId, occurrence)
               } ~
-              pathPrefix( """^match$|^near$|^named$""".r ) { clauseType =>
+              pathPrefix( BoolQueryClauseRegex ) { clauseType =>
                 pathEnd {
                   URI { href =>
                     val template = Template(clauseType match {
-                      case "match" => MatchClause("", "", "")
-                      case "near" => SpanNearClause("", Some(10), false, "")
-                      case "named" => NamedClause("", "", "")
+                      case "match" => MatchClause("sample", "AND", "must")
+                      case "near" => SpanNearClause("sample", Some(10), false, "should")
+                      case "named" => NamedClause("12345", "sample", "must_not")
                     })
                     complete(OK, JsonCollection(href, List.empty, List.empty, List.empty, Some(template)))
                   }
@@ -92,11 +105,11 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
         delete {
           import domain.StoredQueryAggregateRoot.RemoveClauses
           pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
-            path( """^match$|^near$|^named$""".r / IntNumber) { (clauseType, clauseId) =>
+            path( BoolQueryClauseRegex / IntNumber) { (clauseType, clauseId) =>
               implicit ctx =>
                 actorRefFactory.actorOf(requestProps[RemoveClauseRequest]) ! RemoveClauses(storedQueryId, List(clauseId))
             } ~
-              path( """^must$|^must_not$|^should$""".r ) { occurrence =>
+              path( OccurrenceRegex ) { occurrence =>
                 implicit ctx =>
                   actorRefFactory.actorOf(requestProps[RemoveClauseRequest]) ! occurrence
               }

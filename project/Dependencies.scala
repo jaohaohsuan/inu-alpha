@@ -21,6 +21,7 @@ object Library {
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"            % "2.3"
   val elastic4s                = "com.sksamuel.elastic4s" %% "elastic4s-core" % "1.6.0"
   val hashids = "com.timesprint" %% "hashids-scala" % "1.0.0"
+  val log4j = "log4j" % "log4j" % "1.2.17"
 }
 
 object Dependencies {
@@ -44,6 +45,7 @@ object Dependencies {
     scalaJsonCollection,
     elastic4s,
     logbackClassic,
-    hashids
+    hashids,
+    log4j
   )
 }

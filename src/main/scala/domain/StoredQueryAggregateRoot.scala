@@ -26,6 +26,8 @@ object StoredQueryAggregateRoot {
 
   case class ItemsChanged(items: Map[String, StoredQuery], changes: List[String], dependencies: Map[(String, String), Int]) extends Event
 
+  case class ChangesRegistered(records: Set[(String, Int)]) extends Event
+
   sealed trait BoolClause {
     val occurrence: String
   }
@@ -92,7 +94,10 @@ object StoredQueryAggregateRoot {
 
         case ItemsChanged(xs, changesList,dp) =>
           copy(items = items ++ xs, clausesDependencies = dp, changes =
-            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) }.toMap)
+            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) } - temporaryId)
+
+        case ChangesRegistered(records) =>
+          copy(changes = changes.toSet.diff(records).toMap)
 
       }
     }
@@ -161,6 +166,9 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
         case None =>
           sender() ! ItemNotFound(id)
       }
+
+    case ChangesRegistered(records) =>
+
 
     case Query(text) =>
       sender() ! QueryResponse((items - temporaryId).values.map { e => StoredQueryItem(id = e.id, title = e.title) }.toList)
@@ -248,7 +256,18 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
       }
 
     case Pull =>
-      sender() ! Changes((state.changes - temporaryId).keys.map { state.items(_) }.toList)
+      val items = (state.changes - temporaryId).map { case (k,v) => (state.items(k),v) }.toSet
+      if(!items.isEmpty)
+        sender() ! Changes(items)
+
+    case RegisterQueryOK(records) =>
+      persist(ChangesRegistered(records)){ evt =>
+        state = state.update(evt)
+        log.info(s"remains: ${state.changes}")
+
+      }
+    case RegisterQueryNotOK =>
+      log.info(s"RegisterQueryNotOK")
   }
 
   def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {

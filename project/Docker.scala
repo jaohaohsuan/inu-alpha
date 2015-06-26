@@ -18,8 +18,8 @@ object Docker {
       new Dockerfile {
         // Use a base image that contain Java
         from("java")
-        // Expose port 8080
-        expose(7879)
+        // Expose port 7879
+        expose(7879, 9200)
 
         // Copy all dependencies to 'libs' in the staging directory
         classpath.files.foreach { depFile =>
@@ -40,7 +40,7 @@ object Docker {
       }
     },
     imageNames in docker := Seq(
-      ImageName("jaohaohsuan/inu-alpha:0.0.5"),
+      ImageName("jaohaohsuan/inu-alpha:0.0.6"),
       ImageName(namespace = Some(organization.value),
         repository = name.value,
         tag = Some("v" + version.value)))

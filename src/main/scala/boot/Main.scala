@@ -20,7 +20,7 @@ object Main {
       startBackend(2551)
       Thread.sleep(3000)
       startHttpApp(7879,0)
-      //startElasticsearchApp
+      startElasticsearchApp
     }
   }
 

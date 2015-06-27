@@ -58,6 +58,7 @@ src_managed/
 project/boot/
 .history
 .cache
+data/
 
 
 ### Vim template

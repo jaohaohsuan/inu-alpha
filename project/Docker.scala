@@ -9,7 +9,7 @@ object Docker {
     // Define a Dockerfile
     dockerfile in docker := {
       val jarFile = artifactPath.in(Compile, packageBin).value
-      val sigar = baseDirectory.value / "sigar"
+      val sigar = baseDirectory.value / "lib/sigar"
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(Compile, packageBin).value.getOrElse(sys.error("Expected exactly one main class"))
       val libs = "/app/libs"
@@ -18,8 +18,9 @@ object Docker {
       new Dockerfile {
         // Use a base image that contain Java
         from("java")
-        // Expose port 7879
-        expose(7879, 9200)
+
+        // Expose ports
+        expose(7879, 9200, 9300)
 
         // Copy all dependencies to 'libs' in the staging directory
         classpath.files.foreach { depFile =>
@@ -40,7 +41,7 @@ object Docker {
       }
     },
     imageNames in docker := Seq(
-      ImageName("jaohaohsuan/inu-alpha:0.0.6"),
+      ImageName("jaohaohsuan/inu-alpha:0.0.9"),
       ImageName(namespace = Some(organization.value),
         repository = name.value,
         tag = Some("v" + version.value)))

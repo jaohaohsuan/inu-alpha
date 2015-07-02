@@ -14,7 +14,7 @@ case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referr
   clusterClient ! SendToAll(storedQueryAggregateRootSingleton, CreateNewStoredQuery(title, referredId))
 
   def processResult = {
-    case ItemCreated(StoredQuery(id, title, _), _)  =>
+    case ItemCreated(StoredQuery(id, title, _, _), _)  =>
       response {
         URI { href =>
           respondWithHeader(RawHeader("Location", s"${href.resolve(id)}")){
@@ -22,5 +22,20 @@ case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referr
           }
         }
       }
+  }
+}
+
+case class UpdateRequest(ctx: RequestContext, clusterClient: ActorRef, storedQueryId: String,
+                          title: String, tags: Option[String]) extends PerRequest {
+
+  import domain.StoredQueryAggregateRoot._
+
+  clusterClient ! SendToAll(storedQueryAggregateRootSingleton, UpdateStoredQuery(storedQueryId, title, tags))
+  def processResult = {
+    case UpdatedAck =>
+      response {
+        complete(OK)
+      }
+
   }
 }

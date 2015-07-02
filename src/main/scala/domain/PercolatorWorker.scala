@@ -3,99 +3,115 @@ package domain
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.contrib.pattern.ClusterClient.SendToAll
 import akka.pattern._
-import org.elasticsearch.index.percolator.PercolatorException
-
-import scala.concurrent._
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.indices.IndexMissingException
 import scala.concurrent.duration._
-//import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ Future }
 
-import com.sksamuel.elastic4s.{BoolQueryDefinition, ElasticClient}
+import com.sksamuel.elastic4s.{BoolQueryDefinition}
 
 class PercolatorWorker(clusterClient: ActorRef) extends Actor with ActorLogging {
+
+  import util.ElasticSupport._
 
   import StoredQueryAggregateRoot.{BoolClause, MatchBoolClause, NamedBoolClause, SpanNearBoolClause, StoredQuery}
   import StoredQueryPercolatorProtocol._
   import context.dispatcher
-  val pullingTask = context.system.scheduler.schedule(0.seconds, 5.seconds, clusterClient,
+
+  val percolatorIndex = "inu-percolate"
+
+  val pullingTask = context.system.scheduler.schedule(5.seconds, 5.seconds, clusterClient,
     SendToAll(`/user/stored-query-aggregate-root/active`, Pull))
 
-  override def postStop(): Unit = pullingTask.cancel()
+ override def postStop(): Unit = pullingTask.cancel()
 
-  def receive: Receive = {
-    case Changes(items) => {
-      log.info(s"Found ${items.size} changes")
+  val creatingIndex: Receive = {
 
-      import com.sksamuel.elastic4s.ElasticDsl._
-
-      val client = ElasticClient.local
-
-      Future.traverse(items){ case (StoredQuery(percolatorId, title, clauses), version) => {
-        val boolQuery = clauses.values.foldLeft(new BoolQueryDefinition)(build(_,_))
-        log.info("boolQuery created")
-        client.execute {
-          register id percolatorId into "inu-percolate" query {
-            boolQuery
-          }
-        }
-      } } map { case result =>
-        log.info(s"$result")
-        RegisterQueryOK(items.map { case (entity, version)=> (entity.id, version) })
-      } recover {
-        case e: PercolatorException =>
-          log.info(s"${e.getMessage}")
-          buildMapping(client).onComplete { case _ => RegisterQueryNotOK }
-        case message => {
-        log.info(s"$message")
-        RegisterQueryNotOK
-      }} pipeTo sender()
-    }
-
-      // reference: https://github.com/sksamuel/elastic4s/blob/57594148b77ebd836d11881ead1783ca78b61db6/elastic4s-core/src/test/scala/com/sksamuel/elastic4s/PercolateTest.scala
-    case _ =>
-
+    case resp: CreateIndexResponse =>
+      context.unbecome
+    case msg =>
+      log.error(s"unable to process the message: $msg")
   }
 
-  def buildMapping(client: ElasticClient) = {
+  val processing: Receive = {
+    case Changes(items) =>
+      import com.sksamuel.elastic4s.ElasticDsl._
+      val f = Future.traverse(items){
+        case (StoredQuery(percolatorId, title, clauses, tags), version) =>
+          val boolQuery = clauses.values.foldLeft(new BoolQueryDefinition)(build)
+          client.execute {
+            register id percolatorId into percolatorIndex query boolQuery fields
+              Map("enabled" -> true,
+                  "title" -> title,
+                  "tags" -> tags.toArray
+              )
+          } map { resp => (percolatorId, version) }
+      }
+
+      f onSuccess {
+        case changes: Set[(String, Int)] =>
+          clusterClient ! SendToAll(`/user/stored-query-aggregate-root/active`, RegisterQueryOK(changes))
+      }
+      f onFailure {
+          case ex: IndexMissingException =>
+            context.become(creatingIndex, discardOld = false)
+            createPercolatorIndex pipeTo self
+          case e: Exception =>
+            log.error(s"$e")
+            context.stop(self)
+      }
+  }
+
+  def receive: Receive = processing
+
+  def createPercolatorIndex = {
 
     import com.sksamuel.elastic4s.ElasticDsl._
     import com.sksamuel.elastic4s.mappings.FieldType._
 
     client.execute {
-      put mapping "inu-percolate" / "stt" as Seq (
-
-        "dialogs" inner (
-          "name" typed StringType,
-          "content" typed StringType,
-          "time" typed IntegerType
+      create index percolatorIndex mappings (
+        mapping name ".percolator" templates (
+          template name "template_1" matching "query" matchMappingType "string" mapping {
+            field typed StringType
+          }
+          ),
+        ".percolator" as (
+          "query" typed ObjectType enabled true,
+          "enabled" typed BooleanType index "not_analyzed" includeInAll false,
+          "tags" typed StringType index "not_analyzed" includeInAll false
           )
-      ) ignoreConflicts true
-
+        ,
+        "stt" as Seq (
+          "dialogs" inner (
+            "name" typed StringType index "not_analyzed",
+            "content" typed StringType,
+            "time" typed IntegerType index "not_analyzed"
+            )
+        ))
     }
   }
 
   def build(bool: BoolQueryDefinition,clause: BoolClause): BoolQueryDefinition = {
 
-    //import com.sksamuel.elastic4s.ElasticDsl._
     import com.sksamuel.elastic4s._
 
     val qd: QueryDefinition = clause match {
       case MatchBoolClause(query, operator, _) =>
         new MatchQueryDefinition("dialogs.content", query).operator(operator.toUpperCase)
       case SpanNearBoolClause(terms, slop, inOrder, _) =>
-        terms.foldLeft(slop.map { new SpanNearQueryDefinition().slop }.getOrElse(new SpanNearQueryDefinition())){ (qb, term) =>
+        val spanNear = new SpanNearQueryDefinition()
+        terms.foldLeft(slop.map { spanNear.slop }.getOrElse(spanNear)){ (qb, term) =>
           qb.clause(new SpanTermQueryDefinition("dialogs.content", term)) }
           .inOrder(inOrder)
           .collectPayloads(false)
       case NamedBoolClause(_, _, _, clauses) =>
-        clauses.values.foldLeft(new BoolQueryDefinition)(build(_, _))
+        clauses.values.foldLeft(new BoolQueryDefinition)(build)
     }
     clause.occurrence match {
-      case "must" =>
-        bool.must(qd)
-      case "must_not" =>
-        bool.not(qd)
-      case "should" =>
-        bool.should(qd)
+      case "must" => bool.must(qd)
+      case "must_not" => bool.not(qd)
+      case "should" => bool.should(qd)
     }
   }
 }

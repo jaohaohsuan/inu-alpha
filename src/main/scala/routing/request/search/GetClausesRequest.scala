@@ -5,27 +5,34 @@ import akka.contrib.pattern.ClusterClient.{SendToAll}
 import routing.request.PerRequest
 import spray.routing._
 import spray.http.StatusCodes._
-import net.hamnaberg.json.collection.{Item, JsonCollection, Property, Link, Template}
+import net.hamnaberg.json.collection.{Item, JsonCollection, Property, Link, Template, Query}
 import util.CollectionJsonSupport
 import domain.StoredQueryItemsView._
 
 
 case class QueryStoredQueryItemsRequest(ctx: RequestContext,
-                                        clusterClient: ActorRef) extends PerRequest with CollectionJsonSupport {
+                                        clusterClient: ActorRef, queryString: String) extends PerRequest with CollectionJsonSupport {
 
-  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.Query(""))
+  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.Query(queryString))
 
   def processResult: Receive = {
-    case QueryResponse(items) =>
+    case QueryResponse(hits) =>
       response {
         URI { href =>
+          val baseUri = s"${href.getScheme}://${href.getHost}:${href.getPort}/_query/template"
 
-          val temporaryLink = Link(href.resolve(s"${href.getPath}/temporary"), "edit")
+          val temporaryLink = Link(java.net.URI.create(s"$baseUri/temporary"), "edit")
+          val uriSearch = Query(java.net.URI.create(s"$baseUri/search"),
+                             rel = "search",
+                             data = List(Property("q", "")),
+                             prompt = Some("see Query String Query"))
+
+          val items = hits.map { case (key, value) =>
+            Item(java.net.URI.create(s"$baseUri/$key"), value, List.empty)
+          }.toList
 
           complete(OK,
-            JsonCollection(href, List(temporaryLink), items.map { e =>
-              Item(href.resolve(s"template/${e.id}"), List(Property("name", e.title)), List.empty)
-            }))
+            JsonCollection(java.net.URI.create(baseUri), List(temporaryLink),items ,queries = List(uriSearch)))
         }
       }
     case message =>
@@ -43,14 +50,17 @@ case class GetStoredQueryItemRequest(ctx: RequestContext,
 
   def processResult: Receive = {
 
-    case ItemDetailResponse(item@StoredQueryItem(id, title)) =>
+    case ItemDetailResponse(id, item) =>
       response {
         URI { href =>
+
+          val template = Template(item.copy(status = None))
+
           complete(OK, JsonCollection(
             new java.net.URI(s"$href".substring(0, s"$href".lastIndexOf("/"))),
             links = List.empty,
-            List(Item(href, List(Property("title", title)), itemLinks(href.resolve(s"$id/occur")))),
-            List.empty, Some(Template(List(Property("title", ""))))
+            List(Item(href, item, itemLinks(href.resolve(s"$id/occur")))),
+            List.empty, Some(template)
           )
           )
         }
@@ -64,9 +74,9 @@ case class GetStoredQueryItemRequest(ctx: RequestContext,
 
   def itemLinks(href: java.net.URI): List[Link] =
     List(
-      Link(href.resolve("must"),     rel = "section"),
-      Link(href.resolve("must_not"), rel = "section"),
-      Link(href.resolve("should"),   rel = "section"),
+      Link(href.resolve("must"),     rel = "section", name = Some("must")),
+      Link(href.resolve("must_not"), rel = "section", name = Some("must_not")),
+      Link(href.resolve("should"),   rel = "section", name = Some("should")),
       Link(href.resolve("match"),    rel = "edit"),
       Link(href.resolve("near"),     rel = "edit"),
       Link(href.resolve("named"),    rel = "edit")

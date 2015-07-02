@@ -1,6 +1,5 @@
 package domain
 import domain.StoredQueryAggregateRoot.{ StoredQuery }
-import org.elasticsearch.action.index.IndexResponse
 
 object StoredQueryPercolatorProtocol {
 
@@ -10,7 +9,5 @@ object StoredQueryPercolatorProtocol {
   case class Changes(items: Set[(StoredQuery, Int)])
 
   case class RegisterQueryOK(records: Set[(String, Int)])
-
-  case object RegisterQueryNotOK
 
 }

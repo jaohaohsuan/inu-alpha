@@ -3,7 +3,10 @@ package domain
 import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
+import akka.util.Timeout
 import algorithm.TopologicalSort._
+import com.sksamuel.elastic4s.ElasticClient
+import scala.concurrent.duration._
 
 import scala.util.{Try, Success, Failure}
 
@@ -19,6 +22,8 @@ object StoredQueryAggregateRoot {
   sealed trait Command
 
   case class ClauseAddedAck(clauseId: String)
+
+  case object UpdatedAck
 
   case object ClausesRemovedAck
 
@@ -47,14 +52,18 @@ object StoredQueryAggregateRoot {
 
   case class AddClause(storedQueryId: String, clause: BoolClause) extends Command
 
+  case class UpdateTags(storedQueryId: String, tags: Set[String])
+
   case class RemoveClauses(storedQueryId: String, specified: List[Int]) extends Command
 
   val temporaryId: String = "temporary"
 
   case class CreateNewStoredQuery(title: String, referredId: String) extends Command
 
+  case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
-  case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty)
+
+  case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty)
 
   case object CycleInDirectedGraphError
 
@@ -111,15 +120,17 @@ object StoredQueryItemsView {
 
   case class Query(text: String = "")
 
-  case class StoredQueryItem(id: String, title: String)
+  case class StoredQueryItem(title: String, tags: Option[String], status: Option[String]) {
+    require( title.nonEmpty )
+  }
 
-  case class QueryResponse(items: List[StoredQueryItem])
+  case class QueryResponse(items: Set[(String, StoredQueryItem)])
 
   case class GetItem(id: String)
 
   case class GetItemClauses(id: String, occurrence: String)
 
-  case class ItemDetailResponse(item: StoredQueryItem)
+  case class ItemDetailResponse(id: String, item: StoredQueryItem)
 
   case class ItemClausesResponse(clauses: Map[Int, BoolClause])
 
@@ -152,15 +163,15 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
 
     case GetItem(id) =>
       items.get(id) match {
-        case Some(StoredQuery(id, title, _)) =>
-          sender() ! ItemDetailResponse(StoredQueryItem(id, title))
+        case Some(StoredQuery(id, title, _, tags)) =>
+          sender() ! ItemDetailResponse(id, StoredQueryItem(title, Some(tags.mkString(" ")), Some("enabled")))
         case None =>
           sender() ! ItemNotFound(id)
       }
 
     case GetItemClauses(id, occurrence) =>
       items.get(id) match {
-        case Some(StoredQuery(id, _, clauses)) =>
+        case Some(StoredQuery(id, _, clauses, _)) =>
           sender() ! ItemClausesResponse(clauses.filter { case (clausesId, clause) => clause.occurrence == occurrence })
 
         case None =>
@@ -168,10 +179,38 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
       }
 
     case ChangesRegistered(records) =>
+      log.info(s"$records were registered.")
 
 
     case Query(text) =>
-      sender() ! QueryResponse((items - temporaryId).values.map { e => StoredQueryItem(id = e.id, title = e.title) }.toList)
+      text match {
+        case "" =>
+          sender() ! QueryResponse((items - temporaryId).mapValues( e => { StoredQueryItem(title = e.title, Some(e.tags.mkString(" ")), Some("enabled")) }).toSet)
+
+        case q: String =>
+          import com.sksamuel.elastic4s.ElasticDsl._
+          import context.dispatcher
+          import akka.pattern._
+          import scala.collection.JavaConversions._
+          import util.ElasticSupport._
+
+          implicit val timeout = Timeout(5.seconds)
+          client.execute {
+            search in "inu-percolate/.percolator" query queryStringQuery(q).defaultField("_all") fields ("title", "tags")
+          }.map { resp =>
+            log.info(s"$resp")
+            QueryResponse(resp.hits.map { h => h.id ->
+              StoredQueryItem(h.field("title").value[String],
+                              h.fieldOpt("tags").map { f => f.values().mkString(" ") },
+                              Some("enabled")) }.toSet) }
+          .recover {
+            case ex =>
+              log.info(s"$ex")
+              QueryResponse(Set.empty)
+          } pipeTo sender()
+
+      }
+
   }
 }
 
@@ -237,6 +276,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     case RemoveClauses(storedQueryId, specified) =>
       state.getItem(storedQueryId) match {
         case Some(item) =>
+
           def afterPersisted(`sender`: ActorRef, evt: ItemsChanged) = {
             state = state.update(evt)
             `sender` ! ClausesRemovedAck
@@ -255,26 +295,42 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
           sender() ! s"$storedQueryId is not exist."
       }
 
+    case UpdateStoredQuery(storedQueryId, newTitle, newTags) =>
+      state.getItem(storedQueryId) match {
+        case Some(item) =>
+
+          def afterPersisted(`sender`: ActorRef, evt: ItemsChanged) = {
+            state = state.update(evt)
+            `sender` ! UpdatedAck
+          }
+
+          val updateItem = storedQueryId -> item.copy(
+                                                title = newTitle,
+                                                tags = newTags.map { _.split(" ").toSet }.getOrElse(item.tags))
+          val itemsChanged = if(item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Map(updateItem), List(storedQueryId), state.clausesDependencies)
+
+          persist(itemsChanged)(afterPersisted(sender(), _))
+        case None =>
+      }
+
+
     case Pull =>
       val items = (state.changes - temporaryId).map { case (k,v) => (state.items(k),v) }.toSet
-      if(!items.isEmpty)
+      if(items.nonEmpty)
         sender() ! Changes(items)
 
     case RegisterQueryOK(records) =>
       persist(ChangesRegistered(records)){ evt =>
         state = state.update(evt)
-        log.info(s"remains: ${state.changes}")
-
+        log.info(s"remains: ${state.changes.mkString(",")}")
       }
-    case RegisterQueryNotOK =>
-      log.info(s"RegisterQueryNotOK")
   }
 
   def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {
 
     val zero = (items, List(from))
 
-    val (updatedItems, changesList) = collectPaths(from)(toPredecessor(dp.keys)).flatMap { _.toList }.foldLeft(zero) { (acc, link) => {
+    val (updatedItems, changesList) = collectPaths(from)(toPredecessor(dp.keys)).flatten.foldLeft(zero) { (acc, link) => {
       val (provider, consumer) = link
       val (accItems, changes) = acc
       val clauseId = dp((consumer, provider))

@@ -2,30 +2,32 @@ package routing.request.search
 
 import akka.actor.ActorRef
 import akka.contrib.pattern.ClusterClient.{SendToAll}
+import net.hamnaberg.json.collection.Query
 import routing.request.PerRequest
 import spray.routing._
 import spray.http.StatusCodes._
-import net.hamnaberg.json.collection.{Item, JsonCollection, Property, Link, Template, Query}
+import net.hamnaberg.json.collection._
 import util.CollectionJsonSupport
 import domain.StoredQueryItemsView._
 
 
 case class QueryStoredQueryItemsRequest(ctx: RequestContext,
-                                        clusterClient: ActorRef, queryString: String) extends PerRequest with CollectionJsonSupport {
+                                        clusterClient: ActorRef, queryString: Option[String], queryTags: Option[String]) extends PerRequest with CollectionJsonSupport {
 
-  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.Query(queryString))
+  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.Query(queryString, queryTags))
 
   def processResult: Receive = {
-    case QueryResponse(hits) =>
+    case QueryResponse(hits, tags) =>
       response {
         URI { href =>
           val baseUri = s"${href.getScheme}://${href.getHost}:${href.getPort}/_query/template"
 
           val temporaryLink = Link(java.net.URI.create(s"$baseUri/temporary"), "edit")
-          val uriSearch = Query(java.net.URI.create(s"$baseUri/search"),
+          val uriSearch = net.hamnaberg.json.collection.Query(java.net.URI.create(s"$baseUri/search"),
                              rel = "search",
-                             data = List(Property("q", "")),
-                             prompt = Some("see Query String Query"))
+                             data = List(ValueProperty("q", Some("see Query String Query"), None),
+                                         ValueProperty("tags",tags, None)
+                             ))
 
           val items = hits.map { case (key, value) =>
             Item(java.net.URI.create(s"$baseUri/$key"), value, List.empty)

@@ -30,5 +30,6 @@ object Config {
   }
 
   val corsAllowHeaders = config.getStringList("service.cors.allow_headers").toList
+  val corsExposeHeaders = config.getStringList("service.cors.expose_headers").toList
 
 }

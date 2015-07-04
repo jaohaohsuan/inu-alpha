@@ -56,8 +56,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
           implicit ctx => actorRefFactory.actorOf(Props(classOf[QueryStoredQueryItemsRequest], ctx, clusterClient, ""))
         } ~
         path("_query" / "template" / "search") {
-          parameters('q) { q =>
-            implicit ctx => actorRefFactory.actorOf(Props(classOf[QueryStoredQueryItemsRequest], ctx, clusterClient, q))
+          parameters('q.?, 'tags.? ) { (q, tags) =>
+            implicit ctx => actorRefFactory.actorOf(Props(classOf[QueryStoredQueryItemsRequest], ctx, clusterClient, q, tags))
           }
         } ~
         pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>

@@ -25,8 +25,8 @@ case class QueryStoredQueryItemsRequest(ctx: RequestContext,
           val temporaryLink = Link(java.net.URI.create(s"$baseUri/temporary"), "edit")
           val uriSearch = net.hamnaberg.json.collection.Query(java.net.URI.create(s"$baseUri/search"),
                              rel = "search",
-                             data = List(ValueProperty("q", Some("see Query String Query"), None),
-                                         ValueProperty("tags",tags, None)
+                             data = List(ValueProperty("q", Some("search title or any terms"), None),
+                                         ValueProperty("tags", Some(tags.mkString(" ")), None)
                              ))
 
           val items = hits.map { case (key, value) =>

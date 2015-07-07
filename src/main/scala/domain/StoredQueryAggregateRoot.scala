@@ -7,6 +7,7 @@ import akka.util.Timeout
 import algorithm.TopologicalSort._
 import com.sksamuel.elastic4s.ElasticClient
 import scala.concurrent.duration._
+import util.ImplicitActorLogging
 
 import scala.util.{Try, Success, Failure}
 
@@ -124,7 +125,7 @@ object StoredQueryItemsView {
     require( title.nonEmpty )
   }
 
-  case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Option[String])
+  case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Set[String])
 
   case class GetItem(id: String)
 
@@ -139,7 +140,7 @@ object StoredQueryItemsView {
   val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
 }
 
-class StoredQueryItemsView extends PersistentView with ActorLogging {
+class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
 
   import StoredQueryAggregateRoot._
   import StoredQueryItemsView._
@@ -149,7 +150,7 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
   override val persistenceId: String = "stored-query-aggregate-root"
 
   var items: Map[String, StoredQuery] = Map(temporaryId -> StoredQuery(temporaryId, "temporary"))
-  var tags: Set[String] = Set.empty
+  var queryResp = QueryResponse(Set.empty, Set.empty)
 
   ClusterReceptionistExtension(context.system).registerService(self)
 
@@ -157,12 +158,12 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
     case ItemCreated(entity, dp) if isPersistent =>
       log.info(s"${entity.id}, ${entity.title} was created.")
       items = items + (entity.id -> entity)
-      tags = tags ++ entity.tags
+      queryResp = queryResp.copy(tags = queryResp.tags ++ entity.tags)
 
     case ItemsChanged(xs, changes , _) =>
       changes.foreach { id => log.info(s"$id, ${xs(id).title} was changed.")}
       items = items ++ xs
-      tags = tags ++ xs.map { case (k,v)=> v.tags }.flatten
+      queryResp = queryResp.copy(tags = queryResp.tags ++ xs.map { case (k,v)=> v.tags }.flatten)
 
     case GetItem(id) =>
       items.get(id) match {
@@ -187,44 +188,35 @@ class StoredQueryItemsView extends PersistentView with ActorLogging {
 
     case Query(queryString, queryTags) =>
 
-//      for {
-//        q <- queryString
-//        t <- queryTags
-//      } yield (q,t)
+      import com.sksamuel.elastic4s.ElasticDsl._
+      import context.dispatcher
+      import akka.pattern._
+      import util.ElasticSupport._
+      import scala.collection.JavaConversions._
 
-      queryString match {
-        case None =>
-          sender() ! QueryResponse(
-            (items - temporaryId).mapValues( e => { StoredQueryItem(title = e.title, Some(e.tags.mkString(" ")), Some("enabled")) }).toSet,
-            Some(tags.mkString(" "))
-          )
+      implicit val timeout = Timeout(5.seconds)
 
-        case Some(q) =>
-          import com.sksamuel.elastic4s.ElasticDsl._
-          import context.dispatcher
-          import akka.pattern._
-          import scala.collection.JavaConversions._
-          import util.ElasticSupport._
+      val queries = List(
+        queryString.map { queryStringQuery(_) asfields "_all" },
+        queryTags.map { matchQuery("tags", _) }
+      )
 
-          implicit val timeout = Timeout(5.seconds)
-          client.execute {
-            search in "inu-percolate/.percolator" query (
-              queryStringQuery(q).defaultField("_all")
-              ) fields ("title", "tags")
-          }.map { resp =>
-            log.info(s"$resp")
-            QueryResponse(resp.hits.map { h => h.id ->
-              StoredQueryItem(h.field("title").value[String],
-                              h.fieldOpt("tags").map { f => f.values().mkString(" ") },
-                              Some("enabled")) }.toSet, Some(tags.mkString(" "))) }
-          .recover {
-            case ex =>
-              log.info(s"$ex")
-              QueryResponse(Set.empty, Some(tags.mkString(" ")))
-          } pipeTo sender()
-
-      }
-
+      client.execute {
+        (search in percolatorIndex -> ".percolator" query bool {
+          must {
+            queries.flatten
+          }
+        } fields ("title", "tags")).logInfo(_.toString)
+      }.map { resp =>
+        queryResp.copy(items = resp.logInfo(_.toString).hits.map { hit => hit.id ->
+          StoredQueryItem(hit.field("title").value[String],
+            hit.fieldOpt("tags").map { _.values().mkString(" ") },
+            Some("enabled")) }.toSet ) }
+        .recover {
+        case ex =>
+          ex.logError(_.toString)
+          queryResp
+      } pipeTo sender()
   }
 }
 
@@ -363,4 +355,3 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     case SnapshotOffer(_, snapshot: State) =>
   }
 }
-

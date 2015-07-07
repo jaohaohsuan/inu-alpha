@@ -9,12 +9,12 @@
         </encoder>
     </appender>
 
-    <appender name="file" class="ch.qos.logback.core.FileAppender">
+   <!-- <appender name="file" class="ch.qos.logback.core.FileAppender">
         <file>${inu.log-file:-cqrs.log}</file>
         <encoder>
             <pattern>%date{HH:mm:ss} %-5level [%X{akkaSource}] - %msg%n</pattern>
         </encoder>
-    </appender>
+    </appender>-->
 
     <!--<logger name="cqrs" level="INFO" additivity="false">
         <appender-ref ref="console"/>

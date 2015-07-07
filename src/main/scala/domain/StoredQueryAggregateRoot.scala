@@ -206,7 +206,7 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
           must {
             queries.flatten
           }
-        } fields ("title", "tags")).logInfo(_.toString)
+        } fields ("title", "tags")).logInfo()
       }.map { resp =>
         queryResp.copy(items = resp.logInfo(_.toString).hits.map { hit => hit.id ->
           StoredQueryItem(hit.field("title").value[String],
@@ -214,7 +214,7 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
             Some("enabled")) }.toSet ) }
         .recover {
         case ex =>
-          ex.logError(_.toString)
+          ex.logError()
           queryResp
       } pipeTo sender()
   }
@@ -312,7 +312,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
 
           val updateItem = storedQueryId -> item.copy(
                                                 title = newTitle,
-                                                tags = newTags.map { _.split(" ").toSet }.getOrElse(item.tags))
+                                                tags  = newTags.map { _.split(" ").toSet }.getOrElse(item.tags))
           val itemsChanged = if(item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Map(updateItem), List(storedQueryId), state.clausesDependencies)
 
           persist(itemsChanged)(afterPersisted(sender(), _))
@@ -328,7 +328,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     case RegisterQueryOK(records) =>
       persist(ChangesRegistered(records)){ evt =>
         state = state.update(evt)
-        log.info(s"remains: ${state.changes.mkString(",")}")
+        log.info(s"remains: [${state.changes.mkString(",")}]")
       }
   }
 

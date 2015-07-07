@@ -9,13 +9,13 @@ import com.typesafe.config.{ConfigFactory, ConfigObject}
  */
 object Config {
 
-  // Check if mediaman.environment is set, and if it is, use the right config file
+  // Check if inu.environment is set, and if it is, use the right config file
   // Otherwise just stick with application.conf
   val environment = Option(System.getProperty("inu.environment"))
   private val config = if (environment.isDefined) {
     ConfigFactory.load(environment.get)
   } else {
-    ConfigFactory.load("httpApp")
+    ConfigFactory.load("rest")
   }
 
   val corsAllowCredentials = config.getBoolean("service.cors.allow_credentials")

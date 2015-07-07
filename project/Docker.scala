@@ -41,7 +41,7 @@ object Docker {
       }
     },
     imageNames in docker := Seq(
-      ImageName("jaohaohsuan/inu-alpha:0.0.10"),
+      ImageName("jaohaohsuan/inu-alpha:0.0.11"),
       ImageName(namespace = Some(organization.value),
         repository = name.value,
         tag = Some("v" + version.value)))

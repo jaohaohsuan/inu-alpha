@@ -1,15 +1,16 @@
 package boot
 
-import akka.actor.ActorRef
+import com.typesafe.config.ConfigFactory
 import routing._
-import spray.http._
-import spray.http.HttpHeaders._
 import spray.routing.HttpServiceActor
 
-class ServiceActor(clusterClientRef: ActorRef) extends HttpServiceActor
-  with StoredQueryRoute {
+
+class ServiceActor extends HttpServiceActor with StoredQueryRoute {
+
+  lazy val clusterClient = {
+    ClusterBoot.client(ConfigFactory.load("rest"))(context.system)
+  }
 
   def receive = runRoute(queryTemplateRoute)
 
-  override def clusterClient: ActorRef = clusterClientRef
 }

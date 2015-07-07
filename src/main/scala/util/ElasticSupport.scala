@@ -4,6 +4,9 @@ import com.sksamuel.elastic4s.{ElasticsearchClientUri, ElasticClient}
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
+import org.elasticsearch.transport.RemoteTransportException
+
+import scala.reflect.ClassTag
 
 object ElasticSupport {
 
@@ -31,7 +34,7 @@ object ElasticSupport {
         ".percolator" as (
           "query" typed ObjectType enabled true,
           "enabled" typed BooleanType index "not_analyzed" includeInAll false,
-          "tags" typed StringType index "not_analyzed" includeInAll false nullValue("")
+          "tags" typed StringType index "not_analyzed" includeInAll false nullValue ""
           )
         ,
         "stt" as Seq (
@@ -41,6 +44,14 @@ object ElasticSupport {
             "time" typed IntegerType index "not_analyzed"
             )
         ))
+    }
+  }
+
+  def rge[A<: Throwable: ClassTag](exception: Throwable): Option[A] = {
+    exception match {
+      case e: RemoteTransportException => rge(e.getCause)
+      case e: A => Some(e)
+      case _ => None
     }
   }
 }

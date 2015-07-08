@@ -3,14 +3,8 @@ package domain
 import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
-import akka.util.Timeout
 import algorithm.TopologicalSort._
-import com.sksamuel.elastic4s.ElasticClient
-import scala.concurrent.duration._
-import util.ImplicitActorLogging
-
-import scala.util.{Try, Success, Failure}
-
+import scala.util.{Failure, Success, Try}
 
 object StoredQueryAggregateRoot {
 
@@ -102,7 +96,7 @@ object StoredQueryAggregateRoot {
           copy(items = items + (entity.id -> entity), clausesDependencies = dp,
             changes = changes + (entity.id -> (changes.getOrElse(entity.id, 0) + 1)))
 
-        case ItemsChanged(xs, changesList,dp) =>
+        case ItemsChanged(xs, changesList, dp) =>
           copy(items = items ++ xs, clausesDependencies = dp, changes =
             changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) } - temporaryId)
 
@@ -113,111 +107,6 @@ object StoredQueryAggregateRoot {
     }
   }
 
-}
-
-object StoredQueryItemsView {
-
-  import StoredQueryAggregateRoot.{BoolClause}
-
-  case class Query(text: Option[String], tags: Option[String])
-
-  case class StoredQueryItem(title: String, tags: Option[String], status: Option[String]) {
-    require( title.nonEmpty )
-  }
-
-  case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Set[String])
-
-  case class GetItem(id: String)
-
-  case class GetItemClauses(id: String, occurrence: String)
-
-  case class ItemDetailResponse(id: String, item: StoredQueryItem)
-
-  case class ItemClausesResponse(clauses: Map[Int, BoolClause])
-
-  case class ItemNotFound(id: String)
-
-  val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
-}
-
-class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
-
-  import StoredQueryAggregateRoot._
-  import StoredQueryItemsView._
-
-  override val viewId: String = "stored-query-aggregate-root-view"
-
-  override val persistenceId: String = "stored-query-aggregate-root"
-
-  var items: Map[String, StoredQuery] = Map(temporaryId -> StoredQuery(temporaryId, "temporary"))
-  var queryResp = QueryResponse(Set.empty, Set.empty)
-
-  ClusterReceptionistExtension(context.system).registerService(self)
-
-  def receive: Receive = {
-    case ItemCreated(entity, dp) if isPersistent =>
-      log.info(s"${entity.id}, ${entity.title} was created.")
-      items = items + (entity.id -> entity)
-      queryResp = queryResp.copy(tags = queryResp.tags ++ entity.tags)
-
-    case ItemsChanged(xs, changes , _) =>
-      changes.foreach { id => log.info(s"$id, ${xs(id).title} was changed.")}
-      items = items ++ xs
-      queryResp = queryResp.copy(tags = queryResp.tags ++ xs.map { case (k,v)=> v.tags }.flatten)
-
-    case GetItem(id) =>
-      items.get(id) match {
-        case Some(StoredQuery(id, title, _, tags)) =>
-          sender() ! ItemDetailResponse(id, StoredQueryItem(title, Some(tags.mkString(" ")), Some("enabled")))
-        case None =>
-          sender() ! ItemNotFound(id)
-      }
-
-    case GetItemClauses(id, occurrence) =>
-      items.get(id) match {
-        case Some(StoredQuery(id, _, clauses, _)) =>
-          sender() ! ItemClausesResponse(clauses.filter { case (clausesId, clause) => clause.occurrence == occurrence })
-
-        case None =>
-          sender() ! ItemNotFound(id)
-      }
-
-    case ChangesRegistered(records) =>
-      log.info(s"$records were registered.")
-
-
-    case Query(queryString, queryTags) =>
-
-      import com.sksamuel.elastic4s.ElasticDsl._
-      import context.dispatcher
-      import akka.pattern._
-      import util.ElasticSupport._
-      import scala.collection.JavaConversions._
-
-      implicit val timeout = Timeout(5.seconds)
-
-      val queries = List(
-        queryString.map { queryStringQuery(_) asfields "_all" },
-        queryTags.map { matchQuery("tags", _) }
-      )
-
-      client.execute {
-        (search in percolatorIndex -> ".percolator" query bool {
-          must {
-            queries.flatten
-          }
-        } fields ("title", "tags")).logInfo()
-      }.map { resp =>
-        queryResp.copy(items = resp.logInfo(_.toString).hits.map { hit => hit.id ->
-          StoredQueryItem(hit.field("title").value[String],
-            hit.fieldOpt("tags").map { _.values().mkString(" ") },
-            Some("enabled")) }.toSet ) }
-        .recover {
-        case ex =>
-          ex.logError()
-          queryResp
-      } pipeTo sender()
-  }
 }
 
 class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
@@ -311,9 +200,11 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
           }
 
           val updateItem = storedQueryId -> item.copy(
-                                                title = newTitle,
-                                                tags  = newTags.map { _.split(" ").toSet }.getOrElse(item.tags))
-          val itemsChanged = if(item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Map(updateItem), List(storedQueryId), state.clausesDependencies)
+            title = newTitle,
+            tags = newTags.map {
+              _.split(" ").toSet
+            }.getOrElse(item.tags))
+          val itemsChanged = if (item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Map(updateItem), List(storedQueryId), state.clausesDependencies)
 
           persist(itemsChanged)(afterPersisted(sender(), _))
         case None =>
@@ -321,12 +212,12 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
 
 
     case Pull =>
-      val items = (state.changes - temporaryId).map { case (k,v) => (state.items(k),v) }.toSet
-      if(items.nonEmpty)
+      val items = (state.changes - temporaryId).map { case (k, v) => (state.items(k), v) }.toSet
+      if (items.nonEmpty)
         sender() ! Changes(items)
 
     case RegisterQueryOK(records) =>
-      persist(ChangesRegistered(records)){ evt =>
+      persist(ChangesRegistered(records)) { evt =>
         state = state.update(evt)
         log.info(s"remains: [${state.changes.mkString(",")}]")
       }
@@ -344,7 +235,8 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
         .copy(clauses = accItems(provider).clauses)
       val updatedConsumer = accItems(consumer).copy(clauses = accItems(consumer).clauses + (clauseId -> updatedNamedBoolClause))
       (accItems + (consumer -> updatedConsumer), consumer :: changes)
-    } }
+    }
+    }
 
     ItemsChanged(updatedItems, changesList, dp)
   }

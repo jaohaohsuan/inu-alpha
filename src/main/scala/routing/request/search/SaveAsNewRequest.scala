@@ -7,7 +7,7 @@ import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing._
 
-case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referredId: String, title: String) extends PerRequest {
+case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referredId: Option[String], title: String) extends PerRequest {
 
   import domain.StoredQueryAggregateRoot._
 
@@ -17,7 +17,7 @@ case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referr
     case ItemCreated(StoredQuery(id, title, _, _), _)  =>
       response {
         URI { href =>
-          respondWithHeader(RawHeader("Location", s"${href.resolve(id)}")){
+          respondWithHeader(RawHeader("Location", s"$href/$id".replaceAll("""/(\d|temporary)+(?=/\d)""", ""))){
             complete(Created)
           }
         }

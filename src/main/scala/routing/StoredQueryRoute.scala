@@ -88,9 +88,9 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
       } ~
         post {
           pathPrefix("_query" / "template") {
-            /*pathEnd { implicit ctx =>
-              entity(as[NewTemplate]) { entity => implicit ctx => handle(entity)("temporary", ctx) }
-            } ~*/
+            pathEnd {
+              entity(as[NewTemplate]) { entity => implicit ctx => handle(entity)("", ctx) }
+            } ~
             pathPrefix(Segment) { implicit storedQueryId =>
               pathEnd {
                 //save as new
@@ -148,7 +148,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
         actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, operator, occurrence)
 
       case NewTemplate(title) =>
-        actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, storedQueryId, title))
+        actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, Option(storedQueryId).filter(_.trim.nonEmpty), title))
 
       case _ => complete(BadRequest)
     }

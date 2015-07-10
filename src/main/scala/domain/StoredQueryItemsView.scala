@@ -61,7 +61,7 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
       updateState (entity.id -> entity)
 
     case ItemsChanged(xs, _ , _) =>
-      updateState(xs.toSeq: _*)
+      updateState(xs: _*)
 
     case GetItem(id) =>
       sender ! (for {
@@ -96,6 +96,8 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
         queryString.map { queryStringQuery(_) asfields "_all" },
         queryTags.map { matchQuery("tags", _) }
       )
+
+
 
       client.execute {
         (search in percolatorIndex -> ".percolator" query bool {

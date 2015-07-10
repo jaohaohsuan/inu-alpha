@@ -24,7 +24,7 @@ object StoredQueryAggregateRoot {
 
   case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
 
-  case class ItemsChanged(items: Map[String, StoredQuery], changes: List[String], dependencies: Map[(String, String), Int]) extends Event
+  case class ItemsChanged(items: Seq[(String, StoredQuery)], changes: List[String], dependencies: Map[(String, String), Int]) extends Event
 
   case class ChangesRegistered(records: Set[(String, Int)]) extends Event
 
@@ -53,7 +53,7 @@ object StoredQueryAggregateRoot {
 
   val temporaryId: String = "temporary"
 
-  case class CreateNewStoredQuery(title: String, referredId: String) extends Command
+  case class CreateNewStoredQuery(title: String, referredId: Option[String]) extends Command
 
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
@@ -76,9 +76,13 @@ object StoredQueryAggregateRoot {
       }
     }
 
-    def generateNewItemId: String = {
+    private def generateNewItemId: String = {
       val id = scala.math.abs(scala.util.Random.nextInt()).toString
       if (items.keys.exists(_ == id)) generateNewItemId else id
+    }
+
+    def newItem(title: String ,origin: Option[StoredQuery] = None): StoredQuery = {
+      origin.map { _.copy(id = generateNewItemId, title = title) }.getOrElse(StoredQuery(generateNewItemId, title))
     }
 
     def generateNewClauseId(item: StoredQuery): Int = {
@@ -123,23 +127,23 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
   val receiveCommand: Receive = {
 
     case CreateNewStoredQuery(title, referredId) =>
-      state.getItem(referredId) match {
-        case Some(item) =>
-          def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
-            state = state.update(evt)
-            `sender` ! evt
-          }
 
-          val newItem = item.copy(id = state.generateNewItemId, title = title)
+      def doPersist(entity: StoredQuery) = {
+        val itemCreated = ItemCreated(entity, state.clausesDependencies ++ entity.clauses.flatMap {
+          case (k, v: NamedBoolClause) => Some((entity.id, v.storedQueryId) -> k)
+          case (k, v) => None
+        })
+        def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
+          state = state.update(evt)
+          `sender` ! evt
+        }
+        persist(itemCreated)(afterPersisted(sender(), _))
+      }
 
-          val itemCreated = ItemCreated(newItem, state.clausesDependencies ++ item.clauses.flatMap {
-            case (k, v: NamedBoolClause) => Some((newItem.id, v.storedQueryId) -> k)
-            case (k, v) => None
-          })
-
-          persist(itemCreated)(afterPersisted(sender(), _))
-        case None =>
-          sender() ! s"$referredId is not exist."
+      referredId.map { state.getItem(_).map { e => state.newItem(title, Some(e)) } } match {
+        case Some(Some(newItem)) => doPersist(newItem)
+        case Some(None) => sender() ! s"$referredId is not exist."
+        case None => doPersist(state.newItem(title))
       }
 
     case AddClause(storedQueryId, clause) =>
@@ -204,7 +208,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
             tags = newTags.map {
               _.split(" ").toSet
             }.getOrElse(item.tags))
-          val itemsChanged = if (item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Map(updateItem), List(storedQueryId), state.clausesDependencies)
+          val itemsChanged = if (item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Seq(updateItem), List(storedQueryId), state.clausesDependencies)
 
           persist(itemsChanged)(afterPersisted(sender(), _))
         case None =>
@@ -238,7 +242,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
     }
     }
 
-    ItemsChanged(updatedItems, changesList, dp)
+    ItemsChanged(updatedItems.toSeq, changesList, dp)
   }
 
   val receiveRecover: Receive = {

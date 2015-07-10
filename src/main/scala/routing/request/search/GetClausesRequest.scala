@@ -2,7 +2,6 @@ package routing.request.search
 
 import akka.actor.ActorRef
 import akka.contrib.pattern.ClusterClient.{SendToAll}
-import net.hamnaberg.json.collection.Query
 import routing.request.PerRequest
 import spray.routing._
 import spray.http.StatusCodes._
@@ -20,21 +19,24 @@ case class QueryStoredQueryItemsRequest(ctx: RequestContext,
     case QueryResponse(hits, tags) =>
       response {
         URI { href =>
-          val baseUri = s"${href.getScheme}://${href.getHost}:${href.getPort}/_query/template"
+          """.*_query/template""".r.findFirstIn(s"$href") match {
+            case Some(baseUri) =>
+              val temporaryLink = Link(java.net.URI.create(s"$baseUri/temporary"), "edit")
+              val uriSearch = net.hamnaberg.json.collection.Query(java.net.URI.create(s"$baseUri/search"),
+                rel = "search",
+                data = List(ValueProperty("q",    Some("search title or any terms"), None),
+                  ValueProperty("tags", Some(tags.mkString(" ")),          None)
+                ))
 
-          val temporaryLink = Link(java.net.URI.create(s"$baseUri/temporary"), "edit")
-          val uriSearch = net.hamnaberg.json.collection.Query(java.net.URI.create(s"$baseUri/search"),
-                             rel = "search",
-                             data = List(ValueProperty("q", Some("search title or any terms"), None),
-                                         ValueProperty("tags", Some(tags.mkString(" ")), None)
-                             ))
+              val items = hits.map { case (key, value) =>
+                Item(java.net.URI.create(s"$baseUri/$key"), value, List.empty)
+              }.toList
 
-          val items = hits.map { case (key, value) =>
-            Item(java.net.URI.create(s"$baseUri/$key"), value, List.empty)
-          }.toList
-
-          complete(OK,
-            JsonCollection(java.net.URI.create(baseUri), List(temporaryLink),items ,queries = List(uriSearch)))
+              val template = Some(Template(StoredQueryItem("sample", tags = None, status = None)))
+              complete(OK, JsonCollection(java.net.URI.create(baseUri), List(temporaryLink),items ,List(uriSearch), template))
+            case None =>
+              complete(InternalServerError)
+          }
         }
       }
     case message =>
@@ -55,11 +57,10 @@ case class GetStoredQueryItemRequest(ctx: RequestContext,
     case ItemDetailResponse(id, item) =>
       response {
         URI { href =>
-
           val template = Template(item.copy(status = None))
 
           complete(OK, JsonCollection(
-            new java.net.URI(s"$href".substring(0, s"$href".lastIndexOf("/"))),
+            new java.net.URI(s"$href".replaceAll("""/\w*$""", "")),
             links = List.empty,
             List(Item(href, item, itemLinks(href.resolve(s"$id/occur")))),
             List.empty, Some(template)

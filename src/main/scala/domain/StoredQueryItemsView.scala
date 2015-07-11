@@ -4,19 +4,49 @@ import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence.PersistentView
 import akka.util.Timeout
-import util.ImplicitActorLogging
-
+import org.elasticsearch.node.Node
+import org.elasticsearch.search.highlight.HighlightField
+import util.{ElasticSupport, ImplicitActorLogging}
+import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 
 object StoredQueryItemsView {
 
   import StoredQueryAggregateRoot.BoolClause
 
-  case class Query(text: Option[String], tags: Option[String])
+  case class Query(text: Option[String], tags: Option[String]) {
+    def asQueryDefinitions = {
+      import com.sksamuel.elastic4s.ElasticDsl._
+      List(
+        text.map { queryStringQuery(_) asfields "_all" },
+        tags.map { matchQuery("tags", _) }
+      ).flatten
+    }
+  }
+
+  case class Preview(id: String)
 
   case class StoredQueryItem(title: String, tags: Option[String], status: Option[String]) {
     require( title.nonEmpty )
   }
+
+  object StoredQueryItem {
+    def apply(hit : com.sksamuel.elastic4s.RichSearchHit): StoredQueryItem = {
+      StoredQueryItem(hit.field("title").value[String],
+        hit.fieldOpt("tags").map { _.values().mkString(" ") },
+        Some("enabled"))
+    }
+  }
+
+  case class SttRecord(highlights: List[(String, Seq[String])] = List.empty)
+
+  object SttRecord {
+    def apply(highlightFields: Map[String, HighlightField]): SttRecord = {
+      SttRecord(highlightFields.map { case (k,v) => k -> v.getFragments().map { _.toString }.toSeq }.toList)
+    }
+  }
+
+  case class PreviewResponse(hits: Set[(String, SttRecord)])
 
   case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Set[String])
 
@@ -33,10 +63,14 @@ object StoredQueryItemsView {
   val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
 }
 
-class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
+class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging with ElasticSupport {
+
+  val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
 
   import StoredQueryAggregateRoot._
   import StoredQueryItemsView._
+
+  import akka.pattern._
 
   override val viewId: String = "stored-query-aggregate-root-view"
 
@@ -44,6 +78,8 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
 
   var items: Map[String, StoredQuery] = Map(temporaryId -> StoredQuery(temporaryId, "temporary"))
   var queryResp = QueryResponse(Set.empty, Set.empty)
+
+  import context.dispatcher
 
   ClusterReceptionistExtension(context.system).registerService(self)
 
@@ -69,51 +105,46 @@ class StoredQueryItemsView extends PersistentView with ImplicitActorLogging {
         item = StoredQueryItem(title, Some(tags.mkString(" ")), Some("enabled"))
       } yield ItemDetailResponse(id, item)).getOrElse(ItemNotFound(id))
 
-
     case GetItemClauses(id, occurrence) =>
       sender ! (for {
         StoredQuery(id, _, clauses, _) <- items.get(id)
         filtered = clauses.filter { case (_, clause) => clause.occurrence == occurrence }
       } yield ItemClausesResponse(filtered)).getOrElse(ItemNotFound(id))
 
-
     case ChangesRegistered(records) =>
       log.info(s"$records were registered.")
 
-
-    case Query(queryString, queryTags) =>
-
-      import akka.pattern._
+    case q: Query =>
       import com.sksamuel.elastic4s.ElasticDsl._
-      import context.dispatcher
-      import util.ElasticSupport._
 
-      import scala.collection.JavaConversions._
 
       implicit val timeout = Timeout(5.seconds)
 
-      val queries = List(
-        queryString.map { queryStringQuery(_) asfields "_all" },
-        queryTags.map { matchQuery("tags", _) }
-      )
-
-
-
       client.execute {
-        (search in percolatorIndex -> ".percolator" query bool {
-          must {
-            queries.flatten
-          }
-        } fields ("title", "tags") size 10).logInfo()
-      }.map { resp =>
-        queryResp.copy(items = resp.logInfo(_.toString).hits.map { hit => hit.id ->
-          StoredQueryItem(hit.field("title").value[String],
-            hit.fieldOpt("tags").map { _.values().mkString(" ") },
-            Some("enabled")) }.toSet ) }
-        .recover {
-        case ex =>
-          ex.logError()
-          queryResp
-      } pipeTo sender()
+          search in percolatorIndex -> ".percolator" query bool { must { q.asQueryDefinitions }} fields ("title", "tags") size 50
+      } map {
+        resp => queryResp.copy(items = resp.hits.map { h => h.id -> StoredQueryItem(h) }.toSet)
+      } recover { case ex =>
+        ex.logError()
+        queryResp } pipeTo sender()
+
+    case Preview(storedQueryId) =>
+      import com.sksamuel.elastic4s.ElasticDsl._
+      import com.sksamuel.elastic4s.BoolQueryDefinition
+
+      implicit val timeout = Timeout(5.seconds)
+
+      val queries = items.get(storedQueryId).map { _.clauses.values.foldLeft(new BoolQueryDefinition)(assembleBoolQuery) }
+        .getOrElse(queryStringQuery(""))
+
+      val f = client.execute {
+        (search in "lte-2015.07.11" types "logs" query queries highlighting(
+          options requireFieldMatch true preTags "<b>" postTags "</b>",
+          highlight field "r0",
+          highlight field "r1",
+          highlight field "dialogs")).logInfo()
+      }.map { resp => PreviewResponse(resp.hits.map { h => s"${h.index}/${h.`type`}/${h.id}" -> SttRecord(h.highlightFields)}.toSet) }
+
+      f pipeTo sender
   }
 }

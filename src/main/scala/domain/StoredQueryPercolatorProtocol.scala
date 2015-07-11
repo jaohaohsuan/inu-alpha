@@ -1,5 +1,6 @@
 package domain
 import domain.StoredQueryAggregateRoot.{ StoredQuery }
+import org.elasticsearch.node.Node
 
 object StoredQueryPercolatorProtocol {
 

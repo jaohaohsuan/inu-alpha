@@ -6,15 +6,20 @@ import akka.pattern._
 import com.sksamuel.elastic4s.BoolQueryDefinition
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.indices.IndexMissingException
+import util.ElasticSupport
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class PercolatorWorker(clusterClient: ActorRef) extends Actor with util.ImplicitActorLogging {
+class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.node.Node]) extends Actor with util.ImplicitActorLogging with ElasticSupport {
+
+  val client = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
+    com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
+  )
 
   import StoredQueryAggregateRoot.{BoolClause, MatchBoolClause, NamedBoolClause, SpanNearBoolClause, StoredQuery}
   import StoredQueryPercolatorProtocol._
   import context.dispatcher
-  import util.ElasticSupport._
+
 
   val pullingTask = context.system.scheduler.schedule(5.seconds, 5.seconds, clusterClient,
     SendToAll(`/user/stored-query-aggregate-root/active`, Pull))
@@ -36,7 +41,7 @@ class PercolatorWorker(clusterClient: ActorRef) extends Actor with util.Implicit
       import com.sksamuel.elastic4s.ElasticDsl._
       val f = Future.traverse(items){
         case (StoredQuery(percolatorId, title, clauses, tags), version) =>
-          val boolQuery = clauses.values.foldLeft(new BoolQueryDefinition)(build)
+          val boolQuery = clauses.values.foldLeft(new BoolQueryDefinition)(assembleBoolQuery)
           client.execute {
             register id percolatorId into percolatorIndex query boolQuery fields
               Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray)
@@ -63,30 +68,4 @@ class PercolatorWorker(clusterClient: ActorRef) extends Actor with util.Implicit
 
 
   def receive: Receive = processing
-
-  def build(bool: BoolQueryDefinition,clause: BoolClause): BoolQueryDefinition = {
-
-    import com.sksamuel.elastic4s._
-
-    val qd: QueryDefinition = clause match {
-      case MatchBoolClause(query, operator, _) =>
-        new MatchQueryDefinition("dialogs.content", query).operator(operator.toUpperCase)
-
-      case SpanNearBoolClause(terms, slop, inOrder, _) =>
-        val spanNear = new SpanNearQueryDefinition()
-        terms.foldLeft(slop.map { spanNear.slop }.getOrElse(spanNear)){ (qb, term) =>
-          qb.clause(new SpanTermQueryDefinition("dialogs.content", term)) }
-          .inOrder(inOrder)
-          .collectPayloads(false)
-
-      case NamedBoolClause(_, _, _, clauses) =>
-        clauses.values.foldLeft(new BoolQueryDefinition)(build)
-    }
-
-    clause.occurrence match {
-      case "must" => bool.must(qd)
-      case "must_not" => bool.not(qd)
-      case "should" => bool.should(qd)
-    }
-  }
 }

@@ -20,13 +20,14 @@ object StoredQueryRoute {
     def test = occurrence.matches(OccurrenceRegex.toString())
   }
 
-  case class MatchClause(query: String, operator: String, occurrence: String) {
+  case class MatchClause(query: String, fields: String, operator: String, occurrence: String) {
     require(test)
     def test =
       operator.matches("^[oO][rR]$|^[Aa][Nn][Dd]$") && occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
   }
 
   case class SpanNearClause(query: String,
+                            fields: String,
                             slop: Option[Int],
                             inOrder: Boolean,
                             occurrence: String){
@@ -72,8 +73,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
               pathEnd {
                 URI { href =>
                   val template = Template(clauseType match {
-                    case "match" => MatchClause("sample", "AND", "must")
-                    case "near" => SpanNearClause("sample", Some(10), false, "should")
+                    case "match" => MatchClause("sample", "dialogs", "AND", "must")
+                    case "near" => SpanNearClause("sample", "dialogs" , Some(10), false, "should")
                     case "named" => NamedClause("12345", "sample", "must_not")
                   })
                   complete(OK, JsonCollection(href, List.empty, List.empty, List.empty, Some(template)))
@@ -83,6 +84,9 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
                   implicit ctx =>
                     complete(NoContent)
                 }
+            } ~
+            path("preview") {
+              implicit ctx => actorRefFactory.actorOf(Props(classOf[PreviewRequest], ctx, clusterClient, storedQueryId))
             }
         }
       } ~
@@ -138,14 +142,14 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
       case StoredQueryItem(title, tags, _) =>
         actorRefFactory.actorOf(Props(classOf[UpdateRequest], ctx, clusterClient, storedQueryId, title, tags))
 
-      case SpanNearClause(query, slop, inOrder, occurrence) =>
-        actorRefFactory.actorOf(requestProps) ! SpanNearBoolClause(query.split(" ").toList, slop, inOrder, occurrence)
+      case SpanNearClause(query, fields, slop, inOrder, occurrence) =>
+        actorRefFactory.actorOf(requestProps) ! SpanNearBoolClause(query.split(" ").toList, fields, slop, inOrder, occurrence)
 
       case NamedClause(referredId, title, occurrence) =>
         actorRefFactory.actorOf(requestProps) ! NamedBoolClause(referredId, title, occurrence)
 
-      case MatchClause(query, operator, occurrence) =>
-        actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, operator, occurrence)
+      case MatchClause(query, fields, operator, occurrence) =>
+        actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, fields, operator, occurrence)
 
       case NewTemplate(title) =>
         actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, Option(storedQueryId).filter(_.trim.nonEmpty), title))

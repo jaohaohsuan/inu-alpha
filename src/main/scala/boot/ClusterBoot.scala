@@ -12,18 +12,22 @@ object ClusterBoot {
       ActorPath.fromString(s"akka.tcp://ClusterSystem@127.0.0.1:$sharedJournalStorePort/user/store"))
 
     clusterSystem.actorOf(ClusterSingletonManager.props(
-      singletonProps = Props[domain.StoredQueryAggregateRoot],
+      singletonProps = Props(classOf[domain.StoredQueryAggregateRoot]),
       singletonName = "active",
       terminationMessage = PoisonPill,
       role = Some(role)
     ), name = "stored-query-aggregate-root")
 
     clusterSystem.actorOf(ClusterSingletonManager.props(
-      singletonProps = Props[domain.StoredQueryItemsView],
+      singletonProps = Props(classOf[domain.StoredQueryItemsView], node),
       singletonName = "active",
       terminationMessage = PoisonPill,
       role = Some(role)
     ), name = "stored-query-items-view")
+
+    sys.addShutdownHook {
+      node.close()
+    }
   }
 
   def client(conf: com.typesafe.config.Config)(implicit system: ActorSystem): ActorRef = {
@@ -31,6 +35,12 @@ object ClusterBoot {
       case AddressFromURIString(addr) => system.actorSelection(RootActorPath(addr) / "user" / "receptionist")
     }
     system.actorOf(ClusterClient.props(initialContacts.toSet), "clusterClient")
+  }
+
+  lazy val node: org.elasticsearch.node.Node = {
+    import org.elasticsearch.node.NodeBuilder._
+
+     nodeBuilder().node()
   }
 
   def startupSharedJournal(system: ActorSystem, startStore: Boolean, path: ActorPath): Unit = {

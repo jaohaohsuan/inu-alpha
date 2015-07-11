@@ -44,6 +44,6 @@ object Main {
     val conf = ConfigFactory.load("worker")
     implicit val system = ActorSystem("ElasticSystem", conf)
 
-    system.actorOf(Props(classOf[domain.PercolatorWorker], ClusterBoot.client(conf)), "PercolatorWorker")
+    system.actorOf(Props(classOf[domain.PercolatorWorker], ClusterBoot.client(conf), Some(ClusterBoot.node)), "PercolatorWorker")
   }
 }

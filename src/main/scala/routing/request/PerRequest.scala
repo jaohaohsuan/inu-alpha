@@ -9,13 +9,20 @@ import scala.concurrent.duration._
 object PerRequest {
   case object Ok
   case object NotOk
+
+
 }
 
 trait PerRequest extends Actor with ActorLogging with Directives {
 
   import context._
+  import PerRequest._
 
-  val URI = extract(ctx => java.net.URI.create(ctx.request.uri.toString))
+  implicit class stringUri(s: String) {
+    def uri: java.net.URI = java.net.URI.create(s)
+  }
+
+  val URI = extract(ctx => s"${ctx.request.uri}".uri)
 
 
   //setReceiveTimeout(10.seconds)

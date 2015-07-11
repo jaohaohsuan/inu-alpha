@@ -4,6 +4,7 @@ import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
 import algorithm.TopologicalSort._
+import org.elasticsearch.node.Node
 import scala.util.{Failure, Success, Try}
 
 object StoredQueryAggregateRoot {
@@ -39,9 +40,9 @@ object StoredQueryAggregateRoot {
                              occurrence: String,
                              clauses: Map[Int, BoolClause] = Map.empty) extends BoolClause
 
-  case class MatchBoolClause(query: String, operator: String, occurrence: String) extends UnalliedBoolClause
+  case class MatchBoolClause(query: String, fields: String, operator: String, occurrence: String) extends UnalliedBoolClause
 
-  case class SpanNearBoolClause(terms: List[String],
+  case class SpanNearBoolClause(terms: List[String], fields: String,
                                 slop: Option[Int],
                                 inOrder: Boolean, occurrence: String) extends UnalliedBoolClause
 
@@ -82,6 +83,7 @@ object StoredQueryAggregateRoot {
     }
 
     def newItem(title: String ,origin: Option[StoredQuery] = None): StoredQuery = {
+
       origin.map { _.copy(id = generateNewItemId, title = title) }.getOrElse(StoredQuery(generateNewItemId, title))
     }
 
@@ -113,7 +115,7 @@ object StoredQueryAggregateRoot {
 
 }
 
-class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
+class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLogging {
 
   import StoredQueryAggregateRoot._
   import StoredQueryPercolatorProtocol._
@@ -139,6 +141,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ActorLogging {
         }
         persist(itemCreated)(afterPersisted(sender(), _))
       }
+
 
       referredId.map { state.getItem(_).map { e => state.newItem(title, Some(e)) } } match {
         case Some(Some(newItem)) => doPersist(newItem)

@@ -3,6 +3,8 @@ package boot
 import akka.actor._
 import akka.contrib.pattern.{ClusterClient, ClusterSingletonManager}
 import akka.japi.Util._
+import elastics.ElasticClientActor
+import akka.pattern._
 
 object ClusterBoot {
 
@@ -25,6 +27,8 @@ object ClusterBoot {
       role = Some(role)
     ), name = "stored-query-items-view")
 
+    clusterSystem.actorOf(Props(classOf[ElasticClientActor], Some(node))) ! ElasticClientActor.Install
+
     sys.addShutdownHook {
       node.close()
     }
@@ -39,16 +43,16 @@ object ClusterBoot {
 
   lazy val node: org.elasticsearch.node.Node = {
     import org.elasticsearch.node.NodeBuilder._
-
      nodeBuilder().node()
   }
 
   def startupSharedJournal(system: ActorSystem, startStore: Boolean, path: ActorPath): Unit = {
 
+    import akka.pattern._
     import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
     import akka.util.Timeout
+
     import scala.concurrent.duration._
-    import akka.pattern._
 
     // Start the shared journal on one node (don't crash this SPOF)
     if(startStore)

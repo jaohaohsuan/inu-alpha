@@ -4,6 +4,7 @@ import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
 import algorithm.TopologicalSort._
+import com.sksamuel.elastic4s.BoolQueryDefinition
 import org.elasticsearch.node.Node
 import scala.util.{Failure, Success, Try}
 
@@ -33,6 +34,8 @@ object StoredQueryAggregateRoot {
     val occurrence: String
   }
 
+
+
   sealed trait UnalliedBoolClause extends BoolClause
 
   case class NamedBoolClause(storedQueryId: String,
@@ -59,7 +62,45 @@ object StoredQueryAggregateRoot {
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
 
-  case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty)
+  case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty) {
+
+    def buildBoolQuery() = clauses.values.foldLeft((List.empty[String], new BoolQueryDefinition))(assembleBoolQuery)
+
+    def assembleBoolQuery(acc: (List[String], BoolQueryDefinition), clause: BoolClause): (List[String], BoolQueryDefinition) = {
+
+      import com.sksamuel.elastic4s._
+
+      val (clausesTitle, bool, qd ) = {
+
+        val (clausesTitle, bool) = acc
+
+        clause match {
+          case MatchBoolClause(query, fields, operator, _) =>
+            (clausesTitle, bool, new MultiMatchQueryDefinition(query)
+              .fields(fields.split(" "))
+              .operator(operator.toUpperCase).matchType("best_fields"))
+
+          case SpanNearBoolClause(terms, fields, slop, inOrder, _) =>
+            val spanNear = new SpanNearQueryDefinition()
+            (clausesTitle, bool, terms.foldLeft(slop.map {
+              spanNear.slop
+            }.getOrElse(spanNear)) { (qb, term) =>
+              qb.clause(new SpanTermQueryDefinition(fields, term))
+            }.inOrder(inOrder).collectPayloads(false))
+
+          case NamedBoolClause(_, title, _, clauses) =>
+            val (accClausesTitle, innerBool) = clauses.values.foldLeft((title :: clausesTitle, new BoolQueryDefinition))(assembleBoolQuery)
+            (accClausesTitle, bool, innerBool)
+        }
+      }
+
+      clause.occurrence match {
+        case "must" => (clausesTitle, bool.must(qd))
+        case "must_not" => (clausesTitle, bool.not(qd))
+        case "should" => (clausesTitle, bool.should(qd))
+      }
+    }
+  }
 
   case object CycleInDirectedGraphError
 

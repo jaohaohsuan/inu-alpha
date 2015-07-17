@@ -6,11 +6,14 @@ import akka.pattern._
 import com.sksamuel.elastic4s.BoolQueryDefinition
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.indices.IndexMissingException
+import org.elasticsearch.transport.RemoteTransportException
 import util.ElasticSupport
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
-class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.node.Node]) extends Actor with util.ImplicitActorLogging with ElasticSupport {
+class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.node.Node]) extends Actor
+  with util.ImplicitActorLogging {
 
   val client = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
     com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
@@ -26,25 +29,17 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
 
   override def postStop(): Unit = pullingTask.cancel()
 
-  val creatingIndex: Receive = {
-
-    case resp: CreateIndexResponse =>
-      resp.logInfo(_.getContext.toString)
-      context.unbecome()
-
-    case msg =>
-      log.error(s"unable to process the message: $msg")
-  }
-
   val processing: Receive = {
     case Changes(items) =>
       import com.sksamuel.elastic4s.ElasticDsl._
+      import elastics.PercolatorIndex._
+
       val f = Future.traverse(items){
-        case (StoredQuery(percolatorId, title, clauses, tags), version) =>
-          val boolQuery = clauses.values.foldLeft(new BoolQueryDefinition)(assembleBoolQuery)
+        case (e @ StoredQuery(percolatorId, title, clauses, tags), version) =>
+          val (referredClauses, boolQuery) = e.buildBoolQuery()
           client.execute {
-            register id percolatorId into percolatorIndex query boolQuery fields
-              Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray)
+            (register id percolatorId into `inu-percolate` query boolQuery fields
+              Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray, "referredClauses" -> referredClauses.toArray)).logInfo(_.build.toString)
           } map { resp => (percolatorId, version) }
       }
 
@@ -55,15 +50,22 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
 
       f onFailure {
         case error =>
-          rge[IndexMissingException](error) match {
+          recursive[IndexMissingException](error) match {
             case Some(_) =>
-              context.become(creatingIndex, discardOld = false)
-              createPercolatorIndex pipeTo self
+              log.error(s"IndexMissingException: ${error.getMessage}")
             case None =>
               log.error(s"${error.getMessage}, ${error.getClass.getSimpleName}")
               context.stop(self)
           }
       }
+  }
+
+  private def recursive[A<: Throwable: ClassTag](exception: Throwable): Option[A] = {
+    exception match {
+      case e: RemoteTransportException => recursive(e.getCause)
+      case e: A => Some(e)
+      case _ => None
+    }
   }
 
 

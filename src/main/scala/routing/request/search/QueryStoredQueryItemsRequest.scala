@@ -23,9 +23,8 @@ case class PreviewRequest(ctx: RequestContext,
           complete(OK, JsonCollection(
              href, List.empty,
               hits.map {
-                case (location,v) =>
-                  v.highlights.logInfo()
-                  Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, v.highlights.map { case(name,v)=> ListProperty(name,v) }, List.empty[Link])
+                case (location, sentences) =>
+                  Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, List(ListProperty("sentences", sentences)), List.empty[Link])
               }.toList)
           )
         }

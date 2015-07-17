@@ -19,7 +19,7 @@ object StoredQueryItemsView {
       import com.sksamuel.elastic4s.ElasticDsl._
       List(
         text.map { queryStringQuery(_) asfields "_all" },
-        tags.map { matchQuery("tags", _) }
+        tags.map { matchQuery("tags", _).operator("or") }
       ).flatten
     }
   }
@@ -38,15 +38,24 @@ object StoredQueryItemsView {
     }
   }
 
-  case class SttRecord(highlights: List[(String, Seq[String])] = List.empty)
+  case class VttRecord(highlights: Seq[(String, String)] = List.empty)
 
-  object SttRecord {
-    def apply(highlightFields: Map[String, HighlightField]): SttRecord = {
-      SttRecord(highlightFields.map { case (k,v) => k -> v.getFragments().map { _.toString }.toSeq }.toList)
+  object VttRecord {
+    def apply(highlightFields: Map[String, HighlightField]): VttRecord = {
+
+      val sentence = """((agent|customer)\d{1,2}-\d+)\s(.+)""".r
+
+      val highlights = highlightFields.flatMap { case (_, hf) => hf.getFragments }.flatMap(txt =>
+        txt.string match {
+          case sentence(cue, value) => Some((cue, value))
+          case _ => None
+        }).toSeq
+
+      VttRecord(highlights)
     }
   }
 
-  case class PreviewResponse(hits: Set[(String, SttRecord)])
+  case class PreviewResponse(hits: Set[(String, Seq[String])])
 
   case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Set[String])
 
@@ -63,7 +72,7 @@ object StoredQueryItemsView {
   val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
 }
 
-class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging with ElasticSupport {
+class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging {
 
   val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
 
@@ -116,12 +125,11 @@ class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActor
 
     case q: Query =>
       import com.sksamuel.elastic4s.ElasticDsl._
-
-
+      import elastics.PercolatorIndex._
       implicit val timeout = Timeout(5.seconds)
 
       client.execute {
-          search in percolatorIndex -> ".percolator" query bool { must { q.asQueryDefinitions }} fields ("title", "tags") size 50
+          search in `inu-percolate/.percolator` query bool { must { q.asQueryDefinitions }} fields ("title", "tags") size 50
       } map {
         resp => queryResp.copy(items = resp.hits.map { h => h.id -> StoredQueryItem(h) }.toSet)
       } recover { case ex =>
@@ -130,20 +138,31 @@ class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActor
 
     case Preview(storedQueryId) =>
       import com.sksamuel.elastic4s.ElasticDsl._
-      import com.sksamuel.elastic4s.BoolQueryDefinition
-
       implicit val timeout = Timeout(5.seconds)
 
-      val queries = items.get(storedQueryId).map { _.clauses.values.foldLeft(new BoolQueryDefinition)(assembleBoolQuery) }
-        .getOrElse(queryStringQuery(""))
+      val queries = items.get(storedQueryId).map { _.buildBoolQuery() }
+                                            .map { case (_, q) => q }
+                                            .getOrElse(queryStringQuery(""))
 
       val f = client.execute {
-        (search in "lte-2015.07.11" types "logs" query queries highlighting(
+        (search in "lte*" query queries highlighting(
           options requireFieldMatch true preTags "<b>" postTags "</b>",
-          highlight field "r0",
-          highlight field "r1",
-          highlight field "dialogs")).logInfo()
-      }.map { resp => PreviewResponse(resp.hits.map { h => s"${h.index}/${h.`type`}/${h.id}" -> SttRecord(h.highlightFields)}.toSet) }
+          highlight field "agent*" fragmentSize 50000,
+          highlight field "customer*" fragmentSize 50000,
+          highlight field "dialogs" fragmentSize 50000)).logInfo()
+      }.map { resp => PreviewResponse(resp.hits.map { h =>
+
+        val sentence = """((agent|customer)\d{1,2}-\d+)\s(.+)""".r
+        val sentences = h.highlightFields.flatMap { case (_, hf) => hf.getFragments }.flatMap(txt =>
+          /*txt.string match {
+            case sentence(cue, value) => Some((cue, value))
+            case _ => None
+          }*/
+          Some(txt.string)
+        ).toSeq
+
+        s"${h.index}/${h.`type`}/${h.id}" -> sentences
+      }.toSet) }
 
       f pipeTo sender
   }

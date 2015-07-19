@@ -5,14 +5,14 @@ import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence.PersistentView
 import akka.util.Timeout
 import org.elasticsearch.node.Node
-import org.elasticsearch.search.highlight.HighlightField
-import util.{ImplicitActorLogging}
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 
 object StoredQueryItemsView {
 
-  import StoredQueryAggregateRoot.BoolClause
+  import StoredQueryAggregateRoot.{BoolClause, StoredQuery}
+
+  val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
 
   case class Query(text: Option[String], tags: Option[String]) {
     def asQueryDefinitions = {
@@ -24,58 +24,13 @@ object StoredQueryItemsView {
     }
   }
 
-  case class Preview(id: String)
+  case class GetStoredQuery(id: String)
 
   case class StoredQueryItem(title: String, tags: Option[String], status: Option[String]) {
     require( title.nonEmpty )
   }
 
-  object StoredQueryItem {
-    import com.sksamuel.elastic4s.RichSearchHit
-    def apply(h: RichSearchHit) = {
-      val StoredQueryItemExtractor(s) = h
-      s
-    }
-  }
-
-  object StoredQueryItemExtractor {
-
-    import com.sksamuel.elastic4s.RichSearchHit
-
-    def unapply(h: RichSearchHit): Option[StoredQueryItem] = try {
-      Some(StoredQueryItem(
-        title = h.field("title").value[String],
-        tags = h.fieldOpt("tags").map { _.values().mkString(" ") },
-        status = Some("enabled")
-      ))
-    } catch {
-      case ex: Exception => None
-    }
-
-    def apply(h: RichSearchHit): StoredQueryItem = {
-      val StoredQueryItemExtractor(s) = h
-      s
-    }
-  }
-
-  case class VttRecord(highlights: Seq[(String, String)] = List.empty)
-
-  object VttRecord {
-    def apply(highlightFields: Map[String, HighlightField]): VttRecord = {
-
-      val sentence = """((agent|customer)\d{1,2}-\d+)\s(.+)""".r
-
-      val highlights = highlightFields.flatMap { case (_, hf) => hf.getFragments }.flatMap(txt =>
-        txt.string match {
-          case sentence(cue, value) => Some((cue, value))
-          case _ => None
-        }).toSeq
-
-      VttRecord(highlights)
-    }
-  }
-
-  case class PreviewResponse(hits: Set[(String, Seq[String])])
+  case class StoredQueryResponse(entity: Option[StoredQuery])
 
   case class QueryResponse(items: Set[(String, StoredQueryItem)], tags: Set[String])
 
@@ -89,37 +44,50 @@ object StoredQueryItemsView {
 
   case class ItemNotFound(id: String)
 
-  val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
+  object StoredQueryItem {
+    import com.sksamuel.elastic4s.RichSearchHit
+    def apply(h: RichSearchHit) = {
+      val StoredQueryItemExtractor(s) = h
+      s
+    }
+  }
+
+  object StoredQueryItemExtractor {
+
+    import com.sksamuel.elastic4s.RichSearchHit
+
+    def apply(h: RichSearchHit): StoredQueryItem = {
+      val StoredQueryItemExtractor(s) = h
+      s
+    }
+
+    def unapply(h: RichSearchHit): Option[StoredQueryItem] = try {
+      Some(StoredQueryItem(
+        title = h.field("title").value[String],
+        tags = h.fieldOpt("tags").map { _.values().mkString(" ") },
+        status = Some("enabled")
+      ))
+    } catch {
+      case ex: Exception => None
+    }
+  }
 }
 
-class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging with elastics.LteIndices {
-
-  val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
-
-  import StoredQueryAggregateRoot._
-  import StoredQueryItemsView._
-
-  import akka.pattern._
+class StoredQueryItemsView(node: Node) extends PersistentView with util.ImplicitActorLogging with elastics.LteIndices {
 
   override val viewId: String = "stored-query-aggregate-root-view"
 
+  import StoredQueryAggregateRoot._
+  import StoredQueryItemsView._
+  import akka.pattern._
   override val persistenceId: String = "stored-query-aggregate-root"
-
+  val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
   var items: Map[String, StoredQuery] = Map(temporaryId -> StoredQuery(temporaryId, "temporary"))
   var queryResp = QueryResponse(Set.empty, Set.empty)
 
   import context.dispatcher
 
   ClusterReceptionistExtension(context.system).registerService(self)
-
-  def accumulateItemsTags = {
-    items.values.map { _.tags }.foldLeft(Set.empty[String]){ _ ++ _ }
-  }
-
-  private def updateState(values: (String, StoredQuery)*) = {
-    items = items ++ values
-    queryResp = queryResp.copy(tags = accumulateItemsTags )
-  }
 
   def receive: Receive = {
     case ItemCreated(entity, dp) if isPersistent =>
@@ -156,36 +124,17 @@ class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActor
         ex.logError()
         queryResp } pipeTo sender()
 
-    case Preview(storedQueryId) =>
-      import com.sksamuel.elastic4s.ElasticDsl._
-      implicit val timeout = Timeout(5.seconds)
+    case GetStoredQuery(id) =>
+      sender() ! StoredQueryResponse(items.get(id))
 
-      val StoredBoolQuery(q) = items.get(storedQueryId)
+  }
 
-      val f = `GET lte*/_search`(q.logInfo(_.builder.toString)).map { resp =>
-        PreviewResponse(resp.hits.map { h =>
-        val vtt: Map[String, String] = h.fieldOpt("vtt").map { value =>
-          val vttSentence = """(.+-\d+)([\s\S]+)""".r
-          value.values().map { e =>
-            e.toString match {
-              case vttSentence(cueid, content) => cueid -> content
-              case _ => e.toString -> "nothing"
-            }
-          }.toMap
-        }.getOrElse(Map.empty[String,String])
+  private def updateState(values: (String, StoredQuery)*) = {
+    items = items ++ values
+    queryResp = queryResp.copy(tags = accumulateItemsTags )
+  }
 
-        val highlightSentence = """(.+\d+-\d+)\s(.+)""".r
-
-        val sentences = h.highlightFields.flatMap { case (_, hf) => hf.getFragments }.map(txt =>
-          txt.string match {
-            case highlightSentence(cueid, highlight) =>
-              vtt.get(cueid).map { _.replaceAll("""(<v\b[^>]*>)[^<>]*(<\/v>)""", s"$$1$highlight}$$2") }.getOrElse(s"$vtt")
-            case _ => txt.string
-          }
-        )
-        s"${h.index}/${h.`type`}/${h.id}" -> sentences.toSeq
-      }.toSet) }
-
-      f pipeTo sender
+  def accumulateItemsTags = {
+    items.values.map { _.tags }.foldLeft(Set.empty[String]){ _ ++ _ }
   }
 }

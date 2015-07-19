@@ -9,8 +9,6 @@ import scala.concurrent.duration._
 object PerRequest {
   case object Ok
   case object NotOk
-
-
 }
 
 trait PerRequest extends Actor with ActorLogging with Directives {

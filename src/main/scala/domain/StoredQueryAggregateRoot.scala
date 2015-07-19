@@ -83,7 +83,7 @@ object StoredQueryAggregateRoot {
 
           case SpanNearBoolClause(terms, field, slop, inOrder, _) =>
 
-            val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 9).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))
+            val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 2).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))
 
             val queries = fields.foldLeft(List.empty[QueryDefinition]) { (acc, field) => {
               terms.foldLeft(new SpanNearQueryDefinition().slop(slop)) { (qb, term) =>
@@ -104,22 +104,6 @@ object StoredQueryAggregateRoot {
         case "must_not" => (clausesTitle, bool.not(qd))
         case "should" => (clausesTitle, bool.should(qd))
       }
-    }
-  }
-
-  object StoredBoolQuery {
-    import com.sksamuel.elastic4s.{QueryStringQueryDefinition, QueryDefinition}
-
-    def unapply(value: AnyRef): Option[QueryDefinition] = try {
-      value match {
-        case s:StoredQuery => Some(s.buildBoolQuery()._2)
-        case Some(s:StoredQuery) => Some(s.buildBoolQuery()._2)
-        case unknown =>
-          println(s"$unknown")
-          Some(new QueryStringQueryDefinition(""))
-      }
-    } catch {
-      case ex: Exception => None
     }
   }
 

@@ -43,10 +43,9 @@ object PercolatorIndex {
   val `inu-percolate/.percolator` = IndexType(`inu-percolate`, `.percolator`.`type`)
   val `inu-percolate/sample` = IndexType(`inu-percolate`, sample.`type`)
 
-
 }
 
-trait PercolatorIndex extends util.ImplicitActorLogging{
+trait PercolatorIndex extends util.ImplicitActorLogging {
   self: Actor ⇒
 
   lazy val `PUT inu-percolate` = {

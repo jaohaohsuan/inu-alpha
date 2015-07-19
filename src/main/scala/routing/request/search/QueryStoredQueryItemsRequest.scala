@@ -2,33 +2,62 @@ package routing.request.search
 
 
 import akka.actor.ActorRef
-import akka.contrib.pattern.ClusterClient.{SendToAll}
-import org.elasticsearch.action.search.SearchResponse
-import routing.request.PerRequest
-import spray.routing._
-import spray.http.StatusCodes._
-import net.hamnaberg.json.collection._
-import util.CollectionJsonSupport
+import akka.contrib.pattern.ClusterClient.SendToAll
 import domain.StoredQueryItemsView._
+import net.hamnaberg.json.collection._
+import routing.request.PerRequest
+import spray.http.StatusCodes._
+import spray.routing._
+import util.CollectionJsonSupport
+
+import scala.util.{Failure, Success}
+
+object StoredBoolQuery {
+  import com.sksamuel.elastic4s.{QueryDefinition, QueryStringQueryDefinition}
+  import domain.StoredQueryAggregateRoot.StoredQuery
+  def unapply(value: AnyRef): Option[QueryDefinition] = try {
+    value match {
+      case s:StoredQuery => Some(s.buildBoolQuery()._2)
+      case Some(s:StoredQuery) => Some(s.buildBoolQuery()._2)
+      case unknown =>
+        println(s"$unknown")
+        Some(new QueryStringQueryDefinition(""))
+    }
+  } catch {
+    case ex: Exception => None
+  }
+}
 
 case class PreviewRequest(ctx: RequestContext,
-                          clusterClient: ActorRef, storedQueryId: String) extends PerRequest with CollectionJsonSupport with util.ImplicitActorLogging {
+                          clusterClient: ActorRef, storedQueryId: String) extends PerRequest
+  with CollectionJsonSupport
+  with elastics.LteIndices
+  with util.ImplicitActorLogging {
 
-  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.Preview(storedQueryId))
+  val client = com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
+
+  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.GetStoredQuery(storedQueryId))
 
   def processResult: Receive = {
-    case PreviewResponse(hits) =>
-      response {
-        URI { href =>
-          complete(OK, JsonCollection(
-             href, List.empty,
-              hits.map {
-                case (location, sentences) =>
-                  Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, List(ListProperty("highlighted", sentences)), List.empty[Link])
-              }.toList)
-          )
-        }
+    case StoredQueryResponse(Some(StoredBoolQuery(qry))) => {
+      import context.dispatcher
+      import elastics.LteIndices._
+      `GET lte*/_search`(qry).onComplete {
+        case Success(resp) =>
+          response {
+            URI { href =>
+              import com.sksamuel.elastic4s.ElasticDsl._
+              val items = resp.hits.map { case LteHighlightFields(location, fragments) =>
+                val data = List(ListProperty("highlight", fragments.map { _._2 }.toSeq))
+                Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, data, List.empty)
+              }
+              complete(OK, JsonCollection(href, List.empty, items.toList))
+            }
+          }
+        case Failure(ex) =>
       }
+
+    }
   }
 }
 

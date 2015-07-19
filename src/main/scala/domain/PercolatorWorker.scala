@@ -1,16 +1,37 @@
 package domain
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorRef}
 import akka.contrib.pattern.ClusterClient.SendToAll
-import akka.pattern._
-import com.sksamuel.elastic4s.BoolQueryDefinition
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import com.sksamuel.elastic4s.QueryDefinition
 import org.elasticsearch.indices.IndexMissingException
 import org.elasticsearch.transport.RemoteTransportException
-import util.ElasticSupport
+
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
+
+object Percolator {
+  import domain.StoredQueryAggregateRoot.StoredQuery
+
+  def unapply(value: AnyRef): Option[(String, QueryDefinition, Map[String, Any])] = try {
+    value match {
+      case e @ StoredQuery(percolatorId, title, clauses, tags) =>
+        val (referredClauses, boolQuery) = e.buildBoolQuery()
+        Some((
+          percolatorId,
+          boolQuery,
+          Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray, "referredClauses" -> referredClauses.toArray)
+          ))
+      case unknown =>
+        println(s"$unknown)")
+        None
+    }
+  } catch {
+    case ex: Exception =>
+      println(s"$ex")
+      None
+  }
+}
 
 class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.node.Node]) extends Actor
   with util.ImplicitActorLogging {
@@ -19,7 +40,6 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
     com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
   )
 
-  import StoredQueryAggregateRoot.{BoolClause, MatchBoolClause, NamedBoolClause, SpanNearBoolClause, StoredQuery}
   import StoredQueryPercolatorProtocol._
   import context.dispatcher
 
@@ -34,12 +54,10 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
       import com.sksamuel.elastic4s.ElasticDsl._
       import elastics.PercolatorIndex._
 
-      val f = Future.traverse(items){
-        case (e @ StoredQuery(percolatorId, title, clauses, tags), version) =>
-          val (referredClauses, boolQuery) = e.buildBoolQuery()
+      val f = Future.traverse(items) {
+        case (Percolator(percolatorId, boolQuery, map), version) =>
           client.execute {
-            (register id percolatorId into `inu-percolate` query boolQuery fields
-              Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray, "referredClauses" -> referredClauses.toArray)).logInfo(_.build.toString)
+            register id percolatorId into `inu-percolate` query boolQuery fields map
           } map { resp => (percolatorId, version) }
       }
 

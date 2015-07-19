@@ -36,12 +36,9 @@ class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Acto
       Future.traverse(tasks) { task => task }.onComplete {
         case Success(results) =>
           results.foreach {
-            case (name, resp:AcknowledgedResponse)=>
+            case (name, resp:AcknowledgedResponse) =>
               log.info(s"$name acknowledged ${resp.isAcknowledged}")
-            case (name, resp:IndicesExistsResponse)=>
-              log.info(s"$name index exist ${resp.isExists}")
-            case (name, resp) =>
-              log.info(s"$name $resp")
+            case (name, resp) => log.info(s"$name $resp")
           }
         case Failure(ex) => ex.logError(e=> s"$e")
 

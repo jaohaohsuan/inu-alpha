@@ -7,11 +7,17 @@ import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing._
 
-case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referredId: Option[String], title: String) extends PerRequest {
+case class SaveAsNewRequest(ctx: RequestContext, clusterClient: ActorRef, referredId: Option[String], title: String, tags: Option[String]) extends PerRequest {
 
   import domain.StoredQueryAggregateRoot._
 
-  clusterClient ! SendToAll(storedQueryAggregateRootSingleton, CreateNewStoredQuery(title, referredId))
+  clusterClient ! SendToAll(storedQueryAggregateRootSingleton,
+                            CreateNewStoredQuery(
+                                title,
+                                referredId,
+                                tags.map { _.split("""\s+""").toSet }.getOrElse(Set.empty)
+                            )
+  )
 
   def processResult = {
     case ItemCreated(StoredQuery(id, title, _, _), _)  =>

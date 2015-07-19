@@ -13,7 +13,9 @@ object StoredQueryRoute {
   val OccurrenceRegex = """^must$|^must_not$|^should$""".r
   val BoolQueryClauseRegex = """^match$|^near$|^named$""".r
 
-  case class NewTemplate(title: String)
+  case class NewTemplate(title: String, tags: Option[String]){
+    require( title.nonEmpty )
+  }
 
   case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String) {
     require(test)
@@ -143,7 +145,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
         actorRefFactory.actorOf(Props(classOf[UpdateRequest], ctx, clusterClient, storedQueryId, title, tags))
 
       case SpanNearClause(query, fields, slop, inOrder, occurrence) =>
-        actorRefFactory.actorOf(requestProps) ! SpanNearBoolClause(query.split(" ").toList, fields, slop, inOrder, occurrence)
+        actorRefFactory.actorOf(requestProps) ! SpanNearBoolClause(query.split("""\s+""").toList, fields, slop, inOrder, occurrence)
 
       case NamedClause(referredId, title, occurrence) =>
         actorRefFactory.actorOf(requestProps) ! NamedBoolClause(referredId, title, occurrence)
@@ -151,8 +153,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
       case MatchClause(query, fields, operator, occurrence) =>
         actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, fields, operator, occurrence)
 
-      case NewTemplate(title) =>
-        actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, Option(storedQueryId).filter(_.trim.nonEmpty), title))
+      case NewTemplate(title, tags) =>
+        actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, Option(storedQueryId).filter(_.trim.nonEmpty), title, tags))
 
       case _ => complete(BadRequest)
     }

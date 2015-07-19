@@ -24,7 +24,7 @@ case class PreviewRequest(ctx: RequestContext,
              href, List.empty,
               hits.map {
                 case (location, sentences) =>
-                  Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, List(ListProperty("sentences", sentences)), List.empty[Link])
+                  Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, List(ListProperty("highlighted", sentences)), List.empty[Link])
               }.toList)
           )
         }

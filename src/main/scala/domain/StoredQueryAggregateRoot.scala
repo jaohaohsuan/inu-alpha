@@ -57,7 +57,7 @@ object StoredQueryAggregateRoot {
 
   val temporaryId: String = "temporary"
 
-  case class CreateNewStoredQuery(title: String, referredId: Option[String]) extends Command
+  case class CreateNewStoredQuery(title: String, referredId: Option[String], tags: Set[String]) extends Command
 
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
@@ -169,10 +169,10 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
 
   val receiveCommand: Receive = {
 
-    case CreateNewStoredQuery(title, referredId) =>
+    case CreateNewStoredQuery(title, referredId, tags) =>
 
       def doPersist(entity: StoredQuery) = {
-        val itemCreated = ItemCreated(entity, state.clausesDependencies ++ entity.clauses.flatMap {
+        val itemCreated = ItemCreated(entity.copy(tags = tags), state.clausesDependencies ++ entity.clauses.flatMap {
           case (k, v: NamedBoolClause) => Some((entity.id, v.storedQueryId) -> k)
           case (k, v) => None
         })
@@ -182,6 +182,7 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
         }
         persist(itemCreated)(afterPersisted(sender(), _))
       }
+
 
 
       referredId.map { state.getItem(_).map { e => state.newItem(title, Some(e)) } } match {
@@ -250,7 +251,7 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
           val updateItem = storedQueryId -> item.copy(
             title = newTitle,
             tags = newTags.map {
-              _.split(" ").toSet
+              _.split("""\s+""").toSet
             }.getOrElse(item.tags))
           val itemsChanged = if (item.title != newTitle) cascadingUpdate(storedQueryId, state.items + updateItem, state.clausesDependencies) else ItemsChanged(Seq(updateItem), List(storedQueryId), state.clausesDependencies)
 

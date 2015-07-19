@@ -145,23 +145,35 @@ class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActor
                                             .getOrElse(queryStringQuery(""))
 
       val f = client.execute {
-        (search in "lte*" query queries highlighting(
+        (search in "lte*" query queries fields("vtt") highlighting(
           options requireFieldMatch true preTags "<b>" postTags "</b>",
           highlight field "agent*" fragmentSize 50000,
           highlight field "customer*" fragmentSize 50000,
           highlight field "dialogs" fragmentSize 50000)).logInfo()
-      }.map { resp => PreviewResponse(resp.hits.map { h =>
+      }.map { resp =>
 
-        val sentence = """((agent|customer)\d{1,2}-\d+)\s(.+)""".r
-        val sentences = h.highlightFields.flatMap { case (_, hf) => hf.getFragments }.flatMap(txt =>
-          /*txt.string match {
-            case sentence(cue, value) => Some((cue, value))
-            case _ => None
-          }*/
-          Some(txt.string)
-        ).toSeq
+        PreviewResponse(resp.hits.map { h =>
 
-        s"${h.index}/${h.`type`}/${h.id}" -> sentences
+        val vtt: Map[String, String] = h.fieldOpt("vtt").map { value =>
+          val vttSentence = """(.+-\d+)([\s\S]+)""".r
+          value.values().map { e =>
+            e.toString match {
+              case vttSentence(cueid, content) => cueid -> content
+              case _ => e.toString -> "nothing"
+            }
+          }.toMap
+        }.getOrElse(Map.empty[String,String])
+
+        val highlightSentence = """(.+\d+-\d+)\s(.+)""".r
+
+        val sentences = h.highlightFields.flatMap { case (_, hf) => hf.getFragments }.map(txt =>
+          txt.string match {
+            case highlightSentence(cueid, highlight) =>
+              vtt.get(cueid).map { _.replaceAll("""(<v\b[^>]*>)[^<>]*(<\/v>)""", s"$$1$highlight}$$2") }.getOrElse(s"$vtt")
+            case _ => txt.string
+          }
+        )
+        s"${h.index}/${h.`type`}/${h.id}" -> sentences.toSeq
       }.toSet) }
 
       f pipeTo sender

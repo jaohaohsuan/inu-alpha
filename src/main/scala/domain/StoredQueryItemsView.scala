@@ -6,7 +6,7 @@ import akka.persistence.PersistentView
 import akka.util.Timeout
 import org.elasticsearch.node.Node
 import org.elasticsearch.search.highlight.HighlightField
-import util.{ElasticSupport, ImplicitActorLogging}
+import util.{ImplicitActorLogging}
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 
@@ -31,10 +31,30 @@ object StoredQueryItemsView {
   }
 
   object StoredQueryItem {
-    def apply(hit : com.sksamuel.elastic4s.RichSearchHit): StoredQueryItem = {
-      StoredQueryItem(hit.field("title").value[String],
-        hit.fieldOpt("tags").map { _.values().mkString(" ") },
-        Some("enabled"))
+    import com.sksamuel.elastic4s.RichSearchHit
+    def apply(h: RichSearchHit) = {
+      val StoredQueryItemExtractor(s) = h
+      s
+    }
+  }
+
+  object StoredQueryItemExtractor {
+
+    import com.sksamuel.elastic4s.RichSearchHit
+
+    def unapply(h: RichSearchHit): Option[StoredQueryItem] = try {
+      Some(StoredQueryItem(
+        title = h.field("title").value[String],
+        tags = h.fieldOpt("tags").map { _.values().mkString(" ") },
+        status = Some("enabled")
+      ))
+    } catch {
+      case ex: Exception => None
+    }
+
+    def apply(h: RichSearchHit): StoredQueryItem = {
+      val StoredQueryItemExtractor(s) = h
+      s
     }
   }
 
@@ -72,7 +92,7 @@ object StoredQueryItemsView {
   val storedQueryItemsViewSingleton = "/user/stored-query-items-view/active"
 }
 
-class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging {
+class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActorLogging with elastics.LteIndices {
 
   val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
 
@@ -140,20 +160,10 @@ class StoredQueryItemsView(node: Node) extends PersistentView with ImplicitActor
       import com.sksamuel.elastic4s.ElasticDsl._
       implicit val timeout = Timeout(5.seconds)
 
-      val queries = items.get(storedQueryId).map { _.buildBoolQuery() }
-                                            .map { case (_, q) => q }
-                                            .getOrElse(queryStringQuery(""))
+      val StoredBoolQuery(q) = items.get(storedQueryId)
 
-      val f = client.execute {
-        (search in "lte*" query queries fields("vtt") highlighting(
-          options requireFieldMatch true preTags "<b>" postTags "</b>",
-          highlight field "agent*" fragmentSize 50000,
-          highlight field "customer*" fragmentSize 50000,
-          highlight field "dialogs" fragmentSize 50000)).logInfo()
-      }.map { resp =>
-
+      val f = `GET lte*/_search`(q.logInfo(_.builder.toString)).map { resp =>
         PreviewResponse(resp.hits.map { h =>
-
         val vtt: Map[String, String] = h.fieldOpt("vtt").map { value =>
           val vttSentence = """(.+-\d+)([\s\S]+)""".r
           value.values().map { e =>

@@ -29,12 +29,15 @@ object StoredQueryRoute {
   }
 
   case class SpanNearClause(query: String,
-                            fields: String,
-                            slop: Option[Int],
+                            field: String,
+                            slop: Int,
                             inOrder: Boolean,
                             occurrence: String){
     require(test)
-    def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty && (slop.isEmpty || slop.get > 0)
+    require(field.nonEmpty)
+    require(singleField, s"single field only")
+    def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
+    def singleField = """\s+""".r.findFirstIn(field).isEmpty
 
   }
 }
@@ -76,7 +79,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
                 URI { href =>
                   val template = Template(clauseType match {
                     case "match" => MatchClause("sample", "dialogs", "AND", "must")
-                    case "near" => SpanNearClause("sample", "dialogs" , Some(10), false, "should")
+                    case "near" => SpanNearClause("sample", "dialogs" ,10, false, "should")
                     case "named" => NamedClause("12345", "sample", "must_not")
                   })
                   complete(OK, JsonCollection(href, List.empty, List.empty, List.empty, Some(template)))

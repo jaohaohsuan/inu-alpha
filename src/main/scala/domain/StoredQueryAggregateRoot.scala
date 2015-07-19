@@ -6,6 +6,7 @@ import akka.persistence._
 import algorithm.TopologicalSort._
 import com.sksamuel.elastic4s.BoolQueryDefinition
 import org.elasticsearch.node.Node
+import scala.collection.Iterable
 import scala.util.{Failure, Success, Try}
 
 object StoredQueryAggregateRoot {
@@ -45,8 +46,8 @@ object StoredQueryAggregateRoot {
 
   case class MatchBoolClause(query: String, fields: String, operator: String, occurrence: String) extends UnalliedBoolClause
 
-  case class SpanNearBoolClause(terms: List[String], fields: String,
-                                slop: Option[Int],
+  case class SpanNearBoolClause(terms: List[String], field: String,
+                                slop: Int,
                                 inOrder: Boolean, occurrence: String) extends UnalliedBoolClause
 
   case class AddClause(storedQueryId: String, clause: BoolClause) extends Command
@@ -80,13 +81,17 @@ object StoredQueryAggregateRoot {
               .fields(fields.split(" "))
               .operator(operator.toUpperCase).matchType("best_fields"))
 
-          case SpanNearBoolClause(terms, fields, slop, inOrder, _) =>
-            val spanNear = new SpanNearQueryDefinition()
-            (clausesTitle, bool, terms.foldLeft(slop.map {
-              spanNear.slop
-            }.getOrElse(spanNear)) { (qb, term) =>
-              qb.clause(new SpanTermQueryDefinition(fields, term))
-            }.inOrder(inOrder).collectPayloads(false))
+          case SpanNearBoolClause(terms, field, slop, inOrder, _) =>
+
+            val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 9).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))
+
+            val queries = fields.foldLeft(List.empty[QueryDefinition]) { (acc, field) => {
+              terms.foldLeft(new SpanNearQueryDefinition().slop(slop)) { (qb, term) =>
+                qb.clause(new SpanTermQueryDefinition(field, term))
+              }.inOrder(inOrder).collectPayloads(false) :: acc
+            }}
+
+            (clausesTitle, bool, new BoolQueryDefinition().should(queries))
 
           case NamedBoolClause(_, title, _, clauses) =>
             val (accClausesTitle, innerBool) = clauses.values.foldLeft((title :: clausesTitle, new BoolQueryDefinition))(assembleBoolQuery)
@@ -99,6 +104,22 @@ object StoredQueryAggregateRoot {
         case "must_not" => (clausesTitle, bool.not(qd))
         case "should" => (clausesTitle, bool.should(qd))
       }
+    }
+  }
+
+  object StoredBoolQuery {
+    import com.sksamuel.elastic4s.{QueryStringQueryDefinition, QueryDefinition}
+
+    def unapply(value: AnyRef): Option[QueryDefinition] = try {
+      value match {
+        case s:StoredQuery => Some(s.buildBoolQuery()._2)
+        case Some(s:StoredQuery) => Some(s.buildBoolQuery()._2)
+        case unknown =>
+          println(s"$unknown")
+          Some(new QueryStringQueryDefinition(""))
+      }
+    } catch {
+      case ex: Exception => None
     }
   }
 

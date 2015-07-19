@@ -5,7 +5,7 @@ import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.mappings.DynamicMapping._
 import com.sksamuel.elastic4s.mappings.FieldType._
 import com.sksamuel.elastic4s.mappings.{DynamicTemplateDefinition, StringFieldDefinition}
-import com.sksamuel.elastic4s.{ElasticClient, WhitespaceAnalyzer}
+import com.sksamuel.elastic4s.{QueryDefinition, ElasticClient, WhitespaceAnalyzer}
 
 object LteTemplate {
   object fields {

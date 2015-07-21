@@ -62,27 +62,23 @@ object StoredQueryAggregateRoot {
 
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
-
   case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty) {
 
-    def buildBoolQuery() = clauses.values.foldLeft((List.empty[String], new BoolQueryDefinition))(assembleBoolQuery)
+    def buildBoolQuery() = clauses.values.foldLeft((List.empty[String],List.empty[String], new BoolQueryDefinition))(assembleBoolQuery)
 
-    def assembleBoolQuery(acc: (List[String], BoolQueryDefinition), clause: BoolClause): (List[String], BoolQueryDefinition) = {
+    def assembleBoolQuery(acc: (List[String], List[String], BoolQueryDefinition), clause: BoolClause): (List[String], List[String], BoolQueryDefinition) = {
 
       import com.sksamuel.elastic4s._
 
-      val (clausesTitle, bool, qd ) = {
-
-        val (clausesTitle, bool) = acc
-
+      val (clausesTitle, keywords, bool, qd) = {
+        val (clausesTitle, keywords, bool) = acc
         clause match {
           case MatchBoolClause(query, fields, operator, _) =>
-            (clausesTitle, bool, new MultiMatchQueryDefinition(query)
-              .fields(fields.split(" "))
-              .operator(operator.toUpperCase).matchType("best_fields"))
+           (clausesTitle, keywords ++ query.split("""\s+"""), bool,
+             new MultiMatchQueryDefinition(query).fields(fields.split("""\s+""")).operator(operator.toUpperCase).matchType("best_fields")
+           )
 
           case SpanNearBoolClause(terms, field, slop, inOrder, _) =>
-
             val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 2).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))
 
             val queries = fields.foldLeft(List.empty[QueryDefinition]) { (acc, field) => {
@@ -90,19 +86,18 @@ object StoredQueryAggregateRoot {
                 qb.clause(new SpanTermQueryDefinition(field, term))
               }.inOrder(inOrder).collectPayloads(false) :: acc
             }}
-
-            (clausesTitle, bool, new BoolQueryDefinition().should(queries))
+            (clausesTitle, keywords ++ terms , bool, new BoolQueryDefinition().should(queries))
 
           case NamedBoolClause(_, title, _, clauses) =>
-            val (accClausesTitle, innerBool) = clauses.values.foldLeft((title :: clausesTitle, new BoolQueryDefinition))(assembleBoolQuery)
-            (accClausesTitle, bool, innerBool)
+            val (accClausesTitle, accKeywords, innerBool) = clauses.values.foldLeft((title :: clausesTitle, keywords, new BoolQueryDefinition))(assembleBoolQuery)
+            (accClausesTitle, accKeywords , bool, innerBool)
         }
       }
 
       clause.occurrence match {
-        case "must" => (clausesTitle, bool.must(qd))
-        case "must_not" => (clausesTitle, bool.not(qd))
-        case "should" => (clausesTitle, bool.should(qd))
+        case "must" => (clausesTitle, keywords, bool.must(qd))
+        case "must_not" => (clausesTitle, keywords, bool.not(qd))
+        case "should" => (clausesTitle, keywords, bool.should(qd))
       }
     }
   }

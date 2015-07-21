@@ -4,9 +4,12 @@ package routing.request.search
 import akka.actor.ActorRef
 import akka.contrib.pattern.ClusterClient.SendToAll
 import domain.StoredQueryItemsView._
+import elastics.LteIndices.VttHighlightFragment
 import net.hamnaberg.json.collection._
+import org.json4s.JsonAST.{JString, JValue, JArray, JObject}
 import routing.request.PerRequest
 import spray.http.StatusCodes._
+import spray.http.Uri.Path
 import spray.routing._
 import util.CollectionJsonSupport
 
@@ -17,8 +20,8 @@ object StoredBoolQuery {
   import domain.StoredQueryAggregateRoot.StoredQuery
   def unapply(value: AnyRef): Option[QueryDefinition] = try {
     value match {
-      case s:StoredQuery => Some(s.buildBoolQuery()._2)
-      case Some(s:StoredQuery) => Some(s.buildBoolQuery()._2)
+      case s:StoredQuery => Some(s.buildBoolQuery()._3)
+      case Some(s:StoredQuery) => Some(s.buildBoolQuery()._3)
       case unknown =>
         println(s"$unknown")
         Some(new QueryStringQueryDefinition(""))
@@ -45,13 +48,17 @@ case class PreviewRequest(ctx: RequestContext,
       `GET lte*/_search`(qry).onComplete {
         case Success(resp) =>
           response {
-            URI { href =>
+            requestUri { uri =>
               import com.sksamuel.elastic4s.ElasticDsl._
               val items = resp.hits.map { case LteHighlightFields(location, fragments) =>
-                val data = List(ListProperty("highlight", fragments.map { _._2 }.toSeq))
-                Item(s"$href".replaceAll(""":\d.*""", s":9200/$location").uri, data, List.empty)
+
+                val hl = ListProperty("highlight", fragments.map { case VttHighlightFragment(cueid, subtitle, _) => s"$cueid}\n$subtitle" }.toSeq )
+
+                val keywords = ValueProperty("keywords", Some(fragments.map { _.keywords }.mkString(" ")))
+
+                Item( s"${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}".uri, List(hl,keywords), List.empty)
               }
-              complete(OK, JsonCollection(href, List.empty, items.toList))
+              complete(OK, JsonCollection(s"$uri".uri, List.empty, items.toList))
             }
           }
         case Failure(ex) =>

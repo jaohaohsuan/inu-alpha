@@ -4,6 +4,8 @@ import akka.actor._
 import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence.PersistentView
 import akka.util.Timeout
+import com.sksamuel.elastic4s.DefinitionAttributes.{DefinitionAttributeBoost, DefinitionAttributeRewrite}
+import com.sksamuel.elastic4s.QueryDefinition
 import org.elasticsearch.node.Node
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
@@ -47,21 +49,12 @@ object StoredQueryItemsView {
   object StoredQueryItem {
     import com.sksamuel.elastic4s.RichSearchHit
     def apply(h: RichSearchHit) = {
-      val StoredQueryItemExtractor(s) = h
-      s
+      val Some(x) = extract(h)
+      x
     }
-  }
-
-  object StoredQueryItemExtractor {
 
     import com.sksamuel.elastic4s.RichSearchHit
-
-    def apply(h: RichSearchHit): StoredQueryItem = {
-      val StoredQueryItemExtractor(s) = h
-      s
-    }
-
-    def unapply(h: RichSearchHit): Option[StoredQueryItem] = try {
+    def extract(h: RichSearchHit): Option[StoredQueryItem] = try {
       Some(StoredQueryItem(
         title = h.field("title").value[String],
         tags = h.fieldOpt("tags").map { _.values().mkString(" ") },
@@ -73,7 +66,7 @@ object StoredQueryItemsView {
   }
 }
 
-class StoredQueryItemsView(node: Node) extends PersistentView with util.ImplicitActorLogging with elastics.LteIndices {
+class StoredQueryItemsView(node: Node) extends PersistentView with util.ImplicitActorLogging with elastics.PercolatorIndex {
 
   override val viewId: String = "stored-query-aggregate-root-view"
 
@@ -113,14 +106,12 @@ class StoredQueryItemsView(node: Node) extends PersistentView with util.Implicit
 
     case q: Query =>
       import com.sksamuel.elastic4s.ElasticDsl._
-      import elastics.PercolatorIndex._
+
       implicit val timeout = Timeout(5.seconds)
 
-      client.execute {
-          search in `inu-percolate/.percolator` query bool { must { q.asQueryDefinitions }} fields ("title", "tags") size 50
-      } map {
+      `GET inu-percolate/.percolator/_search`(q.asQueryDefinitions).map {
         resp => queryResp.copy(items = resp.hits.map { h => h.id -> StoredQueryItem(h) }.toSet)
-      } recover { case ex =>
+      }.recover { case ex =>
         ex.logError()
         queryResp } pipeTo sender()
 

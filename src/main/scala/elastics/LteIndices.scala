@@ -2,7 +2,7 @@ package elastics
 
 import akka.actor.Actor
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.{RichSearchHit, RichSearchResponse, ElasticClient, QueryDefinition}
+import com.sksamuel.elastic4s.{ElasticClient, QueryDefinition, RichSearchHit}
 import org.elasticsearch.action.search.SearchResponse
 
 import scala.collection.immutable.Iterable
@@ -10,6 +10,7 @@ import scala.concurrent.Future
 
 object LteIndices {
 
+  case class VttHighlightFragment(cueid: String, subtitle: String, keywords: String)
 
   object VttField {
 
@@ -32,18 +33,34 @@ object LteIndices {
 
   object LteHighlightFields {
 
-    def unapply(h: RichSearchHit): Option[(String, Iterable[(String, String)])] = {
-      val VttField(vtt) = h
-      val highlightSentence = """((agent|customer)\d{1,2}-\d+)\s([\s\S]+)""".r
-      val fragments = h.highlightFields.flatMap { case (_, hf) => hf.getFragments }.flatMap { txt =>
-        txt.string match {
-          case highlightSentence(cueid, _, highlight) =>
-            Some(cueid -> vtt.get(cueid).map {
-              _.replaceAll( """(<v\b[^>]*>)[^<>]*(<\/v>)""", s"$$1$highlight$$2")
-            }.getOrElse(s"$vtt"))
-          case _ => None
-        }
+    def splitFragment(fragment: org.elasticsearch.common.text.Text) =
+      ("""(?:(?:agent|customer)\d-\d+\b)(?:[^\n]*[<>]+[^\n]*)""".r findAllIn fragment.string()).toList
+
+    def substitute(vtt: Map[String,String])(txt: String) = {
+      val highlightedSentence = """((?:agent|customer)\d{1,2}-\d+)\s([\s\S]+)""".r
+
+      val tagText = """(?:<\w+\b[^>]*>)([^<>]*)(?:<\/\w+>)""".r
+
+      txt match {
+        case highlightedSentence(cueid, highlight) =>
+          Some(VttHighlightFragment(
+          cueid,
+          vtt.get(cueid).map {
+            _.replaceAll( """(<v\b[^>]*>)[^<>]*(<\/v>)""", s"$$1$highlight$$2")
+            }.getOrElse(s"'$cueid' key doesn't exist in vtt."),
+            (for (m <- tagText findAllMatchIn highlight) yield m group 1).mkString(" ")))
+        case _ =>
+          println(s"highlightedSentence '$txt' unmatched.")
+          None
       }
+    }
+
+    def unapply(h: RichSearchHit): Option[(String, Iterable[VttHighlightFragment])] = {
+
+      val VttField(vtt) = h
+
+      val fragments = h.highlightFields
+        .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }.flatMap (substitute(vtt)(_))
 
       Some((s"${h.index}/${h.`type`}/${h.id}", fragments))
     }
@@ -56,12 +73,15 @@ trait LteIndices {
 
   def client: ElasticClient
 
-  def `GET lte*/_search`(q: QueryDefinition): Future[SearchResponse] = {
-    client.execute { search in "lte*" query q fields("vtt") highlighting(
+  def `GET lte*/_search`(block: QueryDefinition): Future[SearchResponse] = {
+
+    val request = search in "lte*" query block fields "vtt" highlighting(
       options requireFieldMatch true preTags "<b>" postTags "</b>",
       highlight field "agent*" fragmentSize 50000,
       highlight field "customer*" fragmentSize 50000,
-      highlight field "dialogs" fragmentSize 50000) }
+      highlight field "dialogs" fragmentSize 50000)
+    request.show
+    client.execute { request }
   }
 
 }

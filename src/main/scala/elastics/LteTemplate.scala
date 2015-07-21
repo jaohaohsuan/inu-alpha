@@ -4,7 +4,7 @@ import akka.actor.Actor
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.mappings.DynamicMapping._
 import com.sksamuel.elastic4s.mappings.FieldType._
-import com.sksamuel.elastic4s.mappings.{DynamicTemplateDefinition, StringFieldDefinition}
+import com.sksamuel.elastic4s.mappings.{TermVector, DynamicTemplateDefinition, StringFieldDefinition}
 import com.sksamuel.elastic4s.{QueryDefinition, ElasticClient, WhitespaceAnalyzer}
 
 object LteTemplate {
@@ -17,6 +17,8 @@ object LteTemplate {
       field typed StringType analyzer WhitespaceAnalyzer
     }
 
+    val vtt: StringFieldDefinition = "vtt" typed StringType analyzer WhitespaceAnalyzer
+
     val dialogs: StringFieldDefinition = "dialogs" typed StringType analyzer WhitespaceAnalyzer
 
     val parties: StringFieldDefinition = "parties" typed StringType analyzer WhitespaceAnalyzer
@@ -26,7 +28,7 @@ object LteTemplate {
     import fields._
     lazy val default =
       mapping("_default_") as Seq(
-        "vtt" typed StringType,
+        vtt,
         "path" typed StringType index "not_analyzed",
         dialogs
       ) all false source true dynamic Dynamic templates(agent, customer)

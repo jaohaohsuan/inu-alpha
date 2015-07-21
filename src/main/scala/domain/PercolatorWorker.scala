@@ -3,6 +3,7 @@ package domain
 import akka.actor.{Actor, ActorRef}
 import akka.contrib.pattern.ClusterClient.SendToAll
 import com.sksamuel.elastic4s.QueryDefinition
+import com.sksamuel.elastic4s.mappings.{BooleanFieldDefinition, FieldDefinition}
 import org.elasticsearch.indices.IndexMissingException
 import org.elasticsearch.transport.RemoteTransportException
 
@@ -11,16 +12,27 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 object Percolator {
+
+  import elastics.PercolatorIndex.fields._
   import domain.StoredQueryAggregateRoot.StoredQuery
 
   def unapply(value: AnyRef): Option[(String, QueryDefinition, Map[String, Any])] = try {
+
+    import scala.language.implicitConversions
+
+    implicit def toXX(f: FieldDefinition): String = f.name
+
     value match {
-      case e @ StoredQuery(percolatorId, title, clauses, tags) =>
-        val (referredClauses, boolQuery) = e.buildBoolQuery()
+      case e: StoredQuery =>
+        val (referredClausesList, keywordsList, boolQuery) = e.buildBoolQuery()
         Some((
-          percolatorId,
-          boolQuery,
-          Map("enabled" -> true, "title" -> title, "tags" -> tags.toArray, "referredClauses" -> referredClauses.toArray)
+          e.id, boolQuery,
+          Map[String,Any](
+            (title, e.title),
+            (tags, e.tags.toArray),
+            (enabled, true),
+            (keywords, keywordsList.toArray),
+            (referredClauses,referredClausesList.toArray))
           ))
       case unknown =>
         println(s"$unknown)")

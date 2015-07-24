@@ -34,7 +34,7 @@ object Main {
       withFallback(ConfigFactory.load("rest"))
     implicit val system = ActorSystem("HttpSystem", conf)
 
-    val service = system.actorOf(Props[ServiceActor], "service")
+    val service = system.actorOf(Props(classOf[ServiceActor], Some(ClusterBoot.node)), "service")
 
     implicit val timeout = Timeout(5.seconds)
     IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = httpPort)

@@ -28,8 +28,8 @@ case class GetStoredQueryClausesRequest(ctx: RequestContext, clusterClient: Acto
           val items = clauses.map {
             case (id, NamedBoolClause(referredId, title, occurrence, _)) =>
               Item(href.resolve(s"named/$id"), NamedClause(referredId, title, occurrence), links = List.empty)
-            case (id, MatchBoolClause(query, fields, operator, occurrence)) =>
-              Item(href.resolve(s"match/$id"), MatchClause(query, fields, operator, occurrence), links = List.empty)
+            case (id, MatchBoolClause(query, field, operator, occurrence)) =>
+              Item(href.resolve(s"match/$id"), MatchClause(query, field, operator, occurrence), links = List.empty)
             case (id, SpanNearBoolClause(terms, fields, slop, inOrder, occurrence)) =>
               Item(href.resolve(s"near/$id"), SpanNearClause(terms.mkString(" "), fields, slop, inOrder, occurrence), links = List.empty)
           }.toList

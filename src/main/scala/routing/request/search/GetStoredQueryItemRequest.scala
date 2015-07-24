@@ -23,7 +23,7 @@ case class GetStoredQueryItemRequest(ctx: RequestContext,
           val template = Template(item.copy(status = None))
 
           complete(OK, JsonCollection(
-            new java.net.URI(s"$href".replaceAll("""/\w*$""", "")),
+            s"$href".replaceAll("""/\w*$""", "").uri,
             links = List.empty,
             List(Item(href, item, itemLinks(href.resolve(s"$id/occur")))),
             List.empty, Some(template)
@@ -40,6 +40,7 @@ case class GetStoredQueryItemRequest(ctx: RequestContext,
 
   def itemLinks(href: java.net.URI): List[Link] =
     List(
+      Link(href.resolve("preview"),  rel = "preview", name = Some("preview")),
       Link(href.resolve("must"),     rel = "section", name = Some("must")),
       Link(href.resolve("must_not"), rel = "section", name = Some("must_not")),
       Link(href.resolve("should"),   rel = "section", name = Some("should")),

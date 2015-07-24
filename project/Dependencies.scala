@@ -23,6 +23,7 @@ object Library {
   val hashids = "com.timesprint" %% "hashids-scala" % "1.0.0"
   val log4j = "log4j" % "log4j" % "1.2.17"
   val nscalaTime = "com.github.nscala-time" %% "nscala-time" % "2.0.0"
+  val scopt = "com.github.scopt" %% "scopt" % "3.3.0"
 }
 
 object Dependencies {
@@ -48,6 +49,7 @@ object Dependencies {
     logbackClassic,
     hashids,
     log4j,
-    nscalaTime
+    nscalaTime,
+    scopt
   )
 }

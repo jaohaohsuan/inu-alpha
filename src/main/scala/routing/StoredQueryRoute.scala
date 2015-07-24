@@ -13,6 +13,10 @@ object StoredQueryRoute {
   val OccurrenceRegex = """^must$|^must_not$|^should$""".r
   val BoolQueryClauseRegex = """^match$|^near$|^named$""".r
 
+  def singleField(field: String) = """\s+""".r.findFirstIn(field).isEmpty
+  def queryFieldConstrain(field: String) = field.matches("""^dialogs$|^agent\*$|^customer\*$""")
+  
+
   case class NewTemplate(title: String, tags: Option[String]){
     require( title.nonEmpty )
   }
@@ -22,10 +26,13 @@ object StoredQueryRoute {
     def test = occurrence.matches(OccurrenceRegex.toString())
   }
 
-  case class MatchClause(query: String, fields: String, operator: String, occurrence: String) {
+  case class MatchClause(query: String, field: String, operator: String, occurrence: String) {
     require(test)
+    require(singleField(field), s"single field only")
+    require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
     def test =
       operator.matches("^[oO][rR]$|^[Aa][Nn][Dd]$") && occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
+
   }
 
   case class SpanNearClause(query: String,
@@ -35,10 +42,9 @@ object StoredQueryRoute {
                             occurrence: String){
     require(test)
     require(field.nonEmpty)
-    require(singleField, s"single field only")
+    require(singleField(field), s"single field only")
+    require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
     def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
-    def singleField = """\s+""".r.findFirstIn(field).isEmpty
-
   }
 }
 
@@ -77,11 +83,23 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
             pathPrefix( BoolQueryClauseRegex ) { clauseType =>
               pathEnd {
                 URI { href =>
-                  val template = Template(clauseType match {
-                    case "match" => MatchClause("sample", "dialogs", "AND", "must")
-                    case "near" => SpanNearClause("sample", "dialogs" ,10, false, "should")
-                    case "named" => NamedClause("12345", "sample", "must_not")
-                  })
+
+                  def asPropertyList(cc: AnyRef) =
+                    (List[ValueProperty]() /: cc.getClass.getDeclaredFields) {(acc, f) =>
+                      f.setAccessible(true)
+                      val field = f.getName
+                      val value = s"${f.get(cc)}"
+                      acc.::(field match {
+                        case "field" => ValueProperty(field, Some("dialogs agent* customer*"), Some(value))
+                        case _ =>  ValueProperty(field, None, Some(value))
+                      })
+                    }
+
+                  val template = clauseType match {
+                    case "match" => Template(asPropertyList(MatchClause("sample", "dialogs", "AND", "must")))
+                    case "near" => Template(asPropertyList(SpanNearClause("sample", "dialogs" ,10, false, "should")))
+                    case "named" => Template(NamedClause("12345", "sample", "must_not"))
+                  }
                   complete(OK, JsonCollection(href, List.empty, List.empty, List.empty, Some(template)))
                 }
               } ~
@@ -153,8 +171,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
       case NamedClause(referredId, title, occurrence) =>
         actorRefFactory.actorOf(requestProps) ! NamedBoolClause(referredId, title, occurrence)
 
-      case MatchClause(query, fields, operator, occurrence) =>
-        actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, fields, operator, occurrence)
+      case MatchClause(query, field, operator, occurrence) =>
+        actorRefFactory.actorOf(requestProps) ! MatchBoolClause(query, field, operator, occurrence)
 
       case NewTemplate(title, tags) =>
         actorRefFactory.actorOf(Props(classOf[SaveAsNewRequest], ctx, clusterClient, Option(storedQueryId).filter(_.trim.nonEmpty), title, tags))

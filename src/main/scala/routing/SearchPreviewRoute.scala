@@ -1,16 +1,16 @@
 package routing
 
+import elastics.LteIndices.VttField
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.get.{GetRequest, GetResponse}
 import org.elasticsearch.action.percolate.PercolateResponse
-import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.client.{Client, Requests}
-import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.highlight.HighlightBuilder
 import spray.http.StatusCodes._
 import spray.routing.HttpService
 import util.{CorsSupport, WebvttSupport}
+
 import scala.collection.JavaConversions._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -18,13 +18,21 @@ import scala.util.{Failure, Success}
 
 trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport {
 
-  val client: Client = new TransportClient().addTransportAddress(new InetSocketTransportAddress("127.0.0.1", 9300))
+  import scala.concurrent.ExecutionContext.Implicits.global
 
-  def getDoc(index: String,
-             tpe: String, id: String) = Requests.getRequest(index).`type`(tpe).id(id)
+  def client: Client
 
-  def percolate(getRequest: GetRequest,
-                params: Map[String, String]): Future[PercolateResponse] = {
+  def getDoc(getRequest: GetRequest) = {
+    val p = Promise[GetResponse]()
+    val listener = new ActionListener[GetResponse] {
+      def onFailure(e: Throwable): Unit = p.tryFailure(e)
+      def onResponse(resp: GetResponse): Unit = p.trySuccess(resp)
+    }
+    client.get(getRequest.fields("vtt"), listener)
+    p.future
+  }
+
+  def percolate(getRequest: GetRequest, params: Map[String, String]): Future[PercolateResponse] = {
 
     def must(bool: BoolQueryBuilder, param: (String, String)) =
       bool.must(QueryBuilders.matchQuery(param._1, param._2))
@@ -47,12 +55,33 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
       def onFailure(e: Throwable): Unit = p.tryFailure(e)
       def onResponse(resp: PercolateResponse): Unit = p.trySuccess(resp)
     }
-
     client.percolate(percolateRequest, listener)
     p.future
   }
+  
+  def highlightWebVTT(index: String, tpe: String, id: String)(implicit params: Map[String, String]) = {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
+    import elastics.LteIndices.SearchHitHighlightFields._
+    
+    getDoc(Requests.getRequest(index).`type`(tpe).id(id))
+      .zip(percolate(Requests.getRequest(index).`type`(tpe).id(id),params))
+      .map { case(VttField(vtt), percolateResp) =>
+
+      def substitute(vtt: Map[String, String])(txt: String): Option[(String, String)] = txt match {
+        case highlightedSentence(cueid, highlight) =>
+          for {
+            subtitle <- vtt.get(cueid)
+            tag <- party.findFirstIn(cueid).map { txt => s"c.$txt" }
+          } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=)em(?=>)""", tag)
+        case _ => None
+      }
+
+      vtt ++ percolateResp.getMatches()
+        .flatMap { m => m.getHighlightFields }
+        .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
+        .flatMap { substitute(vtt)(_) }
+    }
+  }
 
   def `_search/preview` = cors {
     get {
@@ -60,46 +89,8 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
         complete(OK)
       } ~
         path("_vtt" / Segment / Segment / Segment) { (index, tpe, id) =>
-          parameterMap { params => {
-
-            val p = Promise[GetResponse]()
-            val listener = new ActionListener[GetResponse] {
-              def onFailure(e: Throwable): Unit = p.tryFailure(e)
-              def onResponse(resp: GetResponse): Unit = p.trySuccess(resp)
-            }
-            client.get(getDoc(index,tpe,id).fields("vtt"), listener)
-
-            val f = p.future.zip(percolate(getDoc(index,tpe,id),params)).map { case (doc,percolateResp) =>
-
-              def substitute(vtt: Map[String, String],txt: String) = {
-                val highlightedSentence = """((?:agent|customer)\d{1,2}-\d+)\s([\s\S]+)""".r
-                txt match {
-                  case highlightedSentence(cueid, highlight) =>
-                    Some(cueid -> vtt.get(cueid).map {
-                      _.replaceAll( """(<v\b[^>]*>)[^<>]*(<\/v>)""", s"$$1$highlight$$2")
-                    }.getOrElse(s"'$cueid' key doesn't exist in vtt."))
-                  case _ =>
-                    println(s"highlightedSentence '$txt' unmatched.")
-                    None
-                }
-              }
-
-              def splitFragment(fragment: org.elasticsearch.common.text.Text) =
-                ("""(?:(?:agent|customer)\d-\d+\b)(?:[^\n]*[<>]+[^\n]*)""".r findAllIn fragment.string()).toList
-
-              val vtt = doc.getField("vtt").getValues().foldLeft(Map.empty[String,String]){ (acc, v) => {
-                val line = """(.+-\d+)\s([\s\S]+)\s$""".r
-                val line(cueid, content) = s"$v"
-                acc + (cueid -> content)
-              }}
-
-              vtt ++ percolateResp.getMatches()
-                .flatMap { m => m.getHighlightFields() }
-                .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
-                .flatMap { substitute(vtt, _) }
-            }
-
-            onComplete(f) {
+          parameterMap { implicit params => {
+            onComplete(highlightWebVTT(index, tpe, id)) {
               case Success(value) =>
                 respondWithMediaType(`text/vtt`) {
                   complete(OK, value)

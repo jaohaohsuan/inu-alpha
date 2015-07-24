@@ -104,4 +104,7 @@ project/plugins/project/
 .scala_dependencies
 .worksheet
 
+# user customize
+logstash-1.5.2
+
 

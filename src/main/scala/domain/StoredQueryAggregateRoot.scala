@@ -44,7 +44,7 @@ object StoredQueryAggregateRoot {
                              occurrence: String,
                              clauses: Map[Int, BoolClause] = Map.empty) extends BoolClause
 
-  case class MatchBoolClause(query: String, fields: String, operator: String, occurrence: String) extends UnalliedBoolClause
+  case class MatchBoolClause(query: String, field: String, operator: String, occurrence: String) extends UnalliedBoolClause
 
   case class SpanNearBoolClause(terms: List[String], field: String,
                                 slop: Int,
@@ -73,9 +73,9 @@ object StoredQueryAggregateRoot {
       val (clausesTitle, keywords, bool, qd) = {
         val (clausesTitle, keywords, bool) = acc
         clause match {
-          case MatchBoolClause(query, fields, operator, _) =>
+          case MatchBoolClause(query, field, operator, _) =>
            (clausesTitle, keywords ++ query.split("""\s+"""), bool,
-             new MultiMatchQueryDefinition(query).fields(fields.split("""\s+""")).operator(operator.toUpperCase).matchType("best_fields")
+             new MultiMatchQueryDefinition(query).fields(field.replaceAll("""\s+""", "")).operator(operator.toUpperCase).matchType("best_fields")
            )
 
           case SpanNearBoolClause(terms, field, slop, inOrder, _) =>

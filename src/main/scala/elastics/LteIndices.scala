@@ -100,11 +100,10 @@ trait LteIndices {
   def `GET lte*/_search`(block: QueryDefinition): Future[SearchResponse] = {
 
     val request = search in "lte*" query block fields "vtt" highlighting(
-      options requireFieldMatch true,
+      options requireFieldMatch true preTags "<em>" postTags "</em>",
       highlight field "agent*" numberOfFragments 0,
       highlight field "customer*" numberOfFragments 0,
       highlight field "dialogs" numberOfFragments 0)
-    request.show
     client.execute {
       request
     }

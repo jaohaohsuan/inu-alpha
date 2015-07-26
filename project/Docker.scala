@@ -53,6 +53,9 @@ object Docker {
       ImageName("jaohaohsuan/inu-alpha:0.0.18"),
       ImageName(namespace = Some(organization.value),
         repository = name.value,
-        tag = Some("v" + version.value)))
+        tag = Some("v" + version.value))),
+    buildOptions in docker := BuildOptions(
+      cache = false,
+      removeIntermediateContainers = BuildOptions.Remove.Always)
   )
 }

@@ -60,6 +60,9 @@ object Docker {
     imageNames in docker := Seq(
       ImageName(namespace = Some(organization.value),
         repository = name.value,
-        tag = Some("v" + version.value)))
+        tag = Some("v" + version.value))),
+    buildOptions in docker := BuildOptions(
+      removeIntermediateContainers = BuildOptions.Remove.OnSuccess
+    )
   )
 }

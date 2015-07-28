@@ -5,6 +5,7 @@ import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.get.{GetRequest, GetResponse}
 import org.elasticsearch.action.percolate.PercolateResponse
 import org.elasticsearch.client.{Client, Requests}
+import org.elasticsearch.common.xcontent.XContentHelper
 import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.highlight.HighlightBuilder
 import spray.http.StatusCodes._
@@ -46,9 +47,14 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
         .setGetRequest(getRequest)
         .setPercolateQuery(q)
         .setSize(10)
-        .setHighlightBuilder(new HighlightBuilder().requireFieldMatch(true).field("dialogs").numOfFragments(0).field("agent*").field("customer*"))
+        .setHighlightBuilder(new HighlightBuilder().requireFieldMatch(true)
+                                   .field("dialogs").numOfFragments(0).preTags("<c>").postTags("</c>")
+                                   .field("agent*").numOfFragments(0).preTags("<c>").postTags("</c>")
+                                   .field("customer*").numOfFragments(0).preTags("<c>").postTags("</c>"))
         .request()
     }
+
+    println(s"${XContentHelper.convertToJson(percolateRequest.source(), true, true)}")
 
     val p = Promise[PercolateResponse]()
     val listener = new ActionListener[PercolateResponse] {
@@ -72,8 +78,9 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
           for {
             subtitle <- vtt.get(cueid)
             tag <- party.findFirstIn(cueid).map { txt => s"c.$txt" }
-          } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=)em(?=>)""", tag)
-        case _ => None
+          } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=\<)c(?=>)""", tag)
+        case _ =>
+          None
       }
 
       vtt ++ percolateResp.getMatches()

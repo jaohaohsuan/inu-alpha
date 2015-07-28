@@ -88,11 +88,20 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
                     (List[ValueProperty]() /: cc.getClass.getDeclaredFields) {(acc, f) =>
                       f.setAccessible(true)
                       val field = f.getName
-                      val value = s"${f.get(cc)}"
-                      acc.::(field match {
-                        case "field" => ValueProperty(field, Some("dialogs agent* customer*"), Some(value))
-                        case _ =>  ValueProperty(field, None, Some(value))
-                      })
+
+                      val prompt = field match {
+                        case "field" =>Some("dialogs agent* customer*")
+                        case _ =>   None
+                      }
+
+                      val v:Any = f.get(cc)
+
+                      v match {
+                        case i: Int => ValueProperty(field, prompt, Some(i)) :: acc
+                        case b: Boolean => ValueProperty(field, prompt, Some(b)) :: acc
+                        case l: Long => ValueProperty(field, prompt, Some(l)) :: acc
+                        case _ => ValueProperty(field, prompt, Some(s"${f.get(cc)}")) :: acc
+                      }
                     }
 
                   val template = clauseType match {

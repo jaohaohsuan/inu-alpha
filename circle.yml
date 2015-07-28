@@ -28,5 +28,4 @@ deployment:
     commands:
       - docker version
       - docker login -e $DOCKERHUB_MAIL -p $DOCKERHUB_PASSWORD -u $DOCKERHUB_LOGIN
-      - sbt docker
-      - docker push jaohaohsuan/inu-alpha:0.0.18
+      - sbt dockerBuildAndPush

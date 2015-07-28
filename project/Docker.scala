@@ -11,7 +11,7 @@ object Docker {
       val jarFile = artifactPath.in(Compile, packageBin).value
       val sigar = baseDirectory.value / "lib/sigar"
       val `docker-entrypoint.sh`: File = baseDirectory.value / "docker-entrypoint.sh"
-      val logstash = baseDirectory.value / "logstash-1.5.2"
+      val `logstash.conf`: File = baseDirectory.value / "logstash.conf"
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(Compile, packageBin).value.getOrElse(sys.error("Expected exactly one main class"))
       val libs = "/app/libs"
@@ -32,13 +32,21 @@ object Docker {
         // Add the libs dir from the
         addRaw(libs, libs)
 
-        add(logstash, "/logstash")
-        run("mkdir", "/stt")
-        volume("/stt")
-        add(sigar, "app/sigar")
-
-        add(`docker-entrypoint.sh`, "/")
+        copy(sigar, "/app/sigar")
+        copy(`docker-entrypoint.sh`, "/")
         run("chmod", "+x", "/docker-entrypoint.sh")
+
+        env("LOGSTASH_VERSION", "1.5.3")
+        runRaw("""|cd /tmp && \
+                  |    wget -nv https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
+                  |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
+                  |    mv ./logstash-${LOGSTASH_VERSION} /opt/logstash && \
+                  |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
+                  |    /opt/logstash/bin/plugin install logstash-input-sttxml1""".stripMargin)
+
+        copy(`logstash.conf`, "/opt/logstash/logstash-config/")
+        volume("/stt")
+        volume("/opt/logstash/logstash-config")
 
         // Add the generated jar file
         add(jarFile, jarTarget)
@@ -50,7 +58,6 @@ object Docker {
       }
     },
     imageNames in docker := Seq(
-      ImageName("jaohaohsuan/inu-alpha:0.0.18"),
       ImageName(namespace = Some(organization.value),
         repository = name.value,
         tag = Some("v" + version.value)))

@@ -4,6 +4,4 @@ set -e
 
 exec "$@" &
 
-./logstash/bin/logstash --verbose -f /logstash/stt-xml.conf
-
-
+./opt/logstash/bin/logstash -v -f /opt/logstash/logstash-config/logstash.conf

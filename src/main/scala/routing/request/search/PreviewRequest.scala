@@ -51,7 +51,7 @@ case class PreviewRequest(ctx: RequestContext,
               val items = resp.hits.map { case SearchHitHighlightFields(location, fragments) =>
                 val data = List(
                   ListProperty("highlight", fragments.map { case VttHighlightFragment(start, keywords) => s"$start $keywords" }.toSeq ),
-                  ValueProperty("keywords", Some(fragments.map { _.keywords }.mkString(" ")))
+                  ValueProperty("keywords", Some(fragments.flatMap { _.keywords }.toSet.mkString(" ")))
                 )
                 val href = s"${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}".uri
                 Item(href, data, List.empty)

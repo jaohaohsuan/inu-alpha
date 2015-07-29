@@ -12,7 +12,7 @@ import scala.util.matching.Regex
 
 object LteIndices {
 
-  case class VttHighlightFragment(start: String, keywords: Set[String])
+  case class VttHighlightFragment(start: String, keywords: String)
 
   object VttField {
 
@@ -63,7 +63,7 @@ object LteIndices {
         case highlightedSentence(cueid, highlighted) =>
           (for {
             highlightedSubtitle <- Try(vtt(cueid).replaceAll(insideTagV, s"$$1$highlighted$$2"))
-            keywords <- Try((for (m <- insideHighlightTag findAllMatchIn highlighted) yield m group 1).toSet)
+            keywords <- Try((for (m <- insideHighlightTag findAllMatchIn highlighted) yield m group 1).mkString(" "))
             time <- Try(startTime.findFirstIn(highlightedSubtitle).get)
           } yield VttHighlightFragment(time, keywords)) match {
             case Failure(ex) =>

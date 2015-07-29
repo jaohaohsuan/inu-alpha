@@ -45,8 +45,7 @@ object Docker {
                   |    /opt/logstash/bin/plugin install logstash-input-sttxml1""".stripMargin)
 
         copy(`logstash.conf`, "/opt/logstash/logstash-config/")
-        volume("/stt")
-        volume("/opt/logstash/logstash-config")
+        volume("/stt", "/opt/logstash/logstash-config", "/data", "/target")
 
         // Add the generated jar file
         add(jarFile, jarTarget)

@@ -37,12 +37,35 @@ object Docker {
         run("chmod", "+x", "/docker-entrypoint.sh")
 
         env("LOGSTASH_VERSION", "1.5.3")
-        runRaw("""|cd /tmp && \
-                  |    wget -nv https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
+        env("MAVEN_VERSION", "3.3.3")
+        env("ES_VERSION", "1.7.1")
+
+        runRaw(
+          """cd /tmp && \
+             |wget -nv -c -t0 https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
+             |curl -fsSL http://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz | tar xzf - -C /usr/share && \
+             |wget -nv -c -t0 https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ES_VERSION.tar.gz""".stripMargin)
+
+        runRaw("""cd /tmp && \
                   |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
                   |    mv ./logstash-${LOGSTASH_VERSION} /opt/logstash && \
                   |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
-                  |    /opt/logstash/bin/plugin install logstash-input-sttxml1""".stripMargin)
+                  |    /opt/logstash/bin/plugin install logstash-input-sttxml1 && \
+                  |    mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven && \
+                  |    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn && \
+                  |    tar -xzf ./elasticsearch-$ES_VERSION.tar.gz && \
+                  |    mv ./elasticsearch-$ES_VERSION /opt/elasticsearch && \
+                  |    rm ./elasticsearch-$ES_VERSION.tar.gz""".stripMargin)
+
+
+        env("MAVEN_HOME", "/usr/share/maven")
+
+        workDir("/usr/share")
+        runRaw(
+          """git clone https://github.com/jaohaohsuan/elasticsearch-analysis-ik.git && \
+            |mvn -f elasticsearch-analysis-ik/pom.xml compile package && \
+            |/opt/elasticsearch/bin/plugin --install analysis-ik --url file:///usr/share/elasticsearch-analysis-ik/target/releases/elasticsearch-analysis-ik-1.4.0.zip""".stripMargin)
+
 
         copy(`logstash.conf`, "/opt/logstash/logstash-config/")
         volume("/stt", "/opt/logstash/logstash-config", "/data", "/target")

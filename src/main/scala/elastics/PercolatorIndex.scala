@@ -46,7 +46,6 @@ object PercolatorIndex {
 trait PercolatorIndex extends util.ImplicitActorLogging{
   self: Actor ⇒
 
-
   lazy val `PUT inu-percolate` = {
     import PercolatorIndex._
     import PercolatorIndex.fields._
@@ -71,5 +70,38 @@ trait PercolatorIndex extends util.ImplicitActorLogging{
   }
 
   def client: ElasticClient
+}
 
+object AnalyzersIndex {
+  val `analyzers` = "analyzers"
+
+  object fields  {
+    val dictionary = "dictionary" typed StringType index "not_analyzed"
+    val stopwords = "stopwords" typed StringType index "not_analyzed"
+  }
+
+  lazy val ik = {
+    import fields._
+    mapping("ik") as Seq(dictionary, stopwords) all false
+  }
+
+  val `analyzers/ik` = IndexType(`analyzers`, ik.`type`)
+}
+
+trait AnalyzersIndex extends util.ImplicitActorLogging {
+  self: Actor =>
+
+  def client: ElasticClient
+
+  import AnalyzersIndex._
+  import context.dispatcher
+
+  lazy val `PUT analyzers` = {
+    client.execute { index exists `analyzers` }.flatMap { resp =>
+      if (resp.isExists)
+       Future { (s"analyzers" -> resp) }
+      else
+        client.execute { create index `analyzers` mappings(ik) }.map { s"PUT ${`analyzers`}" -> _ }
+    }
+  }
 }

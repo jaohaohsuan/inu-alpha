@@ -7,7 +7,10 @@ import routing._
 import spray.routing.HttpServiceActor
 
 
-class ServiceActor(node: Option[org.elasticsearch.node.Node]) extends HttpServiceActor with StoredQueryRoute with SearchPreviewRoute {
+class ServiceActor(val node: Option[org.elasticsearch.node.Node]) extends HttpServiceActor
+  with StoredQueryRoute
+  with SearchPreviewRoute
+  with ChineseAnalyzerRoute {
 
   val client = node.map { _.client }.getOrElse(new TransportClient().addTransportAddress(new InetSocketTransportAddress("127.0.0.1", 9300)))
 
@@ -15,6 +18,6 @@ class ServiceActor(node: Option[org.elasticsearch.node.Node]) extends HttpServic
     ClusterBoot.client(ConfigFactory.load("rest"))(context.system)
   }
 
-  def receive = runRoute(queryTemplateRoute ~ `_search/preview`)
+  def receive = runRoute(queryTemplateRoute ~ `_search/preview` ~ analyzerRoute)
 
 }

@@ -15,6 +15,7 @@ object ElasticClientActor {
 class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Actor
   with LteTemplate
   with PercolatorIndex
+  with AnalyzersIndex
   with util.ImplicitActorLogging {
 
   import ElasticClientActor._
@@ -30,7 +31,8 @@ class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Acto
 
       val tasks = Seq(
         `PUT _template/lte`,
-        `PUT inu-percolate`
+        `PUT inu-percolate`,
+        `PUT analyzers`
       )
 
       Future.traverse(tasks) { task => task }.onComplete {

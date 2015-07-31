@@ -19,7 +19,7 @@ object Library {
   val sigar = "org.fusesource" % "sigar" % "1.6.4"
   val json4sNative             = "org.json4s"             %% "json4s-native"                    % "3.2.10"
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"            % "2.3"
-  val elastic4s                = "com.sksamuel.elastic4s" %% "elastic4s-core" % "1.6.+"
+  val elastic4s                = "com.sksamuel.elastic4s" %% "elastic4s-core" % "1.7.+"
   val hashids = "com.timesprint" %% "hashids-scala" % "1.0.0"
   val log4j = "log4j" % "log4j" % "1.2.17"
   val nscalaTime = "com.github.nscala-time" %% "nscala-time" % "2.0.0"

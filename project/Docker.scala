@@ -40,41 +40,49 @@ object Docker {
         env("MAVEN_VERSION", "3.3.3")
         env("ES_VERSION", "1.7.1")
 
+        workDir("/tmp")
+
         runRaw(
-          """cd /tmp && \
-             |wget -nv -c -t0 https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
+          """wget -nv -c -t0 https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
+
              |curl -fsSL http://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz | tar xzf - -C /usr/share && \
              |wget -nv -c -t0 https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-$ES_VERSION.tar.gz""".stripMargin)
 
-        runRaw("""cd /tmp && \
+        runRaw("""mkdir /elk && \
                   |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
-                  |    mv ./logstash-${LOGSTASH_VERSION} /opt/logstash && \
+                  |    ls -al && \
                   |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
-                  |    /opt/logstash/bin/plugin install logstash-input-sttxml1 && \
+                  |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
+                  |    pwd && \
+                  |    ls -al /elk/logstash && \
+                  |    /elk/logstash/bin/plugin install logstash-input-sttxml1 && \
                   |    mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven && \
                   |    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn && \
-                  |    tar -xzf ./elasticsearch-$ES_VERSION.tar.gz && \
-                  |    mv ./elasticsearch-$ES_VERSION /opt/elasticsearch && \
-                  |    rm ./elasticsearch-$ES_VERSION.tar.gz""".stripMargin)
+                  |    tar -xzf elasticsearch-$ES_VERSION.tar.gz && \
+                  |    mv elasticsearch-$ES_VERSION /elk/elasticsearch && \
+                  |    rm elasticsearch-$ES_VERSION.tar.gz""".stripMargin)
 
 
         env("MAVEN_HOME", "/usr/share/maven")
 
-        workDir("/usr/share")
+
         runRaw(
           """git clone https://github.com/jaohaohsuan/elasticsearch-analysis-ik.git && \
-            |mvn -f elasticsearch-analysis-ik/pom.xml compile package && \
-            |/opt/elasticsearch/bin/plugin --install analysis-ik --url file:///usr/share/elasticsearch-analysis-ik/target/releases/elasticsearch-analysis-ik-1.4.0.zip""".stripMargin)
+            |mvn -q -f elasticsearch-analysis-ik/pom.xml compile package && \
+            |/elk/elasticsearch/bin/plugin --install analysis-ik --url file:///tmp/elasticsearch-analysis-ik/target/releases/elasticsearch-analysis-ik-1.4.0.zip && \
+            |rm -rf elasticsearch-analysis-ik""".stripMargin)
 
 
-        copy(`logstash.conf`, "/opt/logstash/logstash-config/")
-        volume("/stt", "/opt/logstash/logstash-config", "/data", "/target")
+        copy(`logstash.conf`, "/elk/logstash/logstash-config/")
+        // directory target is for akka-persistence use
+        volume("/stt", "/elk/logstash/logstash-config", "/data", "/target")
 
         // Add the generated jar file
         add(jarFile, jarTarget)
         // The classpath is the 'libs' dir and the produced jar file
         val classpathString = s"$libs/*:$jarTarget"
         // Set the entry point to start the application using the main class
+        workDir("/")
         entryPoint("/docker-entrypoint.sh")
         cmd("java", "-Djava.library.path=/app/sigar", "-cp", classpathString, mainclass)
       }

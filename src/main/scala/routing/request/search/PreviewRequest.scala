@@ -17,11 +17,11 @@ object StoredBoolQuery {
   import domain.StoredQueryAggregateRoot.StoredQuery
   def unapply(value: AnyRef): Option[QueryDefinition] = try {
     value match {
-      case s:StoredQuery => Some(s.buildBoolQuery()._3)
-      case Some(s:StoredQuery) => Some(s.buildBoolQuery()._3)
+      case s:StoredQuery if s.clauses.size > 0 => Some(s.buildBoolQuery()._3)
+      case Some(s:StoredQuery) if s.clauses.size > 0 => Some(s.buildBoolQuery()._3)
       case unknown =>
-        println(s"$unknown")
-        Some(new QueryStringQueryDefinition(""))
+        println("empty clause or unknow message received")
+        Some(new QueryStringQueryDefinition("nothing:nothing"))
     }
   } catch {
     case ex: Exception => None
@@ -49,8 +49,13 @@ case class PreviewRequest(ctx: RequestContext,
           response {
             requestUri { uri =>
               val items = resp.hits.map { case SearchHitHighlightFields(location, fragments) =>
+
+                val `HH:mm:ss.SSS` = org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS")
+                def startTime(value: VttHighlightFragment): Int =
+                  `HH:mm:ss.SSS`.parseDateTime(value.start).getMillisOfDay
+
                 val data = List(
-                  ListProperty("highlight", fragments.map { case VttHighlightFragment(start, keywords) => s"$start $keywords" }.toSeq ),
+                  ListProperty("highlight", fragments.toList.sortBy{ e => startTime(e) }.map{ case VttHighlightFragment(start, keywords) => s"$start $keywords" }.toSeq ),
                   ValueProperty("keywords", Some(fragments.flatMap { _.keywords.split("""\s""") }.toSet.mkString(" ")))
                 )
                 val href = s"${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}".uri

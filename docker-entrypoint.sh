@@ -4,4 +4,4 @@ set -e
 
 exec "$@" &
 
-./opt/logstash/bin/logstash -v -f /opt/logstash/logstash-config/logstash.conf
+./elk/logstash/bin/logstash -v -f /elk/logstash/logstash-config/logstash.conf

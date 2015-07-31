@@ -1,2 +1,14 @@
-action.auto_create_index: -inu*,+*
-node.name: inu
+action.auto_create_index: -inu*,+* 
+cluster.name: inu-es-cluster
+#path.data: ./elastics/data
+#path.plugins: ./elastics/plugins
+
+#index:
+#  analysis:
+#    analyzer:
+#      ik:
+#        alias: [ik_analyzer]
+#        type: org.elasticsearch.index.analysis.IkAnalyzerProvider
+#      ik_smart:
+#        type: ik
+#        use_smart: true

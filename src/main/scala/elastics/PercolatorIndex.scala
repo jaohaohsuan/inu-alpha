@@ -65,7 +65,7 @@ trait PercolatorIndex extends util.ImplicitActorLogging{
    def `GET inu-percolate/.percolator/_search`(blocks: List[QueryDefinition]): Future[SearchResponse] = {
     
      import PercolatorIndex._
-     val request = search in `inu-percolate/.percolator` query bool { must { blocks } } fields ("title", "tags") size 50
+     val request = search in `inu-percolate/.percolator` query bool { must { blocks } } fields ("title", "tags") size 50 postFilter not(idsFilter("temporary"))
     client.execute { request }
   }
 

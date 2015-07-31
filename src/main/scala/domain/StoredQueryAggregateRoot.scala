@@ -145,7 +145,7 @@ object StoredQueryAggregateRoot {
 
         case ItemsChanged(xs, changesList, dp) =>
           copy(items = items ++ xs, clausesDependencies = dp, changes =
-            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) } - temporaryId)
+            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) })
 
         case ChangesRegistered(records) =>
           copy(changes = changes.toSet.diff(records).toMap)
@@ -261,7 +261,7 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
 
 
     case Pull =>
-      val items = (state.changes - temporaryId).map { case (k, v) => (state.items(k), v) }.toSet
+      val items = state.changes.map { case (k, v) => (state.items(k), v) }.toSet
       if (items.nonEmpty)
         sender() ! Changes(items)
 

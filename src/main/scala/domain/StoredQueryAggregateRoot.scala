@@ -261,7 +261,7 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
 
 
     case Pull =>
-      val items = state.changes.map { case (k, v) => (state.items(k), v) }.toSet
+      val items = state.changes.map { case (k, v) => (loadNamedBoolClauseDependencies(state.items(k), state.items),v) }.toSet
       if (items.nonEmpty)
         sender() ! Changes(items)
 
@@ -270,6 +270,17 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
         state = state.update(evt)
         log.info(s"remains: [${state.changes.mkString(",")}]")
       }
+  }
+
+  def loadNamedBoolClauseDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery = {
+    item.clauses.foldLeft(item){ (acc, e) =>
+      e match {
+        case (clauseId, n: NamedBoolClause) =>
+          val innerItem = items(n.storedQueryId)
+          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = loadNamedBoolClauseDependencies(innerItem,items).clauses)))
+        case _ => acc
+      }
+    }
   }
 
   def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {

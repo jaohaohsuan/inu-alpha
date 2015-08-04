@@ -20,7 +20,7 @@ object Percolator {
 
     import scala.language.implicitConversions
 
-    implicit def toXX(f: FieldDefinition): String = f.name
+    implicit def fieldDefinitionToString(f: FieldDefinition): String = f.name
 
     value match {
       case e: StoredQuery =>
@@ -65,7 +65,7 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
     case Changes(items) =>
       import com.sksamuel.elastic4s.ElasticDsl._
       import elastics.PercolatorIndex._
-
+      println(items)
       val f = Future.traverse(items) {
         case (Percolator(percolatorId, boolQuery, map), version) =>
           client.execute {

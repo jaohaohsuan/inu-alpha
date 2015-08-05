@@ -35,7 +35,16 @@ object StoredQueryAggregateRoot {
     val occurrence: String
   }
 
-
+  def loadNamedBoolClauseDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery = {
+    item.clauses.foldLeft(item){ (acc, e) =>
+      e match {
+        case (clauseId, n: NamedBoolClause) =>
+          val innerItem = items(n.storedQueryId)
+          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = loadNamedBoolClauseDependencies(innerItem,items).clauses)))
+        case _ => acc
+      }
+    }
+  }
 
   sealed trait UnalliedBoolClause extends BoolClause
 
@@ -64,7 +73,7 @@ object StoredQueryAggregateRoot {
 
   case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty) {
 
-    def buildBoolQuery() = clauses.values.foldLeft((List.empty[String],List.empty[String], new BoolQueryDefinition))(assembleBoolQuery)
+    def buildBoolQuery(): (List[String], List[String], BoolQueryDefinition) = clauses.values.foldLeft((List.empty[String],List.empty[String], new BoolQueryDefinition))(assembleBoolQuery)
 
     def assembleBoolQuery(acc: (List[String], List[String], BoolQueryDefinition), clause: BoolClause): (List[String], List[String], BoolQueryDefinition) = {
 
@@ -270,17 +279,6 @@ class StoredQueryAggregateRoot extends PersistentActor with util.ImplicitActorLo
         state = state.update(evt)
         log.info(s"remains: [${state.changes.mkString(",")}]")
       }
-  }
-
-  def loadNamedBoolClauseDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery = {
-    item.clauses.foldLeft(item){ (acc, e) =>
-      e match {
-        case (clauseId, n: NamedBoolClause) =>
-          val innerItem = items(n.storedQueryId)
-          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = loadNamedBoolClauseDependencies(innerItem,items).clauses)))
-        case _ => acc
-      }
-    }
   }
 
   def cascadingUpdate(from: String, items: Map[String, StoredQuery], dp: Map[(String, String), Int]) = {

@@ -43,7 +43,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
       import elastics.PercolatorIndex._
       client.preparePercolate()
         .setIndices(`inu-percolate`)
-        .setDocumentType(logs.`type`)
+        .setDocumentType(stt.`type`)
         .setGetRequest(getRequest)
         .setPercolateQuery(q)
         .setSize(10)

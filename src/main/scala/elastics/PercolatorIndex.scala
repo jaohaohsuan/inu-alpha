@@ -2,7 +2,6 @@ package elastics
 
 import akka.actor.Actor
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.mappings.DynamicMapping.Dynamic
 import com.sksamuel.elastic4s.mappings.FieldType._
 import com.sksamuel.elastic4s._
 import org.elasticsearch.action.search.SearchResponse
@@ -34,13 +33,13 @@ object PercolatorIndex {
   import fields._
   lazy val `.percolator` = ".percolator" as (referredClauses, tags, enabled, keywords, title)
 
-  lazy val logs = {
+  lazy val stt = {
     import fields._
-    mapping("logs") as `dialogs, agent*, customer*`
+    mapping("stt") as `dialogs, agent*, customer*`
   }
 
   val `inu-percolate/.percolator` = IndexType(`inu-percolate`, `.percolator`.`type`)
-  val `inu-percolate/logs` = IndexType(`inu-percolate`, logs.`type`)
+  val `inu-percolate/stt` = IndexType(`inu-percolate`, stt.`type`)
 }
 
 trait PercolatorIndex extends util.ImplicitActorLogging{
@@ -54,10 +53,10 @@ trait PercolatorIndex extends util.ImplicitActorLogging{
     client.execute { index exists `inu-percolate` }.flatMap { resp =>
       if (resp.isExists)
         client.execute {
-          put mapping `inu-percolate/logs` as `dialogs, agent*, customer*` ignoreConflicts true }
-          .map { s"PUT ${`inu-percolate`}/_mapping/${logs.`type`}" -> _ }
+          put mapping `inu-percolate/stt` as `dialogs, agent*, customer*` ignoreConflicts true }
+          .map { s"PUT ${`inu-percolate`}/_mapping/${stt.`type`}" -> _ }
       else
-        client.execute { create index `inu-percolate` mappings(logs, `.percolator`) }
+        client.execute { create index `inu-percolate` mappings(stt, `.percolator`) }
           .map { s"PUT ${`inu-percolate`}" -> _ }
     }
   }

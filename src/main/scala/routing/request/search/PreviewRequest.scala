@@ -20,7 +20,7 @@ object StoredBoolQuery {
       case s:StoredQuery if s.clauses.size > 0 => Some(s.buildBoolQuery()._3)
       case Some(s:StoredQuery) if s.clauses.size > 0 => Some(s.buildBoolQuery()._3)
       case unknown =>
-        println("empty clause or unknow message received")
+        println("empty clause or unknown message received")
         Some(new QueryStringQueryDefinition("nothing:nothing"))
     }
   } catch {

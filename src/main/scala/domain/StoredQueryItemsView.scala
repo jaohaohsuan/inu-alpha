@@ -116,7 +116,7 @@ class StoredQueryItemsView(node: Node) extends PersistentView with util.Implicit
         queryResp } pipeTo sender()
 
     case GetStoredQuery(id) =>
-      sender() ! StoredQueryResponse(items.get(id))
+      sender() ! StoredQueryResponse(items.get(id).map { loadNamedBoolClauseDependencies(_, items) })
 
   }
 

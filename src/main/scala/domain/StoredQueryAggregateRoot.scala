@@ -106,7 +106,7 @@ object StoredQueryAggregateRoot {
       clause.occurrence match {
         case "must" => (clausesTitle, keywords, bool.must(qd))
         case "must_not" => (clausesTitle, keywords, bool.not(qd))
-        case "should" => (clausesTitle, keywords, bool.should(qd))
+        case "should" => (clausesTitle, keywords, bool.should(qd).minimumShouldMatch(1))
       }
     }
   }

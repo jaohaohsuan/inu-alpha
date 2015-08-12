@@ -39,6 +39,7 @@ object Docker {
         env("LOGSTASH_VERSION", "1.5.3")
         env("MAVEN_VERSION", "3.3.3")
         env("ES_VERSION", "1.7.1")
+        env("STTXML1_VERSION", "0.0.5")
 
         workDir("/tmp")
 
@@ -55,7 +56,7 @@ object Docker {
                   |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
                   |    pwd && \
                   |    ls -al /elk/logstash && \
-                  |    /elk/logstash/bin/plugin install logstash-input-sttxml1 --version 0.0.5 && \
+                  |    /elk/logstash/bin/plugin install --version {STTXML1_VERSION} logstash-input-sttxml1&& \
                   |    mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven && \
                   |    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn && \
                   |    tar -xzf elasticsearch-$ES_VERSION.tar.gz && \

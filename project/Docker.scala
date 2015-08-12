@@ -55,7 +55,7 @@ object Docker {
                   |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
                   |    pwd && \
                   |    ls -al /elk/logstash && \
-                  |    /elk/logstash/bin/plugin install logstash-input-sttxml1 && \
+                  |    /elk/logstash/bin/plugin install logstash-input-sttxml1 --version 0.0.5 && \
                   |    mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven && \
                   |    ln -s /usr/share/maven/bin/mvn /usr/bin/mvn && \
                   |    tar -xzf elasticsearch-$ES_VERSION.tar.gz && \

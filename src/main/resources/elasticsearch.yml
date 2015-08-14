@@ -3,12 +3,23 @@ cluster.name: inu-es-cluster
 #path.data: ./elastics/data
 #path.plugins: ./elastics/plugins
 
-#index:
-#  analysis:
-#    analyzer:
-#      ik:
-#        alias: [ik_analyzer]
-#        type: org.elasticsearch.index.analysis.IkAnalyzerProvider
-#      ik_smart:
-#        type: ik
-#        use_smart: true
+index:
+  analysis:
+    analyzer:
+      ik:
+        alias: [ik_analyzer]
+        type: org.elasticsearch.index.analysis.IkAnalyzerProvider
+      ik_smart:
+        type: ik
+        use_smart: true
+      ik_stt_analyzer:
+        type: custom
+        tokenizer: ik
+        use_smart: true
+        char_filter: ['role_normalizer']
+
+    char_filter:
+      role_normalizer:
+        type: pattern_replace
+        pattern: '(agent|customer)(\d+-\d+)\b'
+        replacement: '$1'

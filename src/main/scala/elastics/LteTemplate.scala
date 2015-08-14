@@ -5,23 +5,24 @@ import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.mappings.DynamicMapping._
 import com.sksamuel.elastic4s.mappings.FieldType._
 import com.sksamuel.elastic4s.mappings.{TermVector, DynamicTemplateDefinition, StringFieldDefinition}
-import com.sksamuel.elastic4s.{QueryDefinition, ElasticClient, WhitespaceAnalyzer}
+import com.sksamuel.elastic4s.{WhitespaceAnalyzer, QueryDefinition, ElasticClient}
 
 object LteTemplate {
+
   object fields {
 
     val agent = new DynamicTemplateDefinition("agent") matching "agent*" matchMappingType "string" mapping {
-      field typed StringType analyzer WhitespaceAnalyzer
+      field typed StringType indexAnalyzer "ik_stt_analyzer" searchAnalyzer WhitespaceAnalyzer
     }
     val customer = new DynamicTemplateDefinition("customer") matching "customer*" matchMappingType "string" mapping {
-      field typed StringType analyzer WhitespaceAnalyzer
+      field typed StringType indexAnalyzer "ik_stt_analyzer" searchAnalyzer WhitespaceAnalyzer
     }
 
-    val vtt: StringFieldDefinition = "vtt" typed StringType analyzer WhitespaceAnalyzer
+    val vtt: StringFieldDefinition = "vtt" typed StringType
 
-    val dialogs: StringFieldDefinition = "dialogs" typed StringType analyzer WhitespaceAnalyzer
+    val dialogs: StringFieldDefinition = "dialogs" typed StringType indexAnalyzer "ik_stt_analyzer" searchAnalyzer WhitespaceAnalyzer
 
-    val parties: StringFieldDefinition = "parties" typed StringType analyzer WhitespaceAnalyzer
+    val parties: StringFieldDefinition = "parties" typed StringType
   }
   
   object mappings {

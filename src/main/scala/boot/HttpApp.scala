@@ -18,6 +18,6 @@ class ServiceActor(val node: Option[org.elasticsearch.node.Node]) extends HttpSe
     ClusterBoot.client(ConfigFactory.load("rest"))(context.system)
   }
 
-  def receive = runRoute(queryTemplateRoute ~ `_search/preview` ~ analyzerRoute)
+  def receive = runRoute(queryTemplateRoute ~ `_search/preview`)
 
 }

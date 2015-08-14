@@ -33,7 +33,7 @@ trait ChineseAnalyzerRoute extends HttpService with CorsSupport with Json4sSuppo
 
   def node: Option[org.elasticsearch.node.Node]
 
-  private val elasticClient = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
+  private lazy val elasticClient = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
     com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
   )
 

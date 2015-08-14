@@ -50,17 +50,22 @@ object LteIndices {
     import org.elasticsearch.common.text.Text
 
     val insideHighlightTag = """(?:<\w+\b[^>]*>)([^<>]*)(?:<\/\w+>)""".r
-    val highlightedSentence = """((?:agent|customer)\d{1,2}-\d+)\s([\s\S]+)""".r
-    val highlightFragment = """(?:(?:agent|customer)\d-\d+\b)(?:[^\n]*[<>]+[^\n]*)""".r
+    // "agent0-780</c> 喂哎哎您好下<c>女士</c>是吧" extract '780' and '喂哎哎您好下<c>女士</c>是吧'
+    val highlightedSentence = """(?:<\w+>)*((?:agent|customer)\d+-\d+)(?:<\/(?:em|c)>)*\s([\s\S]+)""".r
+    val highlightFragment = """(?:[^\n]*[<>]+[^\n]*)""".r
     val insideTagV = """(<v\b[^>]*>)[^<>]*(<\/v>)"""
     val startTime = """^(\d{2,3}[:\.]?)+""".r
     val party = """\w+(?=-)""".r
 
-    def splitFragment(fragment: Text): List[String] = (highlightFragment findAllIn fragment.string()).toList
+    def splitFragment(fragment: Text): List[String] = {
+      //import util.ImplicitPrint._
+      (highlightFragment findAllIn fragment.string()).toList//.println()
+    }
 
     def substitute(vtt: Map[String, String])(txt: String): Option[VttHighlightFragment] = {
       txt match {
         case highlightedSentence(cueid, highlighted) =>
+          //println(s"$cueid, $highlighted")
           (for {
             highlightedSubtitle <- Try(vtt(cueid).replaceAll(insideTagV, s"$$1$highlighted$$2"))
             keywords <- Try((for (m <- insideHighlightTag findAllMatchIn highlighted) yield m group 1).mkString(" "))
@@ -104,9 +109,8 @@ trait LteIndices {
       highlight field "agent*" numberOfFragments 0,
       highlight field "customer*" numberOfFragments 0,
       highlight field "dialogs" numberOfFragments 0)
-    client.execute {
-      request
-    }
+
+    client.execute { request }
   }
 
 }

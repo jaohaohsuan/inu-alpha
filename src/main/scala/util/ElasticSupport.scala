@@ -1,14 +1,6 @@
 package util
 
-import com.sksamuel.elastic4s.{BoolQueryDefinition, MultiMatchQueryDefinition, ElasticsearchClientUri, ElasticClient, WhitespaceAnalyzer}
-import domain.StoredQueryAggregateRoot.{NamedBoolClause, SpanNearBoolClause, MatchBoolClause, BoolClause}
-import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
-import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.transport.RemoteTransportException
-
-import scala.concurrent.Future
-import scala.reflect.ClassTag
 
 trait ElasticSupport {
 
@@ -23,9 +15,10 @@ trait ElasticSupport {
 
   def getAllIndices(p: (DateTime) => Boolean = (index) => index < DateTime.now) = {
 
-    import scala.concurrent.ExecutionContext.Implicits.global
-    import collection.JavaConversions._
     import org.joda.time.format._
+
+    import collection.JavaConversions._
+    import scala.concurrent.ExecutionContext.Implicits.global
 
     val fmt: DateTimeFormatter = new DateTimeFormatterBuilder()
       .appendLiteral("stt-")
@@ -40,6 +33,7 @@ trait ElasticSupport {
   def filter1() = {
 
     import com.sksamuel.elastic4s.ElasticDsl._
+
     import scala.concurrent.ExecutionContext.Implicits.global
 
     for {

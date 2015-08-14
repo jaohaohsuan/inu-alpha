@@ -68,6 +68,7 @@ data/
 Session.vim
 .netrwhist
 *~
+tags
 
 
 ### Java template
@@ -86,25 +87,19 @@ hs_err_pid*
 
 
 ### Scala template
-*.class
 *.log
 
 # sbt specific
-.cache
-.history
 .lib/
 dist/*
-target/
-lib_managed/
-src_managed/
-project/boot/
 project/plugins/project/
 
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
 
-# user customize
-!logstash-1.5.2
+# elasticsearch
+!config/ik
+
 
 

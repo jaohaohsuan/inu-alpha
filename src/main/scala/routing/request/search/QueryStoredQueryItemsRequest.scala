@@ -30,7 +30,7 @@ case class QueryStoredQueryItemsRequest(ctx: RequestContext,
                 Item(s"$baseUri/$key".uri, value, List.empty)
               }.toList
 
-              val template = Some(Template(StoredQueryItem("sample", tags = None, status = None)))
+              val template = Some(Template(StoredQueryItem("sample", tags = Some(""), status = None)))
               complete(OK, JsonCollection(baseUri.uri, List(temporaryLink),items ,List(uriSearch), template))
             case None =>
               complete(InternalServerError)

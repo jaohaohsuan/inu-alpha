@@ -31,8 +31,7 @@ class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Acto
 
       val tasks = Seq(
         `PUT _template/lte`,
-        `PUT inu-percolate`,
-        `PUT analyzers`
+        `PUT inu-percolate`
       )
 
       Future.traverse(tasks) { task => task }.onComplete {

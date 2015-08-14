@@ -12,9 +12,9 @@ object PercolatorIndex {
 
   val `inu-percolate` = "inu-percolate"
 
-  object fields {
+  val defaultAnalyzer = WhitespaceAnalyzer
 
-    val defaultAnalyzer = WhitespaceAnalyzer
+  object fields {
 
     val title = "title" typed StringType index "not_analyzed"
     val referredClauses = "referredClauses" typed StringType analyzer defaultAnalyzer
@@ -35,7 +35,7 @@ object PercolatorIndex {
 
   lazy val stt = {
     import fields._
-    mapping("stt") as `dialogs, agent*, customer*`
+    mapping("stt") as `dialogs, agent*, customer*` analyzer "ik_smart"
   }
 
   val `inu-percolate/.percolator` = IndexType(`inu-percolate`, `.percolator`.`type`)

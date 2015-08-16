@@ -15,17 +15,21 @@ dependencies:
     - "~/.ivy2"
     - "~/bin"
     - "~/docker"
-
   pre:
     - wget --output-document=$HOME/bin/sbt-launch.jar https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/"$SBT_VERSION"/sbt-launch.jar
     - echo "java $SBT_OPTS -jar \`dirname \$0\`/sbt-launch.jar \"\$@\"" > $HOME/bin/sbt
     - chmod u+x $HOME/bin/sbt
     - which sbt
+  override:
+    - docker info
+    - if [[ -e ~/docker/image.tar ]]; then docker load --input ~/docker/image.tar; fi
+    - sbt docker
+    - mkdir -p ~/docker; docker save jaohaohsuan/inu-alpha:v1.0.3 > ~/docker/image.tar
+
 
 deployment:
   hub:
     branch: master
     commands:
-      - docker version
       - docker login -e $DOCKERHUB_MAIL -p $DOCKERHUB_PASSWORD -u $DOCKERHUB_LOGIN
-      - sbt dockerBuildAndPush
+      - sbt dockerPush

@@ -28,6 +28,42 @@ object StoredBoolQuery {
   }
 }
 
+case class LteCountRequest(ctx: RequestContext,
+                           clusterClient: ActorRef, storedQueryId: String) extends PerRequest
+with CollectionJsonSupport
+with elastics.LteIndices
+with util.ImplicitActorLogging {
+
+  val client = com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
+
+  import context.dispatcher
+
+  clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.GetStoredQuery(storedQueryId))
+
+  def processResult: Receive = {
+    case StoredQueryResponse(Some(StoredBoolQuery(qry))) => {
+      `GET lte*/_count`(qry).onComplete {
+        case Success(resp) =>
+          response {
+            requestUri { uri =>
+
+              val data = List(
+                ValueProperty("count",Some(resp.getCount.toInt))
+              )
+
+              val item = Item(s"$uri".uri, data, List.empty)
+              complete(OK, JsonCollection(s"$uri".replaceFirst("""\/status""", "").uri, List.empty, item))
+            }
+          }
+        case Failure(ex) =>
+          response {
+            complete(InternalServerError)
+          }
+      }
+    }
+  }
+}
+
 case class PreviewRequest(ctx: RequestContext,
                           clusterClient: ActorRef, storedQueryId: String) extends PerRequest
   with CollectionJsonSupport
@@ -61,7 +97,7 @@ case class PreviewRequest(ctx: RequestContext,
                 val href = s"${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}".uri
                 Item(href, data, List.empty)
               }
-              complete(OK, JsonCollection(s"$uri".uri, List.empty, items.toList))
+              complete(OK, JsonCollection(s"$uri".replaceFirst("""\/preview""", "").uri, List(Link(s"${uri}/status".uri, "status", None)), items.toList))
             }
           }
         case Failure(ex) =>

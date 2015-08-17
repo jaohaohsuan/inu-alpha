@@ -117,8 +117,12 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with CorsS
                     complete(NoContent)
                 }
             } ~
-            path("preview") {
-              implicit ctx => actorRefFactory.actorOf(Props(classOf[PreviewRequest], ctx, clusterClient, storedQueryId))
+            pathPrefix("preview") {
+              pathEnd {
+                implicit ctx => actorRefFactory.actorOf(Props(classOf[PreviewRequest], ctx, clusterClient, storedQueryId))
+              } ~ path("status") {
+                implicit ctx => actorRefFactory.actorOf(Props(classOf[LteCountRequest], ctx, clusterClient, storedQueryId))
+              }
             }
         }
       } ~

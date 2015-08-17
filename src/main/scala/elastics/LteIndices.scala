@@ -3,6 +3,7 @@ package elastics
 import akka.actor.Actor
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.{ElasticClient, QueryDefinition, RichSearchHit}
+import org.elasticsearch.action.count.CountResponse
 import org.elasticsearch.action.search.SearchResponse
 
 import scala.collection.immutable.Iterable
@@ -111,6 +112,12 @@ trait LteIndices {
       highlight field "dialogs" numberOfFragments 0)
 
     client.execute { request }
+  }
+
+  def `GET lte*/_count`(block: QueryDefinition): Future[CountResponse] = {
+    val request = count from "lte*" query block
+
+    client.execute(request)
   }
 
 }

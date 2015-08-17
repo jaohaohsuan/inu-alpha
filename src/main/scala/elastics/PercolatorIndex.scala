@@ -23,9 +23,15 @@ object PercolatorIndex {
     val keywords = "keywords" typed StringType analyzer defaultAnalyzer nullValue ""
     
     lazy val `dialogs, agent*, customer*` = {
+
       import LteTemplate.fields._
+      import com.sksamuel.elastic4s.mappings.StringFieldDefinition
+
+      def configAnalyzer(field: StringFieldDefinition) =
+        field indexAnalyzer "ik_stt_analyzer" searchAnalyzer WhitespaceAnalyzer
+
       (0 to 5).foldLeft(List(dialogs)){ (acc, n) =>
-        (s"customer$n" typed StringType analyzer defaultAnalyzer) :: (s"agent$n" typed StringType analyzer defaultAnalyzer) :: acc
+        configAnalyzer(s"customer$n" typed StringType) :: configAnalyzer(s"agent$n" typed StringType) :: acc
       }
     }
   }

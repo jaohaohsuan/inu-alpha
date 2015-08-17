@@ -54,7 +54,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
         .request()
     }
 
-    println(s"${XContentHelper.convertToJson(percolateRequest.source(), true, true)}")
+    //println(s"${XContentHelper.convertToJson(percolateRequest.source(), true, true)}")
 
     val p = Promise[PercolateResponse]()
     val listener = new ActionListener[PercolateResponse] {
@@ -80,6 +80,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
             tag <- party.findFirstIn(cueid).map { txt => s"c.$txt" }
           } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=\<)c(?=>)""", tag)
         case _ =>
+          println(s"'$txt' can not match with highlightedSentence.")
           None
       }
 

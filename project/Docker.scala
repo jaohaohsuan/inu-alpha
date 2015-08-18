@@ -31,6 +31,7 @@ object Docker {
                  |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
                  |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
                  |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
+                 |    /elk/logstash/bin/plugin uninstall logstash-input-sttxml1 && \
                  |    /elk/logstash/bin/plugin install logstash-input-sttxml1""".stripMargin)
 
         // Expose ports
@@ -81,7 +82,7 @@ object Docker {
         copy(`logstash-cht.conf`, "/elk/logstash/logstash-config/")
         copy(`logstash-ytx.conf`, "/elk/logstash/logstash-config/")
         // directory target is for akka-persistence use
-        volume("/stt", "/elk/logstash/logstash-config", "/data", "/target")
+        volume("/stt", "/data", "/target")
 
         // Add the generated jar file
         add(jarFile, jarTarget)

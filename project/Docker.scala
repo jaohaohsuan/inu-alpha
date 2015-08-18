@@ -31,8 +31,7 @@ object Docker {
                  |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
                  |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
                  |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
-                 |    /elk/logstash/bin/plugin uninstall logstash-input-sttxml1 && \
-                 |    /elk/logstash/bin/plugin install logstash-input-sttxml1""".stripMargin)
+                 |    /elk/logstash/bin/plugin install --version 0.1.1 logstash-input-sttxml1""".stripMargin)
 
         // Expose ports
         expose(7879, 9200, 9300)

@@ -32,6 +32,9 @@ class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Acto
       val tasks = Seq(
         `PUT _template/lte`,
         `PUT inu-percolate`
+          .flatMap { _ => `PUT inu-percolate/_mapping/.percolator`}
+          .flatMap { _ => putInuPercolateMapping("cht", "whitespace")}
+          .flatMap { _ => putInuPercolateMapping("ytx", "ik_stt_analyzer")}
       )
 
       Future.traverse(tasks) { task => task }.onComplete {

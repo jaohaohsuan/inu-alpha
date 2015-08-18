@@ -4,7 +4,9 @@ import akka.actor.Actor
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.mappings.FieldType._
 import com.sksamuel.elastic4s._
+import com.sksamuel.elastic4s.mappings.MappingDefinition
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.support.master.AcknowledgedResponse
 
 import scala.concurrent.Future
 
@@ -12,40 +14,30 @@ object PercolatorIndex {
 
   val `inu-percolate` = "inu-percolate"
 
-  val defaultAnalyzer = WhitespaceAnalyzer
+  val queryTemplateFieldsAnalyzer = WhitespaceAnalyzer
 
   object fields {
 
     val title = "title" typed StringType index "not_analyzed"
-    val referredClauses = "referredClauses" typed StringType analyzer defaultAnalyzer
-    val tags = "tags" typed StringType analyzer defaultAnalyzer nullValue "" includeInAll false
+    val referredClauses = "referredClauses" typed StringType analyzer queryTemplateFieldsAnalyzer
+    val tags = "tags" typed StringType analyzer queryTemplateFieldsAnalyzer nullValue "" includeInAll false
     val enabled = "enabled" typed BooleanType index "not_analyzed" includeInAll false
-    val keywords = "keywords" typed StringType analyzer defaultAnalyzer nullValue ""
+    val keywords = "keywords" typed StringType analyzer queryTemplateFieldsAnalyzer nullValue ""
     
-    lazy val `dialogs, agent*, customer*` = {
+    def `dialogs, agent*, customer*`(analyzer: String) = {
 
       import LteTemplate.fields._
-      import com.sksamuel.elastic4s.mappings.StringFieldDefinition
 
-      def configAnalyzer(field: StringFieldDefinition) =
-        field indexAnalyzer "ik_stt_analyzer" searchAnalyzer WhitespaceAnalyzer
+      def field(field: String) =
+        field typed StringType indexAnalyzer analyzer searchAnalyzer WhitespaceAnalyzer
 
       (0 to 5).foldLeft(List(dialogs)){ (acc, n) =>
-        configAnalyzer(s"customer$n" typed StringType) :: configAnalyzer(s"agent$n" typed StringType) :: acc
+        field(s"customer$n") :: field(s"agent$n") :: acc
       }
     }
   }
 
-  import fields._
-  lazy val `.percolator` = ".percolator" as (referredClauses, tags, enabled, keywords, title)
-
-  lazy val stt = {
-    import fields._
-    mapping("stt") as `dialogs, agent*, customer*` analyzer "ik_smart"
-  }
-
-  val `inu-percolate/.percolator` = IndexType(`inu-percolate`, `.percolator`.`type`)
-  val `inu-percolate/stt` = IndexType(`inu-percolate`, stt.`type`)
+  val `inu-percolate/.percolator` = IndexType(`inu-percolate`, ".percolator")
 }
 
 trait PercolatorIndex extends util.ImplicitActorLogging{
@@ -53,18 +45,30 @@ trait PercolatorIndex extends util.ImplicitActorLogging{
 
   lazy val `PUT inu-percolate` = {
     import PercolatorIndex._
+    import context.dispatcher
+    client.execute { index exists `inu-percolate` }.flatMap { resp =>
+      if (!resp.isExists)
+        client.execute { create index `inu-percolate` }
+      else
+        Future { s"inu-percolate" -> resp } }
+  }
+
+  lazy val `PUT inu-percolate/_mapping/.percolator` = {
+    import PercolatorIndex._
     import PercolatorIndex.fields._
     import context.dispatcher
+    client.execute {
+      put mapping `inu-percolate/.percolator` as (referredClauses, tags, enabled, keywords, title) ignoreConflicts true
+    }.map { s"PUT ${`inu-percolate`}/_mapping/.percolator" -> _ }
+  }
 
-    client.execute { index exists `inu-percolate` }.flatMap { resp =>
-      if (resp.isExists)
-        client.execute {
-          put mapping `inu-percolate/stt` as `dialogs, agent*, customer*` ignoreConflicts true }
-          .map { s"PUT ${`inu-percolate`}/_mapping/${stt.`type`}" -> _ }
-      else
-        client.execute { create index `inu-percolate` mappings(stt, `.percolator`) }
-          .map { s"PUT ${`inu-percolate`}" -> _ }
-    }
+  def putInuPercolateMapping(tpe: String, indexAnalyzer: String): Future[(String, AcknowledgedResponse)] = {
+    import PercolatorIndex._
+    import PercolatorIndex.fields._
+    import context.dispatcher
+    client.execute {
+      put mapping IndexType(`inu-percolate`, tpe) as `dialogs, agent*, customer*`(indexAnalyzer) ignoreConflicts true
+    }.map { s"PUT ${`inu-percolate`}/_mapping/$tpe" -> _ }
   }
 
    def `GET inu-percolate/.percolator/_search`(blocks: List[QueryDefinition]): Future[SearchResponse] = {

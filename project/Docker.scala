@@ -13,7 +13,8 @@ object Docker {
       val config = baseDirectory.value / "config"
       val plugins = baseDirectory.value / "plugins"
       val `docker-entrypoint.sh`: File = baseDirectory.value / "docker-entrypoint.sh"
-      val `logstash.conf`: File = baseDirectory.value / "logstash.conf"
+      val `logstash-cht.conf`: File = baseDirectory.value / "logstash-cht.conf"
+      val `logstash-ytx.conf`: File = baseDirectory.value / "logstash-ytx.conf"
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(Compile, packageBin).value.getOrElse(sys.error("Expected exactly one main class"))
       val libs = "/app/libs"
@@ -77,7 +78,8 @@ object Docker {
 //            |rm -rf elasticsearch-analysis-ik""".stripMargin)
 
 
-        copy(`logstash.conf`, "/elk/logstash/logstash-config/")
+        copy(`logstash-cht.conf`, "/elk/logstash/logstash-config/")
+        copy(`logstash-ytx.conf`, "/elk/logstash/logstash-config/")
         // directory target is for akka-persistence use
         volume("/stt", "/elk/logstash/logstash-config", "/data", "/target")
 

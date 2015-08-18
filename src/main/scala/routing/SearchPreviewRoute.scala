@@ -33,7 +33,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
     p.future
   }
 
-  def percolate(getRequest: GetRequest, params: Map[String, String]): Future[PercolateResponse] = {
+  def percolate(getRequest: GetRequest, sttType: String , params: Map[String, String]): Future[PercolateResponse] = {
 
     def must(bool: BoolQueryBuilder, param: (String, String)) =
       bool.must(QueryBuilders.matchQuery(param._1, param._2))
@@ -43,7 +43,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
       import elastics.PercolatorIndex._
       client.preparePercolate()
         .setIndices(`inu-percolate`)
-        .setDocumentType(stt.`type`)
+        .setDocumentType(sttType)
         .setGetRequest(getRequest)
         .setPercolateQuery(q)
         .setSize(10)
@@ -70,7 +70,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
     import elastics.LteIndices.SearchHitHighlightFields._
     
     getDoc(Requests.getRequest(index).`type`(tpe).id(id))
-      .zip(percolate(Requests.getRequest(index).`type`(tpe).id(id),params))
+      .zip(percolate(Requests.getRequest(index).`type`(tpe).id(id), tpe, params))
       .map { case(VttField(vtt), percolateResp) =>
 
       def substitute(vtt: Map[String, String])(txt: String): Option[(String, String)] = txt match {

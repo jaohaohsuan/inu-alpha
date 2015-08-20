@@ -2,7 +2,7 @@ package domain
 
 import akka.actor.{Actor, ActorRef}
 import akka.contrib.pattern.ClusterClient.SendToAll
-import com.sksamuel.elastic4s.QueryDefinition
+import com.sksamuel.elastic4s.{ElasticClient, QueryDefinition}
 import com.sksamuel.elastic4s.mappings.{BooleanFieldDefinition, FieldDefinition}
 import org.elasticsearch.indices.IndexMissingException
 import org.elasticsearch.transport.RemoteTransportException
@@ -45,16 +45,11 @@ object Percolator {
   }
 }
 
-class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.node.Node]) extends Actor
+class PercolatorWorker(clusterClient: ActorRef) extends Actor
   with util.ImplicitActorLogging {
-
-  val client = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
-    com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
-  )
 
   import StoredQueryPercolatorProtocol._
   import context.dispatcher
-
 
   val pullingTask = context.system.scheduler.schedule(5.seconds, 5.seconds, clusterClient,
     SendToAll(`/user/stored-query-aggregate-root/active`, Pull))
@@ -65,10 +60,10 @@ class PercolatorWorker(clusterClient: ActorRef, node: Option[org.elasticsearch.n
     case Changes(items) =>
       import com.sksamuel.elastic4s.ElasticDsl._
       import elastics.PercolatorIndex._
-      println(items)
+      //println(items)
       val f = Future.traverse(items) {
         case (Percolator(percolatorId, boolQuery, map), version) =>
-          client.execute {
+          elastics.Cluster.`4s client`.execute {
             register id percolatorId into `inu-percolate` query boolQuery fields map
           } map { resp => (percolatorId, version) }
       }

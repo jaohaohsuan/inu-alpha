@@ -101,7 +101,7 @@ object LteIndices {
 trait LteIndices {
   self: Actor ⇒
 
-  def client: ElasticClient
+
 
   def `GET lte*/_search`(block: QueryDefinition): Future[SearchResponse] = {
 
@@ -111,13 +111,13 @@ trait LteIndices {
       highlight field "customer*" numberOfFragments 0,
       highlight field "dialogs" numberOfFragments 0)
 
-    client.execute { request }
+    elastics.Cluster.`4s client`.execute { request }
   }
 
   def `GET lte*/_count`(block: QueryDefinition): Future[CountResponse] = {
     val request = count from "lte*" query block
 
-    client.execute(request)
+    elastics.Cluster.`4s client`.execute(request)
   }
 
 }

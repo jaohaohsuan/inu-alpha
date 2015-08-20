@@ -34,7 +34,7 @@ object Main {
       withFallback(ConfigFactory.load("rest"))
     implicit val system = ActorSystem("HttpSystem", conf)
 
-    val service = system.actorOf(Props(classOf[ServiceActor], Some(ClusterBoot.node)), "service")
+    val service = system.actorOf(Props(classOf[ServiceActor]), "service")
 
     implicit val timeout = Timeout(5.seconds)
     IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = httpPort)
@@ -44,6 +44,6 @@ object Main {
     val conf = ConfigFactory.load("worker")
     implicit val system = ActorSystem("ElasticSystem", conf)
 
-    system.actorOf(Props(classOf[domain.PercolatorWorker], ClusterBoot.client(conf), Some(ClusterBoot.node)), "PercolatorWorker")
+    system.actorOf(Props(classOf[domain.PercolatorWorker], ClusterBoot.client(conf)), "PercolatorWorker")
   }
 }

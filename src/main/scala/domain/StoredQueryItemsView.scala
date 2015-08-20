@@ -6,7 +6,6 @@ import akka.persistence.PersistentView
 import akka.util.Timeout
 import com.sksamuel.elastic4s.DefinitionAttributes.{DefinitionAttributeBoost, DefinitionAttributeRewrite}
 import com.sksamuel.elastic4s.QueryDefinition
-import org.elasticsearch.node.Node
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 
@@ -66,7 +65,7 @@ object StoredQueryItemsView {
   }
 }
 
-class StoredQueryItemsView(node: Node) extends PersistentView with util.ImplicitActorLogging with elastics.PercolatorIndex {
+class StoredQueryItemsView extends PersistentView with util.ImplicitActorLogging with elastics.PercolatorIndex {
 
   override val viewId: String = "stored-query-aggregate-root-view"
 
@@ -74,7 +73,7 @@ class StoredQueryItemsView(node: Node) extends PersistentView with util.Implicit
   import StoredQueryItemsView._
   import akka.pattern._
   override val persistenceId: String = "stored-query-aggregate-root"
-  val client = com.sksamuel.elastic4s.ElasticClient.fromNode(node)
+
   var items: Map[String, StoredQuery] = Map(temporaryId -> StoredQuery(temporaryId, "temporary"))
   var queryResp = QueryResponse(Set.empty, Set.empty)
 

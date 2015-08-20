@@ -21,7 +21,6 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def client: Client
 
   def getDoc(getRequest: GetRequest) = {
     val p = Promise[GetResponse]()
@@ -29,7 +28,8 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
       def onFailure(e: Throwable): Unit = p.tryFailure(e)
       def onResponse(resp: GetResponse): Unit = p.trySuccess(resp)
     }
-    client.get(getRequest.fields("vtt"), listener)
+
+    elastics.Cluster.client.get(getRequest.fields("vtt"), listener)
     p.future
   }
 
@@ -41,7 +41,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
     val q = params.foldLeft(QueryBuilders.boolQuery())(must)
     val percolateRequest = {
       import elastics.PercolatorIndex._
-      client.preparePercolate()
+      elastics.Cluster.client.preparePercolate()
         .setIndices(`inu-percolate`)
         .setDocumentType(sttType)
         .setGetRequest(getRequest)
@@ -61,7 +61,7 @@ trait SearchPreviewRoute extends HttpService with WebvttSupport with CorsSupport
       def onFailure(e: Throwable): Unit = p.tryFailure(e)
       def onResponse(resp: PercolateResponse): Unit = p.trySuccess(resp)
     }
-    client.percolate(percolateRequest, listener)
+    elastics.Cluster.client.percolate(percolateRequest, listener)
     p.future
   }
   

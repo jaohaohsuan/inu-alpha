@@ -31,11 +31,7 @@ trait ChineseAnalyzerRoute extends HttpService with CorsSupport with Json4sSuppo
 
   import ChineseAnalyzerRoute._
 
-  def node: Option[org.elasticsearch.node.Node]
-
-  private lazy val elasticClient = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
-    com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
-  )
+  private lazy val elasticClient = elastics.Cluster.`4s client`
 
   // prefer UTF-8 encoding, but also render with other encodings if the client requests them
   implicit val StringMarshaller = stringMarshaller(`text/plain`)

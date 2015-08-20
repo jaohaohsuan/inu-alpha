@@ -5,7 +5,7 @@ object Common {
   val settings =
     List(
       name := "inu-alpha",
-      version := "1.0.6",
+      version := "1.1.0",
       organization := "jaohaohsuan",
       scalaVersion := Version.scala
     )

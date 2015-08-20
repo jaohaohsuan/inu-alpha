@@ -7,12 +7,9 @@ import routing._
 import spray.routing.HttpServiceActor
 
 
-class ServiceActor(val node: Option[org.elasticsearch.node.Node]) extends HttpServiceActor
+class ServiceActor extends HttpServiceActor
   with StoredQueryRoute
-  with SearchPreviewRoute
-  with ChineseAnalyzerRoute {
-
-  val client = node.map { _.client }.getOrElse(new TransportClient().addTransportAddress(new InetSocketTransportAddress("127.0.0.1", 9300)))
+  with SearchPreviewRoute {
 
   lazy val clusterClient = {
     ClusterBoot.client(ConfigFactory.load("rest"))(context.system)

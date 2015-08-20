@@ -78,7 +78,7 @@ trait PercolatorIndex extends util.ImplicitActorLogging{
     client.execute { request }
   }
 
-  def client: ElasticClient
+  def client = elastics.Cluster.`4s client`
 }
 
 object AnalyzersIndex {
@@ -100,17 +100,16 @@ object AnalyzersIndex {
 trait AnalyzersIndex extends util.ImplicitActorLogging {
   self: Actor =>
 
-  def client: ElasticClient
-
   import AnalyzersIndex._
   import context.dispatcher
 
   lazy val `PUT analyzers` = {
-    client.execute { index exists `analyzers` }.flatMap { resp =>
+
+    elastics.Cluster.`4s client`.execute { index exists `analyzers` }.flatMap { resp =>
       if (resp.isExists)
        Future { (s"analyzers" -> resp) }
       else
-        client.execute { create index `analyzers` mappings(ik) }.map { s"PUT ${`analyzers`}" -> _ }
+        elastics.Cluster.`4s client`.execute { create index `analyzers` mappings(ik) }.map { s"PUT ${`analyzers`}" -> _ }
     }
   }
 }

@@ -34,7 +34,6 @@ with CollectionJsonSupport
 with elastics.LteIndices
 with util.ImplicitActorLogging {
 
-  val client = com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
 
   import context.dispatcher
 
@@ -72,8 +71,6 @@ case class PreviewRequest(ctx: RequestContext,
 
   import com.sksamuel.elastic4s.ElasticDsl._
   import context.dispatcher
-
-  val client = com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
 
   clusterClient ! SendToAll(storedQueryItemsViewSingleton, domain.StoredQueryItemsView.GetStoredQuery(storedQueryId))
 

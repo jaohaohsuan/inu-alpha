@@ -5,7 +5,6 @@ import akka.contrib.pattern.ClusterReceptionistExtension
 import akka.persistence._
 import algorithm.TopologicalSort._
 import com.sksamuel.elastic4s.BoolQueryDefinition
-import org.elasticsearch.node.Node
 import scala.collection.Iterable
 import scala.util.{Failure, Success, Try}
 

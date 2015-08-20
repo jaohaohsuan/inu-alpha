@@ -13,8 +13,7 @@ object Docker {
       val config = baseDirectory.value / "config"
       val plugins = baseDirectory.value / "plugins"
       val `docker-entrypoint.sh`: File = baseDirectory.value / "docker-entrypoint.sh"
-      val `logstash-cht.conf`: File = baseDirectory.value / "logstash-cht.conf"
-      val `logstash-ytx.conf`: File = baseDirectory.value / "logstash-ytx.conf"
+
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(Compile, packageBin).value.getOrElse(sys.error("Expected exactly one main class"))
       val libs = "/app/libs"
@@ -24,17 +23,8 @@ object Docker {
         // Use a base image that contain Java
         from("java")
 
-        env("LOGSTASH_VERSION", "1.5.3")
-
-        runRaw("""mkdir /elk && \
-                 |    wget -nv -c -t0 https://download.elastic.co/logstash/logstash/logstash-${LOGSTASH_VERSION}.tar.gz && \
-                 |    tar -xzf ./logstash-${LOGSTASH_VERSION}.tar.gz && \
-                 |    rm ./logstash-${LOGSTASH_VERSION}.tar.gz && \
-                 |    mv ./logstash-${LOGSTASH_VERSION} /elk/logstash  && \
-                 |    /elk/logstash/bin/plugin install --version 0.1.1 logstash-input-sttxml1""".stripMargin)
-
         // Expose ports
-        expose(7879, 9200, 9300)
+        expose(7879)
 
         // Copy all dependencies to 'libs' in the staging directory
         classpath.files.foreach { depFile =>
@@ -78,10 +68,8 @@ object Docker {
 //            |rm -rf elasticsearch-analysis-ik""".stripMargin)
 
 
-        copy(`logstash-cht.conf`, "/elk/logstash/logstash-config/")
-        copy(`logstash-ytx.conf`, "/elk/logstash/logstash-config/")
         // directory target is for akka-persistence use
-        volume("/stt", "/data", "/target")
+        volume("/target")
 
         // Add the generated jar file
         add(jarFile, jarTarget)

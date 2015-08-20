@@ -12,17 +12,13 @@ object ElasticClientActor {
   case object Install
 }
 
-class ElasticClientActor(node: Option[org.elasticsearch.node.Node]) extends Actor
+class ElasticClientActor extends Actor
   with LteTemplate
   with PercolatorIndex
   with AnalyzersIndex
   with util.ImplicitActorLogging {
 
   import ElasticClientActor._
-
-  lazy val client: ElasticClient = node.map { com.sksamuel.elastic4s.ElasticClient.fromNode }.getOrElse(
-    com.sksamuel.elastic4s.ElasticClient.remote("127.0.0.1", 9300)
-  )
 
   import context.dispatcher
 

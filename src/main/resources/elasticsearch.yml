@@ -1,5 +1,7 @@
-action.auto_create_index: -inu*,+* 
-cluster.name: inu-es-cluster
+action.auto_create_index: -inu*,+*
+cluster.name: inu-dc
+node.client: true
+
 #path.data: ./elastics/data
 #path.plugins: ./elastics/plugins
 
@@ -12,10 +14,13 @@ index:
       ik_smart:
         type: ik
         use_smart: true
+      ik_max_word:
+        type: ik
+        use_smart: false
       ik_stt_analyzer:
         type: custom
         tokenizer: ik
-        use_smart: true
+        use_smart: false
         char_filter: ['role_normalizer']
 
     char_filter:

@@ -29,9 +29,9 @@ object PercolatorIndex {
       import LteTemplate.fields._
 
       def field(field: String) =
-        field typed StringType indexAnalyzer analyzer searchAnalyzer WhitespaceAnalyzer
+        configIndexAnalyzer(field typed StringType, analyzer)
 
-      (0 to 5).foldLeft(List(dialogs)){ (acc, n) =>
+      (0 to 5).foldLeft(List(configIndexAnalyzer(dialogs, analyzer))){ (acc, n) =>
         field(s"customer$n") :: field(s"agent$n") :: acc
       }
     }

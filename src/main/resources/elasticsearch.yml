@@ -22,7 +22,10 @@ index:
         tokenizer: ik
         use_smart: false
         char_filter: ['role_normalizer']
-
+      whitespace_stt_analyzer:
+        type: custom
+        tokenizer: whitespace
+        char_filter: ['role_normalizer']
     char_filter:
       role_normalizer:
         type: pattern_replace

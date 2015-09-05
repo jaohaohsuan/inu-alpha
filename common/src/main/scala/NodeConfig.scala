@@ -23,9 +23,10 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, s
     val name = config getString CLUSTER_NAME_PATH
 
     // which config should be used
-    val configPath = if (isSeed) SEED_NODE else CLUSTER_NODE
+    val clusterConfig = Some(ConfigFactory parseResources (if(isSeed) SEED_NODE else CLUSTER_NODE))
 
-
+    val persistenceConfig: Option[Config] =
+      if(isEventsStore) Some(ConfigFactory parseResources EVENT_STORE_NODE) else None
 
     val ip = if(config hasPath CLUSTER_IP_PATH) config getString CLUSTER_IP_PATH else HostIP.load() getOrElse "127.0.0.1"
     val ipValue = ConfigValueFactory fromAnyRef ip
@@ -34,15 +35,11 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, s
       node => s"""akka.cluster.seed-nodes += "akka.tcp://$name@$node""""
     }.mkString("\n")
 
-    val others = (ConfigFactory parseString seedNodesString)
-      .withValue(CLUSTER_IP_PATH, ipValue)
-      .withFallback(ConfigFactory parseResources configPath)
+    val zero = (ConfigFactory parseString seedNodesString).withValue(CLUSTER_IP_PATH, ipValue)
 
-    (if(isEventsStore) others.withFallback(ConfigFactory parseResources EVENT_STORE_NODE) else others)
-      .withFallback(config)
-      .resolve
+    (persistenceConfig :: clusterConfig :: Some(config) :: Nil).flatten
+      .foldLeft(zero){(acc, p)=> acc.withFallback(p)}.resolve
   }
-
 }
 
 object NodeConfig {

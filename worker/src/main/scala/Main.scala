@@ -4,14 +4,16 @@ import akka.actor._
 import com.typesafe.config._
 import java.net.{ InetAddress, NetworkInterface }
 import scala.collection.JavaConversions._
-import common.NodeConfig
+import common._
 
 object Main extends App {
 
   val nodeConfig = NodeConfig parse args
 
   nodeConfig map { c =>
-    val system = ActorSystem(c.clusterName, c.config)
+    implicit val system = ActorSystem(c.clusterName, c.config)
+
+    system.actorOf(Props[SharedLeveldbStoreUsage], "conf")
 
     system.log info s"ActorSystem ${system.name} started successfully"
 

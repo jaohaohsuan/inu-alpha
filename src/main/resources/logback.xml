@@ -8,10 +8,6 @@
         </encoder>
     </appender>
 
-    <logger name="com.mlh.clustering" level="debug" additivity="false">
-        <appender-ref ref="console" />
-    </logger>
-
     <logger name="akka" level="info" additivity="false">
         <appender-ref ref="console" />
     </logger>

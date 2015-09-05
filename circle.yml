@@ -29,7 +29,7 @@ dependencies:
 
 deployment:
   hub:
-    branch: master
+    branch: allinone
     commands:
       - docker login -e $DOCKERHUB_MAIL -p $DOCKERHUB_PASSWORD -u $DOCKERHUB_LOGIN
       - sbt dockerPush

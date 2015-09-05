@@ -14,11 +14,6 @@ object Main extends App {
   nodeConfig map { c =>
     implicit val system = ActorSystem(c.clusterName, c.config)
 
-    if(c.isEventsStore) {
-      // Start the shared journal on one node (don't crash this SPOF)
-      system.actorOf(Props[SharedLeveldbStore], "store")
-    }
-
     system.actorOf(Props[SharedLeveldbStoreUsage], name = "conf")
     system.actorOf(Props[SimpleClusterListener], name = "clusterListener")
 

@@ -35,9 +35,11 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, s
       node => s"""akka.cluster.seed-nodes += "akka.tcp://$name@$node""""
     }.mkString("\n")
 
+    val rolesConfig = if(isEventsStore) Some(ConfigFactory parseString "akka.cluster.roles += store") else None
+
     val zero = (ConfigFactory parseString seedNodesString).withValue(CLUSTER_IP_PATH, ipValue)
 
-    (persistenceConfig :: clusterConfig :: Some(config) :: Nil).flatten
+    (rolesConfig :: persistenceConfig :: clusterConfig :: Some(config) :: Nil).flatten
       .foldLeft(zero){(acc, p)=> acc.withFallback(p)}.resolve
   }
 }

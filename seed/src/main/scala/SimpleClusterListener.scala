@@ -6,6 +6,7 @@ package seed
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.actor._
+import akka.persistence.journal.leveldb.SharedLeveldbStore
 import common._
 
 import scala.concurrent.Future
@@ -40,7 +41,10 @@ class SimpleClusterListener extends Actor with ActorLogging {
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.seconds)
 
-    val store: Future[ActorRef] = context.actorSelection("/user/store").resolveOne
+    // Start the shared journal on one node (don't crash this SPOF)
+
+    val store: Future[ActorRef] =
+      if(m.hasRole("store")) Future { context.system.actorOf(Props[SharedLeveldbStore], "store") } else context.actorSelection("/user/store").resolveOne
 
     store.onComplete {
       case Success(ref) =>

@@ -1,19 +1,19 @@
 package worker
 
 import akka.actor._
-import com.typesafe.config._
-import java.net.{ InetAddress, NetworkInterface }
-import scala.collection.JavaConversions._
-import common._
+import akka.cluster.client.ClusterClient
+import percolator.PercolatorWorker
 
 object Main extends App {
 
-  val nodeConfig = NodeConfig parse args
+  val nodeConfig = WorkerConfig parse args
 
   nodeConfig map { c =>
-    implicit val system = ActorSystem(c.clusterName, c.config)
+    implicit val system = ActorSystem("PercolatorSync", c.config)
 
-    system.actorOf(Props[SharedLeveldbStoreUsage], "conf")
+    val clusterClient = system.actorOf(ClusterClient.props(c.clusterClientSettings), "client")
+
+    system.actorOf(Props(classOf[PercolatorWorker], clusterClient))
 
     system.log info s"ActorSystem ${system.name} started successfully"
 

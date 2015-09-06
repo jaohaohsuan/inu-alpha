@@ -1,26 +1,12 @@
-
-//libraryDependencies ++= Dependencies.projectTemplate
+import Library._
 
 def InuProject(name: String): Project = {
-
-  import Library._
-
   Project(name, file(name)).
   settings(
       scalaVersion := Version.scala,
-      scalacOptions ++= Seq("-encoding", "UTF-8",
-                                             "-deprecation",
-                                             "-feature",
-                                             "-unchecked"),
+      scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
       resolvers ++= Dependencies.resolvers,
-      libraryDependencies ++= Seq(
-        scopt,
-        akkaActor,
-        akkaCluster,
-        akkaPersistence, leveldb, leveldbjniAll,
-        akkaClusterMetrics,
-        akkaSlf4j, logbackClassic
-      ),
+      libraryDependencies ++= Seq(scopt, akkaActor, akkaSlf4j, logbackClassic),
       fork in run := true
     ).
   settings(Revolver.settings: _*)
@@ -28,10 +14,30 @@ def InuProject(name: String): Project = {
 
 lazy val common = InuProject("common")
 
+lazy val protocol = InuProject("protocol").settings(
+  Seq(
+    libraryDependencies ++= Seq(akkaClusterTools)
+  )
+)
 
-lazy val seed = InuProject("seed").dependsOn(common)
+lazy val seed = InuProject("seed").dependsOn(common, protocol).settings(
+  Seq(
+    libraryDependencies ++= Seq(
+      akkaActor,
+      akkaCluster, akkaClusterTools,
+      akkaPersistence, leveldb, leveldbjniAll,
+      akkaClusterMetrics
+    )
+  )
+)
 
-lazy val worker = InuProject("worker").dependsOn(common)
+lazy val worker = InuProject("worker").dependsOn(common, protocol).settings(
+  Seq(
+    libraryDependencies ++= Seq(
+      akkaRemote, akkaClusterTools,
+      elastic4s)
+  )
+)
 
 
 //val root = Project(

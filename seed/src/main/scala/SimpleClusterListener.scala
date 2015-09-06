@@ -1,14 +1,9 @@
-/**
- * Created by henry on 9/4/15.
- */
 package seed
 
+import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
-import akka.actor._
 import akka.persistence.journal.leveldb.SharedLeveldbStore
-import common._
-
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -17,8 +12,7 @@ class SimpleClusterListener extends Actor with ActorLogging {
   val cluster = Cluster(context.system)
 
   override def preStart(): Unit = {
-    cluster.subscribe(self, initialStateMode = InitialStateAsEvents,
-    classOf[MemberEvent], classOf[UnreachableMember])
+    cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
@@ -36,13 +30,13 @@ class SimpleClusterListener extends Actor with ActorLogging {
 
   def registerLeveldbStore(m: akka.cluster.Member) = {
 
-    import context.dispatcher
     import akka.util.Timeout
+    import context.dispatcher
+
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.seconds)
 
     // Start the shared journal on one node (don't crash this SPOF)
-
     val store: Future[ActorRef] =
       if(m.hasRole("store")) Future { context.system.actorOf(Props[SharedLeveldbStore], "store") } else context.actorSelection("/user/store").resolveOne
 
@@ -52,6 +46,5 @@ class SimpleClusterListener extends Actor with ActorLogging {
       case Failure(ex) =>
         log.error(ex, "Can not resolve /user/store")
     }
-
   }
 }

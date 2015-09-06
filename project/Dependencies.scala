@@ -9,8 +9,10 @@ object Version {
 
 object Library {
   val akkaActor                = "com.typesafe.akka"      %% "akka-actor"                    % Version.akka
+  val akkaRemote = "com.typesafe.akka" %% "akka-remote" %  Version.akka
   val akkaSlf4j                = "com.typesafe.akka"      %% "akka-slf4j"                    % Version.akka
-  val akkaPersistence          = "com.typesafe.akka"      %% "akka-persistence" % Version.akka
+  val akkaPersistence          = "com.typesafe.akka"      %% "akka-persistence"              % Version.akka
+  val akkaClusterTools         = "com.typesafe.akka"      %% "akka-cluster-tools"            % Version.akka
   val akkaCluster              = "com.typesafe.akka"      %% "akka-cluster"                  % Version.akka
   val akkaClusterMetrics       = "com.typesafe.akka"      %% "akka-cluster-metrics"          % Version.akka
   val akkaContrib              = "com.typesafe.akka"      %% "akka-contrib"                  % Version.akka

@@ -5,6 +5,7 @@ case object Pull
 case class Changes(items: Set[(StoredQuery, Int)])
 case class RegisterQueryOK(records: Set[(String, Int)])
 
+
 sealed trait BoolClause {
   val occurrence: String
 }

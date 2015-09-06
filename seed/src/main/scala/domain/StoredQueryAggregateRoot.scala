@@ -189,7 +189,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
     case RegisterQueryOK(records) =>
       persist(ChangesRegistered(records)) { evt =>
         state = state.update(evt)
-        log.info(s"remains: [${state.changes.mkString(",")}]")
+        log.debug(s"remains: [${state.changes.mkString(",")}]")
       }
   }
 

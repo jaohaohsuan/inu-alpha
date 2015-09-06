@@ -4,12 +4,18 @@ import com.sksamuel.elastic4s._
 import com.sksamuel.elastic4s.mappings.FieldDefinition
 import protocol.storedQuery._
 
+
 object Percolator {
 
-  def buildBoolQuery(e: StoredQuery): (List[String], List[String], BoolQueryDefinition) =
+  type Fields = Map[String, Any]
+  type Keywords = List[String]
+  type ReferredClauses = List[String]
+  type Id = String
+
+  def buildBoolQuery(e: StoredQuery): (ReferredClauses, Keywords, BoolQueryDefinition) =
     e.clauses.values.foldLeft((List.empty[String],List.empty[String], new BoolQueryDefinition))(assemble)
 
-  private def assemble(acc: (List[String], List[String], BoolQueryDefinition), clause: BoolClause): (List[String], List[String], BoolQueryDefinition) = {
+  private def assemble(acc: (ReferredClauses, Keywords, BoolQueryDefinition), clause: BoolClause): (ReferredClauses, Keywords, BoolQueryDefinition) = {
 
     val (clausesTitle, keywords, bool, qd) = {
       val (clausesTitle, keywords, bool) = acc
@@ -41,7 +47,7 @@ object Percolator {
     }
   }
 
-  def unapply(value: AnyRef): Option[(String, QueryDefinition, Map[String, Any])] = try {
+  def unapply(value: AnyRef): Option[(Id, QueryDefinition, Fields)] = try {
 
     import scala.language.implicitConversions
     implicit def fieldDefinitionToString(f: FieldDefinition): String = f.name

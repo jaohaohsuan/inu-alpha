@@ -3,7 +3,7 @@ package seed
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
-import akka.persistence.journal.leveldb.SharedLeveldbStore
+import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -19,7 +19,6 @@ class SimpleClusterListener extends Actor with ActorLogging {
 
   def receive = {
     case MemberUp(member) =>
-      log.info("Member is Up: {}", member.address)
       registerLeveldbStore(member)
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
@@ -32,19 +31,21 @@ class SimpleClusterListener extends Actor with ActorLogging {
 
     import akka.util.Timeout
     import context.dispatcher
+    import context.system
 
     import scala.concurrent.duration._
     implicit val timeout = Timeout(5.seconds)
 
-    // Start the shared journal on one node (don't crash this SPOF)
-    val store: Future[ActorRef] =
-      if(m.hasRole("store")) Future { context.system.actorOf(Props[SharedLeveldbStore], "store") } else context.actorSelection("/user/store").resolveOne
-
-    store.onComplete {
-      case Success(ref) =>
-        context.actorSelection(RootActorPath(m.address) / "user" / "conf").tell(LeveldbStoreRegistration, ref)
-      case Failure(ex) =>
-        log.error(ex, "Can not resolve /user/store")
-    }
+    system.actorSelection("/user/store").resolveOne.recoverWith {
+      case ex: akka.actor.ActorNotFound if m.hasRole("store") =>
+        // Start the shared journal on one node (don't crash this SPOF)
+        Future { system.actorOf(Props[SharedLeveldbStore], "store") }
+    }.onComplete {
+        case Success(ref) =>
+          log.info(s"Sending $ref to ${m.address}")
+          context.actorSelection(RootActorPath(m.address) / "user" / "conf").tell(LeveldbStoreRegistration, ref)
+        case Failure(ex) =>
+          log.error(ex, "Can not resolve /user/store")
+      }
   }
 }

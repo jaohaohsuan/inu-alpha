@@ -15,7 +15,9 @@ object Main extends App {
     implicit val system = ActorSystem(c.clusterName, c.config)
 
     system.actorOf(Props[Configurator], Configurator.Name)
-    system.actorOf(Props[SimpleClusterListener], name = "clusterListener")
+
+    if(c.isEventsStore)
+      system.actorOf(Props[SimpleClusterListener], name = "clusterListener")
 
 
     system.log info s"ActorSystem ${system.name} started successfully"

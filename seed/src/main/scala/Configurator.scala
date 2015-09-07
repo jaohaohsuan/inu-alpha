@@ -13,15 +13,17 @@ class Configurator extends Actor with SharedLeveldbStoreUsage {
 
    def processReceive: Receive = {
      case SetSharedLeveldbJournalAck =>
-       /*val storedQueryAggregateRoot = system.actorOf(ClusterSingletonManager.props(
+
+       log.info("SharedLeveldbJournalAck")
+       /*system.actorOf(ClusterSingletonManager.props(
          singletonProps = Props(classOf[domain.StoredQueryAggregateRoot]),
          terminationMessage = PoisonPill,
          settings = ClusterSingletonManagerSettings(system)),
-         name = protocol.storedQuery.AggregateRoot.Name)*/
-       val storedQueryAggregateRoot = system.actorOf(Props[domain.StoredQueryAggregateRoot], protocol.storedQuery.AggregateRoot.Name)
+         name = protocol.storedQuery.AggregateRoot.Name)
+*/
+       //val storedQueryAggregateRoot = system.actorOf(Props[domain.StoredQueryAggregateRoot], protocol.storedQuery.AggregateRoot.Name)
 
-       ClusterClientReceptionist(system).registerService(storedQueryAggregateRoot)
-       log.info(s"StoredQueryAggregateRoot Up")
+       //ClusterClientReceptionist(system).registerService(storedQueryAggregateRoot)
 
      case unknown =>
    }

@@ -14,7 +14,7 @@ trait SharedLeveldbStoreUsage extends Actor with ActorLogging {
     case LeveldbStoreRegistration if !storeRefs.contains(sender()) =>
       storeRefs = storeRefs :+ sender()
       SharedLeveldbJournal.setStore(sender(), context.system)
-      log.info("Injecting the (remote {}) SharedLeveldbStore actor reference", sender())
+      log.info("Successfully set SharedLeveldbJournal({})", sender())
       self ! SetSharedLeveldbJournalAck
   }
 }

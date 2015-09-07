@@ -41,7 +41,8 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, r
       role => s"""akka.cluster.roles += $role"""
     }.mkString("\n")
 
-    val zero = (ConfigFactory parseString (seedNodesString + rolesString))
+    val zero = (ConfigFactory parseString seedNodesString)
+      .withFallback(ConfigFactory parseString rolesString)
       .withValue(CLUSTER_IP_PATH, ipValue)
       .withValue(CLUSTER_PORT_PATH, portValue)
 

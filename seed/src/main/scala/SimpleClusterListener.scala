@@ -43,7 +43,7 @@ class SimpleClusterListener extends Actor with ActorLogging {
     }.onComplete {
         case Success(ref) =>
           log.info(s"Sending $ref to ${m.address}")
-          context.actorSelection(RootActorPath(m.address) / "user" / "conf").tell(LeveldbStoreRegistration, ref)
+          context.actorSelection(RootActorPath(m.address) / "user" / "conf").tell(LeveldbStoreRegistration(m), ref)
         case Failure(ex) =>
           log.error(ex, "Can not resolve /user/store")
       }

@@ -1,9 +1,12 @@
 package seed
 
 import akka.actor._
+import akka.cluster.singleton.{ClusterSingletonProxySettings, ClusterSingletonProxy}
 import akka.persistence.journal.leveldb.{ SharedLeveldbStore, SharedLeveldbJournal }
 import com.typesafe.config._
 import java.net.{ InetAddress, NetworkInterface }
+import seed.domain.StoredQueryAggregateRoot.CreateNewStoredQuery
+
 import scala.collection.JavaConversions._
 import common._
 
@@ -18,7 +21,6 @@ object Main extends App {
 
     if(c.isEventsStore)
       system.actorOf(Props[SimpleClusterListener], name = "clusterListener")
-
 
     system.log info s"ActorSystem ${system.name} started successfully"
   }

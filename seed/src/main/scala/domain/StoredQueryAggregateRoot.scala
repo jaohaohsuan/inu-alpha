@@ -86,8 +86,11 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
   var state: StoredQueries = StoredQueries(items = Map(temporaryId -> StoredQuery(temporaryId, "temporary")))
 
+  log.info("OK")
+
   val receiveCommand: Receive = {
     case CreateNewStoredQuery(title, referredId, tags) =>
+      log.info("OK2")
       def doPersist(entity: StoredQuery) = {
         val itemCreated = ItemCreated(entity.copy(tags = tags), state.clauseDependencies ++ entity.clauses.flatMap {
           case (k, v: NamedBoolClause) => Some((entity.id, v.storedQueryId) -> k)

@@ -3,10 +3,11 @@ import Library._
 def InuProject(name: String): Project = Project(name, file(name))
     .settings(
       Revolver.settings ++
-      Seq(scalaVersion := Version.scala,
+      Seq(
+        scalaVersion := Version.scala,
         scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
         resolvers ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(scopt, akkaActor, akkaSlf4j, logbackClassic),
+        libraryDependencies ++= Seq(akkaSlf4j, scopt, logbackClassic),
         fork in run := true): _*
     )
 
@@ -22,9 +23,8 @@ lazy val seed = InuProject("seed")
   .dependsOn(common, protocol)
   .settings(
     libraryDependencies ++= Seq(
-      akkaActor,
       akkaCluster, akkaClusterTools,
-      akkaPersistence, leveldb, leveldbjniAll,
+      leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics
     )
 )

@@ -1,38 +1,46 @@
-package seed.domain
+package seed.domain.storedQuery
 
 import akka.actor._
 import akka.persistence._
 import common.ImplicitActorLogging
 import protocol.storedQuery._
-import algorithm.TopologicalSort
+import seed.domain.algorithm
+import seed.domain.algorithm.TopologicalSort
 
 import scala.util.{Failure, Success, Try}
+
+sealed trait Event
+sealed trait State
+sealed trait Command
 
 object StoredQueryAggregateRoot {
 
   type ClauseDependencies = Map[(String, String), Int]
+
   type StoredQueryMap = Map[String, StoredQuery]
 
   val temporaryId: String = "temporary"
-  sealed trait Event
-  sealed trait State
-  sealed trait Command
+
   case class ClauseAddedAck(clauseId: String)
   case object UpdatedAck
   case object ClausesRemovedAck
+
+  //events
   case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
   case class ItemsChanged(items: Seq[(String, StoredQuery)], changes: List[String], dp: ClauseDependencies) extends Event
   case class ChangesRegistered(records: Set[(String, Int)]) extends Event
 
+  //commands
   case class AddClause(storedQueryId: String, clause: BoolClause) extends Command
   case class UpdateTags(storedQueryId: String, tags: Set[String])
   case class RemoveClauses(storedQueryId: String, specified: List[Int]) extends Command
   case class CreateNewStoredQuery(title: String, referredId: Option[String], tags: Set[String]) extends Command
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
 
+  //errors
   case object CycleInDirectedGraphError
 
-
+  //states
   case class StoredQueries(items: StoredQueryMap = Map.empty,
                     clauseDependencies: ClauseDependencies = Map.empty,
                     changes: Map[String, Int] = Map.empty) extends State {
@@ -64,15 +72,16 @@ object StoredQueryAggregateRoot {
     def getItem(id: String): Option[StoredQuery] = items.get(id)
 
     def update(event: Event): StoredQueries = {
+      def escalateVer(id: String) = id -> (changes.getOrElse(id, 0) + 1)
       event match {
         case ItemCreated(entity, dp) =>
-          copy(items = items + (entity.id -> entity), clauseDependencies = dp,
-            changes = changes + (entity.id -> (changes.getOrElse(entity.id, 0) + 1)))
+          copy(items   = items   + (entity.id -> entity), clauseDependencies = dp,
+               changes = changes + escalateVer(entity.id))
         case ItemsChanged(xs, changesList, dp) =>
-          copy(items = items ++ xs, clauseDependencies = dp, changes =
-            changes ++ changesList.map { e => e -> (changes.getOrElse(e, 0) + 1) })
-        case ChangesRegistered(records) =>
-          copy(changes = changes.toSet.diff(records).toMap)
+          copy(items   = items   ++ xs, clauseDependencies = dp,
+               changes = changes ++ changesList.map(escalateVer))
+        case ChangesRegistered(syncedRecords) =>
+          copy(changes = changes.toSet.diff(syncedRecords).toMap)
       }
     }
   }
@@ -86,11 +95,11 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
   var state: StoredQueries = StoredQueries(items = Map(temporaryId -> StoredQuery(temporaryId, "temporary")))
 
-  log.info("OK")
+  log.info("StoredQueryAggregateRoot established")
 
   val receiveCommand: Receive = {
     case CreateNewStoredQuery(title, referredId, tags) =>
-      log.info("OK2")
+      log.info("Incoming command: CreateNewStoredQuery")
       def doPersist(entity: StoredQuery) = {
         val itemCreated = ItemCreated(entity.copy(tags = tags), state.clauseDependencies ++ entity.clauses.flatMap {
           case (k, v: NamedBoolClause) => Some((entity.id, v.storedQueryId) -> k)
@@ -174,7 +183,6 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
         case None => log.error(s"$newTitle#$storedQueryId does not exist")
       }
-
 
     case Pull =>
       val items = state.changes.map { case (k, v) => (retrieveDependencies(state.items(k), state.items),v) }.toSet

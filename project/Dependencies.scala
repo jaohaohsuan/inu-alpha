@@ -2,7 +2,7 @@ import sbt._
 
 object Version {
   val akka  = "2.4.0-RC2"
-  val scala = "2.11.7"
+  val scala = "2.11.6"
   val spray = "1.3.+"
 }
 
@@ -17,8 +17,8 @@ object Library {
   val akkaClusterMetrics       = "com.typesafe.akka"      %% "akka-cluster-metrics"          % Version.akka
 
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.12"
-  //val spray                    = "io.spray"               %% "spray-can"                     % Version.spray
-  //val sprayRouting             = "io.spray"               %% "spray-routing"                 % Version.spray
+  val spray                    = "io.spray"               %% "spray-can"                     % Version.spray
+  val sprayRouting             = "io.spray"               %% "spray-routing"                 % Version.spray
   //val sprayTestkit             = "io.spray"               %% "spray-testkit"                 % Version.spray % "test"
   val logbackClassic           = "ch.qos.logback"         %  "logback-classic"               % "1.1.3"
   //val sigar                    = "org.fusesource"         %  "sigar"                         % "1.6.4" classifier("native") classifier("")

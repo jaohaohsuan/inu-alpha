@@ -7,7 +7,7 @@ def InuProject(name: String): Project = Project(name, file(name))
         scalaVersion := Version.scala,
         scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
         resolvers ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(akkaSlf4j, scopt, logbackClassic),
+        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic),
         fork in run := true): _*
     )
 
@@ -23,19 +23,22 @@ lazy val seed = InuProject("seed")
   .dependsOn(common, protocol)
   .settings(
     libraryDependencies ++= Seq(
+      spray, sprayRouting,
       akkaCluster, akkaClusterTools,
       leveldb, leveldbjniAll, akkaPersistenceQuery,
-      akkaClusterMetrics
+      akkaClusterMetrics,
+      scalaJsonCollection, json4sNative,
+      nscalaTime
     )
 )
 
-lazy val worker = InuProject("worker")
+/*lazy val worker = InuProject("worker")
   .dependsOn(common, protocol)
   .settings(
     libraryDependencies ++= Seq(
       akkaRemote, akkaClusterTools,
       elastic4s)
-)
+)*/
 
 
 //val root = Project(

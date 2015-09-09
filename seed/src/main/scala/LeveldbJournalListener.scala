@@ -7,7 +7,7 @@ import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStor
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class SimpleClusterListener extends Actor with ActorLogging {
+class LeveldbJournalListener extends Actor with ActorLogging {
 
   val cluster = Cluster(context.system)
 

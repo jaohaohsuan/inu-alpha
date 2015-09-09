@@ -25,6 +25,8 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, r
     // which config should be used
     val clusterConfig = Some(ConfigFactory parseResources (if(isSeed) SEED_NODE else CLUSTER_NODE))
 
+    //val frontendConfig = if(roles.contains("web")) Some(ConfigFactory parseResources "frontend.conf") else None
+
     val persistenceConfig: Option[Config] =
       if(isEventsStore) Some(ConfigFactory parseResources EVENT_STORE_NODE) else None
 

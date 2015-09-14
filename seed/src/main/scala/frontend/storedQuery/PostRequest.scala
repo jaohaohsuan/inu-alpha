@@ -1,9 +1,8 @@
 package frontend.storedQuery.postRequest
 
-
 import akka.actor.Props
 import protocol.storedQuery.StoredQuery
-import seed.domain.storedQuery.StoredQueryAggregateRoot.{CreateNewStoredQuery, ItemCreated}
+import domain.storedQuery.StoredQueryAggregateRoot.{CreateNewStoredQuery, ItemCreated}
 import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing.RequestContext

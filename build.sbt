@@ -28,8 +28,10 @@ lazy val seed = InuProject("seed")
       leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics,
       scalaJsonCollection, json4sNative,
+      elastic4s,
       nscalaTime
-    )
+    ),
+    cleanFiles += baseDirectory.value / "data"
 )
 
 /*lazy val worker = InuProject("worker")

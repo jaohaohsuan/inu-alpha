@@ -1,4 +1,4 @@
-package seed.domain.algorithm
+package domain.algorithm
 
 import scala.annotation.tailrec
 

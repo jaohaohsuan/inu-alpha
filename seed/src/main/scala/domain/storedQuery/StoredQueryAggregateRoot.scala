@@ -1,11 +1,10 @@
-package seed.domain.storedQuery
+package domain.storedQuery
 
 import akka.actor._
 import akka.persistence._
 import common.ImplicitActorLogging
 import protocol.storedQuery._
-import seed.domain.algorithm
-import seed.domain.algorithm.TopologicalSort
+import domain.algorithm.TopologicalSort
 
 import scala.util.{Failure, Success, Try}
 
@@ -54,7 +53,7 @@ object StoredQueryAggregateRoot {
     }
 
     def acyclicProofing(consumer: String, provider: String, clauseId: Int): Option[ClauseDependencies] = {
-      import algorithm.TopologicalSort._
+      import TopologicalSort._
       val source = clauseDependencies + ((consumer, provider) -> clauseId)
       Try(sort(toPredecessor(source.keys))) match {
         case Success(_) => Some(source)

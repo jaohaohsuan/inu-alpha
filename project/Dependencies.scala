@@ -32,11 +32,13 @@ object Library {
   //val akkaPersistenceCassandra = "com.github.krasserm"       %% "akka-persistence-cassandra"    % "0.3.9"
   val leveldb                  = "org.iq80.leveldb"          % "leveldb"                        % "0.7"
   val leveldbjniAll            = "org.fusesource.leveldbjni" % "leveldbjni-all"              % "1.8"
+  val shapeless  = "com.chuusai" %% "shapeless" % "2.2.5"
 }
 
 object Dependencies {
 
   val resolvers = Seq(
+    Resolver.sonatypeRepo("releases"),
     "Spray Repository"    at "http://repo.spray.io/",
     "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
     "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"

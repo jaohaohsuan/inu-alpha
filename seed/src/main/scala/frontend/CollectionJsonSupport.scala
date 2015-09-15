@@ -8,9 +8,14 @@ import spray.http.{HttpEntity, MediaType, MediaTypes}
 import spray.httpx.Json4sSupport
 import spray.httpx.marshalling.Marshaller
 import spray.httpx.unmarshalling._
-trait CollectionJsonSupport extends Json4sSupport{
 
+object CollectionJsonSupport {
   val `application/vnd.collection+json` = MediaTypes.register(MediaType.custom("application/vnd.collection+json"))
+}
+
+trait CollectionJsonSupport extends Json4sSupport {
+
+  import CollectionJsonSupport._
 
   implicit def json4sFormats: Formats = DefaultFormats
 
@@ -25,7 +30,7 @@ trait CollectionJsonSupport extends Json4sSupport{
         }
     }
 
-  implicit def templateToObjectUnmarshaller[T <: AnyRef: Manifest]: Unmarshaller[T] =
+  implicit def templateToObjectUnmarshaller[T <: AnyRef : Manifest]: Unmarshaller[T] =
     Unmarshaller.delegate[Template, T](`application/vnd.collection+json`) { template =>
       new JavaReflectionData[T].unapply(template.data) match {
         case Some(o) => o
@@ -41,10 +46,10 @@ trait CollectionJsonSupport extends Json4sSupport{
 
   import scala.language.implicitConversions
 
-  implicit def asTemplate[T <: AnyRef: Manifest](value: T)(implicit formats: org.json4s.Formats): Option[Template] =
+  implicit def asTemplate[T <: AnyRef : Manifest](value: T)(implicit formats: org.json4s.Formats): Option[Template] =
     Some(Template(value)(dataApply(manifest, formats)))
 
-  implicit def dataApply[T <: AnyRef: Manifest](implicit formats: org.json4s.Formats): DataApply[T] = {
+  implicit def dataApply[T <: AnyRef : Manifest](implicit formats: org.json4s.Formats): DataApply[T] = {
     new JavaReflectionData[T]()(formats, manifest[T])
   }
 }

@@ -3,11 +3,19 @@ package frontend.storedQuery
 import frontend.storedQuery.postRequest._
 import frontend.{CollectionJsonSupport, CorsSupport}
 import spray.routing._
+import spray.http.StatusCodes._
 
 trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonSupport {
 
   lazy val `_query/template/`: Route =
   cors {
+    get {
+      pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
+        pathEnd { implicit ctx =>
+          actorRefFactory.actorOf(GetStoredQueryRequest.props)
+        }
+      }
+    } ~
     post {
       pathPrefix("_query" / "template") {
         pathEnd {

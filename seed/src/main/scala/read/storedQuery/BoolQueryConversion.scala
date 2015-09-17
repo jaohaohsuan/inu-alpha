@@ -51,9 +51,12 @@ object BoolQueryConversion {
     value match {
       case e: StoredQuery =>
         import org.json4s.JsonDSL._
+        import org.json4s.native.JsonMethods._
+
         val (referredClausesList: List[String], keywordsList: List[String], boolQuery) = buildBoolQuery(e)
         Some((boolQuery,
-          ("title" -> e.title)
+          ("query" -> parse(s"${boolQuery.builder}"))
+            ~ ("title" -> e.title)
             ~ ("tags" -> e.tags)
             ~ ("keywords" -> keywordsList)
             ~ ("referredClauses" -> referredClausesList)))

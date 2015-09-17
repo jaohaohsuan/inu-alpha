@@ -5,6 +5,12 @@ case object Pull
 case class Changes(items: Set[(StoredQuery, Int)])
 case class RegisterQueryOK(records: Set[(String, Int)])
 
+object Terminology {
+
+  val OccurrenceRegex = """^must$|^must_not$|^should$""".r
+  val BoolQueryClauseRegex = """^match$|^near$|^named$""".r
+
+}
 
 sealed trait BoolClause {
   val occurrence: String

@@ -3,6 +3,7 @@ package domain.storedQuery
 import akka.actor._
 import akka.persistence._
 import common.ImplicitActorLogging
+import protocol.storedQuery.Terminology._
 import protocol.storedQuery._
 import domain.algorithm.TopologicalSort
 
@@ -20,9 +21,11 @@ object StoredQueryAggregateRoot {
 
   val temporaryId: String = "temporary"
 
+  // acks
   case class ClauseAddedAck(clauseId: String)
   case object UpdatedAck
   case object ClausesRemovedAck
+  case object ClausesEmptyAck
 
   //events
   case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
@@ -35,6 +38,10 @@ object StoredQueryAggregateRoot {
   case class RemoveClauses(storedQueryId: String, specified: List[Int]) extends Command
   case class CreateNewStoredQuery(title: String, referredId: Option[String], tags: Set[String]) extends Command
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
+  case class ResetOccurrence(storedQueryId: String, occurrence: String) extends Command {
+    require(test)
+    def test = occurrence.matches(OccurrenceRegex.toString())
+  }
 
   //errors
   case object CycleInDirectedGraphError
@@ -142,6 +149,23 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
         case None =>
           sender() ! s"$storedQueryId is not exist."
       }
+
+    case ResetOccurrence(storedQueryId, occurrence) =>
+      state.getItem(storedQueryId)match {
+        case Some(item)=>
+          item.clauses.filter{ case (_,c) => c.occurrence == occurrence }.keys.toList match {
+            case xs: List[Int] =>
+              //log.info(s"${xs}")
+              self forward RemoveClauses(storedQueryId, xs)
+            case Nil =>
+              sender() ! ClausesEmptyAck
+          }
+        case None =>
+          sender() ! s"$storedQueryId is not exist."
+      }
+
+    case RemoveClauses(storedQueryId, specified) if specified.isEmpty =>
+      sender() ! ClausesEmptyAck
 
     case RemoveClauses(storedQueryId, specified) =>
       state.getItem(storedQueryId) match {

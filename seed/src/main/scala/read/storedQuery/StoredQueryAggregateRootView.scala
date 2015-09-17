@@ -10,13 +10,14 @@ import read.MaterializeView
 
 import scala.language.implicitConversions
 
-case class SimpleStoredQuery(title: String, tags: Option[String])
+case class StoredQueryData(title: String, tags: Option[String])
 
 class StoredQueryAggregateRootView extends MaterializeView {
 
   val source = readJournal
     .query(EventsByPersistenceId(AggregateRoot.Name))
     .mapConcat(flatten)
+    //.map(e => {s"${e.title} ${e.id} ${e.clauses.size} ${e.tags}"})
     .map(convertToReadSideType)
 
   def flatten(envelope: EventEnvelope) = {
@@ -34,18 +35,18 @@ class StoredQueryAggregateRootView extends MaterializeView {
     implicit def setToOptionString(value : Set[String]): Option[String] = Option(value.mkString(" ")).filter(_.trim.nonEmpty)
 
     // extracting
-    val BoolQueryConversion(boolQuery, searchableFields) = value
+    val BoolQueryConversion(_, percolatorDoc) = value
     val StoredQuery(storedQueryId, title , clauses, tags) = value
 
     val prefixPath = s"/_query/template/$storedQueryId"
 
-    val data = JField("data", SimpleStoredQuery(title, tags: Option[String]))
+    val data = JField("data", StoredQueryData(title, tags: Option[String]))
     val href = JField("href", JString(prefixPath))
     val version = JField("version", JString("1.0"))
     val items = JField("items", JArray(List(JObject(data, href))))
     val template = JField("template", JObject(data))
 
-    val fields = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List(items, template, version, href)){ (acc: List[JField], e) =>
+    val collectionJson = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List(items, template, version, href)){ (acc: List[JField], e) =>
       val (occur, groupedClauses) = e
       occur -> JObject(
         ("href", JString(s"$prefixPath/$occur")),
@@ -57,21 +58,18 @@ class StoredQueryAggregateRootView extends MaterializeView {
       ) :: acc
     }
 
-    storedQueryId -> compact(render(
-      JObject(
-        JField("query", parse(boolQuery.builder.toString)),
-        JField("collection", JObject(fields:_*))
-      ) merge searchableFields
-    ))
+    storedQueryId -> compact(render(JObject("collection" -> JObject(collectionJson:_*)) merge percolatorDoc))
   }
 
   def receive: Receive = {
     case "GO" =>
+      import akka.stream.scaladsl.Sink
       import StoredQueryIndex._
       import context.dispatcher
+
       source
-        .mapAsync(1)(saveOrUpdate)
-        .runForeach(f => println(f))
-      //.runWith(Sink.ignore)
+        .mapAsync(1)(save)
+        //.runForeach(f => println(f))
+        .runWith(Sink.ignore)
   }
 }

@@ -3,6 +3,7 @@ package read.storedQuery
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.action.admin.indices.mapping.put.{PutMappingRequestBuilder, PutMappingResponse}
 import org.elasticsearch.action.get.{GetRequest, GetRequestBuilder, GetResponse}
+import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.{SearchRequest, SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
@@ -50,24 +51,23 @@ object StoredQueryIndex {
     p.future
   }
 
-
-  def saveOrUpdate(value: (String, String))(implicit client: Client, ctx: ExecutionContextExecutor): Future[UpdateResponse] = {
+  def save(value: (String, String))(implicit client: Client, ctx: ExecutionContextExecutor): Future[IndexResponse] = {
     val (storedQueryId, json) = value
     val indexRequest = client.prepareIndex(index, ".percolator", storedQueryId)
       .setSource(json).request()
 
-    val updateRequest = client.prepareUpdate(index, ".percolator", storedQueryId)
-      .setDoc(json).setUpsert(indexRequest).request()
+    val p = Promise[IndexResponse]
 
-    val p = Promise[UpdateResponse]()
-    val listener = new ActionListener[UpdateResponse] {
+    val listener = new ActionListener[IndexResponse] {
       def onFailure(e: Throwable): Unit = {
-        println(e.getMessage)
+        //println(e.getMessage)
         p.tryFailure(e)
       }
-      def onResponse(resp: UpdateResponse): Unit = p.trySuccess(resp)
+      def onResponse(resp: IndexResponse): Unit = p.trySuccess(resp)
     }
-    client.update(updateRequest, listener)
+
+    client.index(indexRequest, listener)
+
     p.future
   }
 
@@ -93,10 +93,10 @@ object StoredQueryIndex {
 
     import scala.language.implicitConversions
 
-    implicit def field(name: String): JField = (name -> (("type" -> "string") ~ ("analyzer" -> "whitespace")))
+    implicit def field(name: String): JField = name -> (("type" -> "string") ~ ("analyzer" -> "whitespace"))
 
     val `dialogs, customer*, agent*`: JObject =
-      ("properties" -> (0 to 5).foldLeft(JObject("dialogs")){ (acc, n) => acc ~ s"customer$n" ~ s"agent$n"})
+      "properties" -> (0 to 5).foldLeft(JObject("dialogs")) { (acc, n) => acc ~ s"customer$n" ~ s"agent$n" }
 
     client.admin().indices().preparePutMapping(index)
       .setType(name)

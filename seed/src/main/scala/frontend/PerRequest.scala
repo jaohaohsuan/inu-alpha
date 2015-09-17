@@ -26,7 +26,7 @@ trait PerRequest extends Actor with ActorLogging with Directives {
     case ReceiveTimeout =>
       response { complete(RequestTimeout) }
     case res =>
-      response { complete(InternalServerError, s"unexpected message: $res")}
+      response { complete(InternalServerError, s"""{ "error": { "content": "${res}" } }""") }
   }
 
   def response(finalStep: Route): Unit = {

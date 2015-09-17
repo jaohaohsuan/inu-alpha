@@ -26,10 +26,8 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
   import StoredQueryIndex._
   import context.dispatcher
 
-  //Array("should", "must", "must_not")
-
   val getItem =
-    prepareGet(storedQueryId).setFetchSource(Array("collection"), null).setTransformSource(true)
+    prepareGet(storedQueryId).setFetchSource(Array("collection"), Array("collection.should", "collection.must", "collection.must_not")).setTransformSource(true)
     .request()
 
   StoredQueryIndex.get(getItem).map {

@@ -10,6 +10,11 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
   lazy val `_query/template/`: Route =
   cors {
     get {
+      path("_query" / "template" / "search") {
+        parameters('q.?, 'tags.? ) { (q, tags) => implicit ctx =>
+          actorRefFactory.actorOf(QueryStoredQueryRequest.props(q, tags))
+        }
+      } ~
       pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
         pathEnd { implicit ctx =>
           actorRefFactory.actorOf(GetStoredQueryRequest.props)

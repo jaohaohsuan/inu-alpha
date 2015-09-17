@@ -3,7 +3,7 @@ import sbt._
 object Version {
   val akka  = "2.4.0-RC2"
   val scala = "2.11.6"
-  val spray = "1.3.+"
+  val spray = "1.3.3"
 }
 
 object Library {

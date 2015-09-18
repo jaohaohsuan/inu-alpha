@@ -1,9 +1,9 @@
 package protocol.storedQuery
 
 
-case object Pull
+/*case object Pull
 case class Changes(items: Set[(StoredQuery, Int)])
-case class RegisterQueryOK(records: Set[(String, Int)])
+case class RegisterQueryOK(records: Set[(String, Int)])*/
 
 object Terminology {
 
@@ -33,8 +33,8 @@ object AggregateRootClient {
   import akka.cluster.client.ClusterClient
 
   private val address = s"/user/${AggregateRoot.Name}"
-
+/*
   def PullChanges = ClusterClient.SendToAll(address, Pull)
 
-  def SendToAllRegisterQueryOK(changes: Set[(String, Int)]) = ClusterClient.SendToAll(address, RegisterQueryOK(changes))
+  def SendToAllRegisterQueryOK(changes: Set[(String, Int)]) = ClusterClient.SendToAll(address, RegisterQueryOK(changes))*/
 }

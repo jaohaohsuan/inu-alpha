@@ -52,6 +52,7 @@ object StoredQueryIndex {
   }
 
   def save(value: (String, String))(implicit client: Client, ctx: ExecutionContextExecutor): Future[IndexResponse] = {
+
     val (storedQueryId, json) = value
     val indexRequest = client.prepareIndex(index, ".percolator", storedQueryId)
       .setSource(json).request()

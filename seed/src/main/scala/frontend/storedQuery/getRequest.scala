@@ -1,4 +1,4 @@
-package frontend.storedQuery
+package frontend.storedQuery.getRequest
 
 import akka.actor.Props
 import akka.pattern._

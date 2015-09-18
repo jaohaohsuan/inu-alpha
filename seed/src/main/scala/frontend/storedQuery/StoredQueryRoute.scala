@@ -1,14 +1,22 @@
 package frontend.storedQuery
 
-import akka.actor.Props
-import frontend.storedQuery.deleteRequest.{ResetOccurrenceRequest, RemoveClauseRequest}
+import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
+import frontend.storedQuery.getRequest.{GetStoredQueryRequest, QueryStoredQueryRequest}
 import frontend.storedQuery.postRequest._
 import frontend.{CollectionJsonSupport, CorsSupport}
-import spray.routing._
-import spray.http.StatusCodes._
 import protocol.storedQuery.Terminology._
+import protocol.storedQuery.Exchange._
+import spray.httpx.unmarshalling._
+import spray.routing._
 
 trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonSupport {
+
+   def clause[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
+    path(name) {
+      entity(as[T]) { e => implicit ctx: RequestContext =>
+        actorRefFactory.actorOf(AddClauseRequest.props(e))
+      }
+    }
 
   lazy val `_query/template/`: Route =
   cors {
@@ -32,20 +40,11 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
           }
         } ~
         pathPrefix(Segment) { implicit storedQueryId =>
-
-          import AddClauseRequest._
-
-          //path("named") { entity(as[NamedClause])    { implicit e => implicit ctx => handle(props) } } ~
-          path("match") {
-            entity(as[MatchClause]) { e => implicit ctx =>
-              actorRefFactory.actorOf(AddClauseRequest.props(e))
-            }
-          } ~
-          //path("near")  { entity(as[SpanNearClause]) { implicit e => implicit ctx => handle(props) } }
+          clause[NamedClause]("named") ~
+          clause[MatchClause]("match") ~
+          clause[SpanNearClause]("near") ~
           pathEnd {
-            //save as new
-            entity(as[NewTemplate]) { implicit entity => implicit ctx =>
-              implicit val referredId = Some(storedQueryId)
+            entity(as[NewTemplate]) { implicit entity => implicit ctx => implicit val referredId = Some(storedQueryId)
               actorRefFactory.actorOf(NewTemplateRequest.props)
             }
           }

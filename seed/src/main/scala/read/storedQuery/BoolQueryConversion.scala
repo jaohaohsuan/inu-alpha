@@ -22,7 +22,8 @@ object BoolQueryConversion {
       clause match {
         case MatchBoolClause(query, field, operator, _) =>
           (clausesTitle, keywords ++ query.split("""\s+"""), bool,
-            new MultiMatchQueryDefinition(query).fields(field.replaceAll("""\s+""", "")).operator(operator.toUpperCase).matchType("best_fields"))
+            new MultiMatchQueryDefinition(query).fields(field.replaceAll("""\s+""", "")).operator(operator.toUpperCase))
+              //.matchType("best_fields")
 
         case SpanNearBoolClause(terms, field, slop, inOrder, _) =>
           val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 2).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))

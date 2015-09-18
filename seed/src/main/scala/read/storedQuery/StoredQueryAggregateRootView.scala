@@ -5,10 +5,10 @@ import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.{AggregateRoot, StoredQuery}
+import protocol.storedQuery.{NamedBoolClause, AggregateRoot, StoredQuery}
 import read.MaterializeView
-
 import scala.language.implicitConversions
+import scala.util.{Try, Failure, Success}
 
 case class StoredQueryData(title: String, tags: Option[String])
 
@@ -17,16 +17,33 @@ class StoredQueryAggregateRootView extends MaterializeView {
   val source = readJournal
     .query(EventsByPersistenceId(AggregateRoot.Name))
     .mapConcat(flatten)
-    //.map(e => {s"${e.title} ${e.id} ${e.clauses.size} ${e.tags}"})
     .map(convertToReadSideType)
 
   def flatten(envelope: EventEnvelope) = {
     envelope.event match {
       case ItemCreated(entity, _) => entity :: Nil
-      case ItemsChanged(items, _, _) => items.map { case (_, obj) => obj }.toList
+      case ItemsChanged(items, changes, _) => items.map(_._2).toList
+        /*val (entities, _) = changes.foldLeft((List.empty[StoredQuery], items.toMap)) { (acc, e) =>
+          val (result, sources) = acc
+          sources.get(e) match {
+            case None => acc
+            case Some(s) =>
+              (s :: result, sources + (e -> retrieveDependencies(s, sources)))
+          }}
+        entities*/
       case _ => Nil
     }
   }
+
+  def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =
+    item.clauses.foldLeft(item) { (acc, e) =>
+      e match {
+        case (clauseId, n: NamedBoolClause) =>
+          val innerItem = items(n.storedQueryId)
+          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = retrieveDependencies(innerItem,items).clauses)))
+        case _ => acc
+      }
+    }
 
   def convertToReadSideType(value: StoredQuery) = {
 
@@ -34,7 +51,6 @@ class StoredQueryAggregateRootView extends MaterializeView {
 
     implicit def setToOptionString(value : Set[String]): Option[String] = Option(value.mkString(" ")).filter(_.trim.nonEmpty)
 
-    // extracting
     val BoolQueryConversion(_, percolatorDoc) = value
     val StoredQuery(storedQueryId, title , clauses, tags) = value
 
@@ -52,13 +68,13 @@ class StoredQueryAggregateRootView extends MaterializeView {
         ("href", JString(s"$prefixPath/$occur")),
         ("items", JArray(groupedClauses.map { case (clauseId, clause) =>
           JObject(
-            ("data", clause),
+            ("data", boolClauseToJValue(clause)),
             ("href", JString(s"$prefixPath/$clauseId"))
           )}.toList))
       ) :: acc
     }
 
-    storedQueryId -> compact(render(JObject("collection" -> JObject(collectionJson:_*)) merge percolatorDoc))
+    storedQueryId -> pretty(render(JObject("collection" -> JObject(collectionJson:_*)) merge percolatorDoc))
   }
 
   def receive: Receive = {

@@ -1,6 +1,7 @@
 package frontend.storedQuery.postRequest
 
 import akka.actor.Props
+import org.json4s.JValue
 import protocol.storedQuery.{BoolClause, StoredQuery}
 import domain.storedQuery.StoredQueryAggregateRoot._
 import spray.http.HttpHeaders.RawHeader
@@ -46,17 +47,22 @@ trait Monoid[A] {
 
 object Monoid {
 
-  import AddClauseRequest._
+  import protocol.storedQuery.Exchange._
   import protocol.storedQuery._
 
   implicit val NamedClauseMonoid = new Monoid[NamedClause] {
-    def as(clause: NamedClause): BoolClause =
-      NamedBoolClause(clause.storedQueryId, clause.storedQueryTitle, clause.occurrence)
+    def as(c: NamedClause): BoolClause =
+      NamedBoolClause(c.storedQueryId, c.storedQueryTitle, c.occurrence)
   }
 
   implicit val MatchClauseMonoid = new Monoid[MatchClause] {
-    def as(clause: MatchClause): BoolClause =
-      MatchBoolClause(clause.query, clause.field, clause.operator, clause.occurrence)
+    def as(c: MatchClause): BoolClause =
+      MatchBoolClause(c.query, c.field, c.operator, c.occurrence)
+  }
+
+  implicit val SpanNearClauseMonoid = new Monoid[SpanNearClause] {
+    def as(c: SpanNearClause): BoolClause =
+      SpanNearBoolClause(c.query.split("""\s+""").toList, c.field, c.slop, c.inOrder, c.occurrence)
   }
 }
 
@@ -64,33 +70,8 @@ object Monoid {
 object AddClauseRequest {
 
   def props[A: Monoid](entity: A)(implicit ctx: RequestContext, storedQueryId: String) = {
-
     val m = implicitly[Monoid[A]]
     Props(classOf[AddClauseRequest], ctx, storedQueryId, m.as(entity))
-  }
-
-  def singleField(field: String) = """\s+""".r.findFirstIn(field).isEmpty
-  def queryFieldConstrain(field: String) = field.matches("""^dialogs$|^agent\*$|^customer\*$""")
-
-  case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String) {
-    require(test)
-    def test = occurrence.matches(OccurrenceRegex.toString())
-  }
-
-  case class MatchClause(query: String, field: String, operator: String, occurrence: String) {
-    require(test)
-    require(singleField(field), s"single field only")
-    require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
-    def test = operator.matches("^[oO][rR]$|^[Aa][Nn][Dd]$") && occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
-
-  }
-
-  case class SpanNearClause(query: String, field: String, slop: Int, inOrder: Boolean, occurrence: String){
-    require(test)
-    require(field.nonEmpty)
-    require(singleField(field), s"single field only")
-    require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
-    def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
   }
 }
 

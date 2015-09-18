@@ -29,7 +29,8 @@ object StoredQueryAggregateRoot {
 
   //events
   case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
-  case class ItemsChanged(items: Seq[(String, StoredQuery)], changes: List[String], dp: ClauseDependencies) extends Event
+  case class ItemsChanged(items: Seq[(String, StoredQuery)], changes: List[String], dp: ClauseDependencies) extends Event {
+  }
   case class ChangesRegistered(records: Set[(String, Int)]) extends Event
 
   //commands
@@ -154,11 +155,10 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
       state.getItem(storedQueryId)match {
         case Some(item)=>
           item.clauses.filter{ case (_,c) => c.occurrence == occurrence }.keys.toList match {
-            case xs: List[Int] =>
-              //log.info(s"${xs}")
-              self forward RemoveClauses(storedQueryId, xs)
             case Nil =>
               sender() ! ClausesEmptyAck
+            case xs =>
+              self forward RemoveClauses(storedQueryId, xs)
           }
         case None =>
           sender() ! s"$storedQueryId is not exist."
@@ -207,7 +207,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
         case None => log.error(s"$newTitle#$storedQueryId does not exist")
       }
 
-    case Pull =>
+    /*case Pull =>
       val items = state.changes.map { case (k, v) => (retrieveDependencies(state.items(k), state.items),v) }.toSet
       if (items.nonEmpty)
         sender() ! Changes(items)
@@ -216,10 +216,10 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
       persist(ChangesRegistered(records)) { evt =>
         state = state.update(evt)
         log.debug(s"remains: [${state.changes.mkString(",")}]")
-      }
+      }*/
   }
 
-  private def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =
+  /*private def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =
     item.clauses.foldLeft(item) { (acc, e) =>
       e match {
         case (clauseId, n: NamedBoolClause) =>
@@ -227,7 +227,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
           acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = retrieveDependencies(innerItem,items).clauses)))
         case _ => acc
       }
-    }
+    }*/
 
   private def cascadingUpdate(from: String, items: StoredQueryMap, dp: ClauseDependencies): ItemsChanged = {
     val zero = (items, List(from))

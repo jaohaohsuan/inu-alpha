@@ -1,17 +1,7 @@
 package seed
 
 import akka.actor._
-import akka.cluster.singleton.{ClusterSingletonProxySettings, ClusterSingletonProxy}
-import akka.persistence.journal.leveldb.{ SharedLeveldbStore, SharedLeveldbJournal }
-import akka.stream.ActorMaterializer
-import com.typesafe.config._
-import java.net.{ InetAddress, NetworkInterface }
-import protocol.storedQuery.AggregateRoot
-
-import scala.collection.JavaConversions._
 import common._
-
-import scala.concurrent.Future
 
 object Main extends App {
 

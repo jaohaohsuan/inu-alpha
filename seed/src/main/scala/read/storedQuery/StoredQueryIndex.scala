@@ -10,6 +10,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
+import org.elasticsearch.index.query.QueryBuilders
 
 import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 
@@ -26,6 +27,8 @@ object StoredQueryIndex {
 
   implicit lazy val client: Client = new TransportClient(settings)
     .addTransportAddress(new InetSocketTransportAddress("192.168.99.100", 32774))
+
+  val temporaryIdsQuery =  QueryBuilders.idsQuery(".percolator").ids("temporary")
 
   def prepareGet(id: String): GetRequestBuilder = {
     client.prepareGet(index, ".percolator", id)

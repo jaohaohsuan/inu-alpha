@@ -1,14 +1,12 @@
 package frontend.storedQuery.postRequest
 
 import akka.actor.Props
-import org.json4s.JValue
-import protocol.storedQuery.{BoolClause, StoredQuery}
+import protocol.storedQuery.{StoredQuery, BoolClause}
 import domain.storedQuery.StoredQueryAggregateRoot._
 import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
 import frontend.PerRequest
-import protocol.storedQuery.Terminology._
 import scala.language.implicitConversions
 
 object NewTemplateImplicits {

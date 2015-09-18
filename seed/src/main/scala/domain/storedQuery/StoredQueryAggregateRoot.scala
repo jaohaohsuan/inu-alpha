@@ -3,9 +3,9 @@ package domain.storedQuery
 import akka.actor._
 import akka.persistence._
 import common.ImplicitActorLogging
-import protocol.storedQuery.Terminology._
 import protocol.storedQuery._
 import domain.algorithm.TopologicalSort
+import protocol.storedQuery.Terminology._
 
 import scala.util.{Failure, Success, Try}
 
@@ -49,8 +49,7 @@ object StoredQueryAggregateRoot {
 
   //states
   case class StoredQueries(items: StoredQueryMap = Map.empty,
-                    clauseDependencies: ClauseDependencies = Map.empty,
-                    changes: Map[String, Int] = Map.empty) extends State {
+                           clauseDependencies: ClauseDependencies = Map.empty, changes: Map[String, Int] = Map.empty) extends State {
 
     lazy val newItemId = {
       def generateNewItemId: String = {

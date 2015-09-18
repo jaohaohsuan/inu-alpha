@@ -6,8 +6,8 @@ import akka.io.IO
 import akka.pattern._
 import akka.util.Timeout
 import domain.storedQuery.StoredQueryAggregateRoot
-import protocol.storedQuery.AggregateRoot
 import spray.can.Http
+import protocol.storedQuery.AggregateRoot
 
 import scala.language.implicitConversions
 

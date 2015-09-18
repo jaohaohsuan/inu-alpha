@@ -16,6 +16,7 @@ object CollectionJsonSupport {
 trait CollectionJsonSupport extends Json4sSupport {
 
   import CollectionJsonSupport._
+  import scala.language.implicitConversions
 
   implicit def json4sFormats: Formats = DefaultFormats
 
@@ -43,8 +44,6 @@ trait CollectionJsonSupport extends Json4sSupport {
     Marshaller.of[JsonCollection](`application/vnd.collection+json`) { (value, contentType, ctx) =>
       ctx.marshalTo(HttpEntity(contentType, compact(render(value.toJson))))
     }
-
-  import scala.language.implicitConversions
 
   implicit def asTemplate[T <: AnyRef : Manifest](value: T)(implicit formats: org.json4s.Formats): Option[Template] =
     Some(Template(value)(dataApply(manifest, formats)))

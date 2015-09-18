@@ -5,10 +5,10 @@ import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.{NamedBoolClause, AggregateRoot, StoredQuery}
+import protocol.storedQuery.{AggregateRoot, ImplicitJsonConversions, NamedBoolClause, StoredQuery}
 import read.MaterializeView
+
 import scala.language.implicitConversions
-import scala.util.{Try, Failure, Success}
 
 case class StoredQueryData(title: String, tags: Option[String])
 
@@ -79,8 +79,8 @@ class StoredQueryAggregateRootView extends MaterializeView {
 
   def receive: Receive = {
     case "GO" =>
-      import akka.stream.scaladsl.Sink
       import StoredQueryIndex._
+      import akka.stream.scaladsl.Sink
       import context.dispatcher
 
       source

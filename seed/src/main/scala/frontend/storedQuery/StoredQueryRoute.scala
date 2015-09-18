@@ -1,13 +1,16 @@
 package frontend.storedQuery
 
 import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
-import frontend.storedQuery.getRequest.{GetStoredQueryRequest, QueryStoredQueryRequest}
+import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
 import frontend.{CollectionJsonSupport, CorsSupport}
-import protocol.storedQuery.Terminology._
+import org.json4s._
 import protocol.storedQuery.Exchange._
+import protocol.storedQuery.Terminology._
+
 import spray.httpx.unmarshalling._
 import spray.routing._
+import spray.http.StatusCodes._
 
 trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonSupport {
 
@@ -21,7 +24,7 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
   lazy val `_query/template/`: Route =
   cors {
     get {
-      path("_query" / "template" / "search") {
+      path("_query" / "template") {
         parameters('q.?, 'tags.? ) { (q, tags) => implicit ctx =>
           actorRefFactory.actorOf(QueryStoredQueryRequest.props(q, tags))
         }
@@ -29,6 +32,12 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
       pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
         pathEnd { implicit ctx =>
           actorRefFactory.actorOf(GetStoredQueryRequest.props)
+        } ~
+        path( OccurrenceRegex ) { occurrence => implicit ctx =>
+          actorRefFactory.actorOf(GetStoredQueryDetailRequest.props(occurrence))
+        } ~
+        path( BoolQueryClauseRegex ) { clause => implicit ctx =>
+          actorRefFactory.actorOf(GetClauseTemplateRequest.props) ! clause
         }
       }
     } ~

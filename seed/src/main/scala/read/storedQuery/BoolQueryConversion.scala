@@ -3,6 +3,7 @@ package read.storedQuery
 import com.sksamuel.elastic4s._
 import org.json4s.JsonAST.JObject
 import protocol.storedQuery._
+import protocol.storedQuery.{BoolClause, StoredQuery}
 
 
 object BoolQueryConversion {

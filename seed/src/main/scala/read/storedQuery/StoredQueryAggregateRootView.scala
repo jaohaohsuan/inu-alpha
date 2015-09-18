@@ -54,27 +54,15 @@ class StoredQueryAggregateRootView extends MaterializeView {
     val BoolQueryConversion(_, percolatorDoc) = value
     val StoredQuery(storedQueryId, title , clauses, tags) = value
 
-    val prefixPath = s"/_query/template/$storedQueryId"
-
+    val id = JField("id", JString(storedQueryId))
     val data = JField("data", StoredQueryData(title, tags: Option[String]))
-    val href = JField("href", JString(prefixPath))
-    val version = JField("version", JString("1.0"))
-    val items = JField("items", JArray(List(JObject(data, href))))
-    val template = JField("template", JObject(data))
 
-    val collectionJson = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List(items, template, version, href)){ (acc: List[JField], e) =>
+    val occurs = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List.empty[JField]){ (acc, e) =>
       val (occur, groupedClauses) = e
-      occur -> JObject(
-        ("href", JString(s"$prefixPath/$occur")),
-        ("items", JArray(groupedClauses.map { case (clauseId, clause) =>
-          JObject(
-            ("data", boolClauseToJValue(clause)),
-            ("href", JString(s"$prefixPath/$clauseId"))
-          )}.toList))
-      ) :: acc
+      occur -> JArray(groupedClauses.map { case (clauseId, clause) => JObject(("data", boolClauseToJValue(clause)), ("id", JString(s"$clauseId")))}.toList) :: acc
     }
 
-    storedQueryId -> pretty(render(JObject("collection" -> JObject(collectionJson:_*)) merge percolatorDoc))
+    storedQueryId -> pretty(render(JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*))) merge percolatorDoc))
   }
 
   def receive: Receive = {

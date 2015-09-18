@@ -8,8 +8,7 @@ trait PerRequest extends Actor with ActorLogging with Directives {
 
   import context._
 
-  implicit class stringUri(s: String) {def uri: java.net.URI = java.net.URI.create(s)
-  }
+  implicit class stringUri(s: String) { def uri: java.net.URI = java.net.URI.create(s) }
 
   val URI = extract(ctx => s"${ctx.request.uri}".uri)
 

@@ -8,6 +8,9 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.search.SearchHit
+import org.json4s
+import org.json4s.JValue
+import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange.{SpanNearClause, MatchClause, NamedClause}
@@ -57,10 +60,11 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 
   import StoredQueryIndex._
   import context.dispatcher
+  implicit val formats = org.json4s.DefaultFormats
 
   lazy val getItem =
     prepareGet(storedQueryId)
-      .setFetchSource(Array("collection"), Array("collection.should", "collection.must", "collection.must_not"))
+      .setFetchSource(Array("item"), Array("occurs"))
       .setTransformSource(true)
       .request()
 
@@ -70,15 +74,48 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 
   def processResult: Receive = {
     case json: String =>
-      /*val content = parse(json)
-      log.debug(pretty(render(content)))*/
+
       response {
         URI( href =>  {
           respondWithMediaType(`application/vnd.collection+json`) {
-            complete(OK, compact(render(parse(json) merge JObject(JField("collection", JObject(JField("href", JString(s"$href"))))))))
+            complete(OK, itemRepresentation(parse(json), href))
           }
         })
       }
+  }
+
+  def itemRepresentation(json: JValue, href: java.net.URI)(implicit formats: Formats): String = {
+
+    val data = json \ "item" \ "data"
+
+    val template = data.extractOpt[List[JObject]].map(_.map {
+      case o@JObject(("name", JString(name)) :: ("value", _) :: Nil) =>
+        o merge JObject(("prompt", JString("")))
+      case o: JObject =>
+        o merge JObject(("prompt", JString("")))
+    }).map{ d => compact(render(JArray(d)))}.getOrElse("[]")
+
+    s"""{
+       | "collection" : {
+       |   "version" : "1.0",
+       |   "href" : "",
+       |
+       |   "links" : [
+       |
+       |   ],
+       |
+       |   "items" : [
+       |     {
+       |       "href" : "${href}",
+       |       "data" : ${compact(render(data))}
+       |     }
+       |   ],
+       |
+       |   "template" : {
+       |      "data" : ${template}
+       |   }
+       | }
+       |}""".stripMargin
   }
 }
 
@@ -101,30 +138,59 @@ case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[Stri
 
   search(prepareSearch
     .setQuery(queryDefinition)
-    .setFetchSource(Array("collection.items"), null)
+    .setFetchSource(Array("item"), null)
     .request).recover { case ex => """{ "error": { } }""" } pipeTo self
 
 
   def processResult: Receive = {
     case r: SearchResponse =>
 
-      import scala.language.implicitConversions
+      implicit val formats = org.json4s.DefaultFormats
 
-      implicit def hitConvert(h: SearchHit): JValue = (parse(h.sourceAsString()) \\ "items")(0)
-      implicit def javaValueList(items: List[JValue]): String = compact(render(JArray(items)))
-
-      val json =  s"""{
-        | "collection": {
-        |   "version": "1.0",
-        |   "items": [ ${r.getHits.foldLeft(List.empty[JValue])(_.::(_)): String}]
-        | }
-        |}""".stripMargin
+      val hits: List[json4s.JValue] = r.getHits.map { h => parse(h.sourceAsString()) \ "item" }.toList
 
       response {
-        respondWithMediaType(`application/vnd.collection+json`) {
-          complete(OK, json: String)
+        URI { href =>
+          respondWithMediaType(`application/vnd.collection+json`) {
+            complete(OK, collectionRepresentation(hits, href))
+          }
         }
       }
+  }
+
+  def collectionRepresentation(hits: List[json4s.JValue] ,href: java.net.URI)(implicit formats: Formats) = {
+
+   val items = hits.map {
+      case o: JObject =>
+        val `item-href` = (o \ "id").extractOpt[String].map { id => s"$href/$id"}.getOrElse("")
+        val data = compact(render(o \ "data"))
+        s"""{
+           |  "href" : "${`item-href`}",
+           |  "data" : $data
+           |}""".stripMargin
+      case _ => ""
+
+    }.filter(_.nonEmpty).mkString(",")
+
+    s"""{
+       | "collection" : {
+       |   "version" : "1.0",
+       |   "href" : "$href",
+       |
+       |   "links" : [
+       |
+       |   ],
+       |
+       |   "items" : [$items],
+       |
+       |   "template" : {
+       |      "data" : [
+       |        {"name":"title","value":""},
+       |        {"name":"tags","value":""}
+       |      ]
+       |   }
+       | }
+       |}""".stripMargin
   }
 }
 

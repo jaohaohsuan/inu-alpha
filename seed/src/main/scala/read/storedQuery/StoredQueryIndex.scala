@@ -111,11 +111,12 @@ object StoredQueryIndex {
 
     val mappingSource = """{
             |  "properties": {
-            |    "referredClauses": { "type": "string" },
-            |    "title":           { "type": "string" },
-            |    "tags":            { "type": "string", "include_in_all": false },
-            |    "keywords":        { "type": "string" },
-            |    "collection":      { "type": "object", "enabled": false }
+            |    "referredClauses" : { "type" : "string" },
+            |    "title" :           { "type" : "string" },
+            |    "tags" :            { "type" : "string", "include_in_all" : false },
+            |    "keywords" :        { "type" : "string" },
+            |    "view" :            { "type" : "object", "enabled" : false },
+            |    "occurs" :          { "type" : "object", "enabled" : false }
             |  }
             |}
           """.stripMargin

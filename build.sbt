@@ -7,7 +7,7 @@ def InuProject(name: String): Project = Project(name, file(name))
         scalaVersion := Version.scala,
         scalacOptions ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
         resolvers ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic),
+        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic, scalazCore),
         fork in run := true): _*
     )
 

@@ -128,7 +128,6 @@ object StoredQueryIndex {
 
   def prepareSearch(implicit client: Client): SearchRequestBuilder = {
     //import org.elasticsearch.index.query.QueryBuilders
-
     client.prepareSearch(index).setTypes(".percolator")
   }
 }

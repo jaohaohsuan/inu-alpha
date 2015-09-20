@@ -3,20 +3,20 @@ package frontend.storedQuery.getRequest
 import akka.actor.Props
 import akka.pattern._
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
-import frontend.PerRequest
+import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.index.query.MatchQueryBuilder
-import org.elasticsearch.search.SearchHit
 import org.json4s
-import org.json4s.JValue
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.Exchange.{SpanNearClause, MatchClause, NamedClause}
+import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
 import read.storedQuery.StoredQueryIndex
+import read.storedQuery.StoredQueryIndex._
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
+import scalaz._, Scalaz._
 
 import scala.collection.JavaConversions._
 
@@ -50,7 +50,6 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, storedQueryId: Strin
   }
 }
 
-
 object GetStoredQueryRequest {
   def props(implicit ctx: RequestContext, storedQueryId: String) =
     Props(classOf[GetStoredQueryRequest], ctx, storedQueryId)
@@ -64,7 +63,7 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 
   lazy val getItem =
     prepareGet(storedQueryId)
-      .setFetchSource(Array("item"), Array("occurs"))
+      .setFetchSource(Array("item"), null)
       .setTransformSource(true)
       .request()
 
@@ -74,7 +73,6 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 
   def processResult: Receive = {
     case json: String =>
-
       response {
         URI( href =>  {
           respondWithMediaType(`application/vnd.collection+json`) {
@@ -120,15 +118,14 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 }
 
 object QueryStoredQueryRequest {
-  def props(queryString: Option[String] = None, queryTags: Option[String] = None)(implicit ctx: RequestContext) =
-    Props(classOf[QueryStoredQueryRequest], ctx, queryString, queryTags)
+  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int, from: Int)(implicit ctx: RequestContext) =
+    Props(classOf[QueryStoredQueryRequest], ctx, queryString, queryTags, size, from)
 }
 
-case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[String], queryTags: Option[String]) extends PerRequest {
+case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[String], queryTags: Option[String], size: Int, from: Int) extends PerRequest {
 
   import context.dispatcher
   import org.elasticsearch.index.query.QueryBuilders
-
   import read.storedQuery.StoredQueryIndex._
 
   lazy val queryDefinition = Seq(
@@ -139,6 +136,7 @@ case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[Stri
   search(prepareSearch
     .setQuery(queryDefinition)
     .setFetchSource(Array("item"), null)
+    .setSize(size).setFrom(from)
     .request).recover { case ex => """{ "error": { } }""" } pipeTo self
 
 
@@ -150,15 +148,17 @@ case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[Stri
       val hits: List[json4s.JValue] = r.getHits.map { h => parse(h.sourceAsString()) \ "item" }.toList
 
       response {
-        URI { href =>
+        requestUri { implicit uri =>
           respondWithMediaType(`application/vnd.collection+json`) {
-            complete(OK, collectionRepresentation(hits, href))
+            complete(OK, collectionRepresentation(hits, Pagination(size, from, r.getHits.totalHits).links ,uri))
           }
         }
       }
   }
 
-  def collectionRepresentation(hits: List[json4s.JValue] ,href: java.net.URI)(implicit formats: Formats) = {
+  def collectionRepresentation(hits: List[json4s.JValue], pagination: Iterable[String] ,uri: spray.http.Uri)(implicit formats: Formats) = {
+
+    val href = uri.withQuery(Map.empty[String,String])
 
    val items = hits.map {
       case o: JObject =>
@@ -178,7 +178,7 @@ case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[Stri
        |   "href" : "$href",
        |
        |   "links" : [
-       |
+       |      ${pagination.mkString(",")}
        |   ],
        |
        |   "items" : [$items],
@@ -229,3 +229,38 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
   }
 }
 
+object Preview {
+  def props(implicit ctx: RequestContext, storedQueryId: String) =
+    Props(classOf[Preview], ctx, storedQueryId)
+}
+
+case class Preview(ctx: RequestContext, storedQueryId: String) extends PerRequest {
+
+  import context.dispatcher
+
+  lazy val getQuery =
+    prepareGet(storedQueryId)
+      .setFetchSource(Array("query"), null)
+      .setTransformSource(true)
+      .request()
+
+  StoredQueryIndex.get(getQuery).map {
+    case r: GetResponse =>
+      val boolQuery = compact(render(parse(r.getSourceAsString) \ "query"))
+      boolQuery
+  } recover { case _ => """{ "error": { } }"""  } pipeTo self
+
+
+  def processResult: Receive = {
+    case json: String =>
+
+      response {
+        URI( href =>  {
+          respondWithMediaType(`application/vnd.collection+json`) {
+            complete(OK, json)
+          }
+        })
+      }
+
+  }
+}

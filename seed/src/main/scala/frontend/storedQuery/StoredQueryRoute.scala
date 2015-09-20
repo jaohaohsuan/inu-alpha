@@ -25,19 +25,22 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
   cors {
     get {
       path("_query" / "template") {
-        parameters('q.?, 'tags.? ) { (q, tags) => implicit ctx =>
-          actorRefFactory.actorOf(QueryStoredQueryRequest.props(q, tags))
+        parameters('q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, tags, size, from) => implicit ctx =>
+          actorRefFactory.actorOf(QueryStoredQueryRequest.props(q, tags, size, from))
         }
       } ~
       pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
         pathEnd { implicit ctx =>
           actorRefFactory.actorOf(GetStoredQueryRequest.props)
         } ~
-        path( OccurrenceRegex ) { occurrence => implicit ctx =>
+        path(OccurrenceRegex ) { occurrence => implicit ctx =>
           actorRefFactory.actorOf(GetStoredQueryDetailRequest.props(occurrence))
         } ~
-        path( BoolQueryClauseRegex ) { clause => implicit ctx =>
+        path(BoolQueryClauseRegex ) { clause => implicit ctx =>
           actorRefFactory.actorOf(GetClauseTemplateRequest.props) ! clause
+        } ~
+        path("preview") { implicit ctx =>
+          actorRefFactory.actorOf(Preview.props)
         }
       }
     } ~

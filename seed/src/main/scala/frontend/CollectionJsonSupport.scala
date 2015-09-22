@@ -40,6 +40,11 @@ trait CollectionJsonSupport extends Json4sSupport {
       }
     }
 
+  implicit val jsonStringMarshaller: Marshaller[String] =
+    Marshaller.of[String](`application/vnd.collection+json`) { (value, contentType, ctx) =>
+      ctx.marshalTo(HttpEntity(contentType, value))
+    }
+
   implicit val collectionJsonMarshaller: Marshaller[JsonCollection] =
     Marshaller.of[JsonCollection](`application/vnd.collection+json`) { (value, contentType, ctx) =>
       ctx.marshalTo(HttpEntity(contentType, compact(render(value.toJson))))

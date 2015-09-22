@@ -2,7 +2,12 @@ package frontend
 
 import spray.routing.HttpServiceActor
 
-class ServiceActor extends HttpServiceActor with storedQuery.StoredQueryRoute {
+class ServiceActor extends HttpServiceActor with CorsSupport with storedQuery.StoredQueryRoute with mapping.MappingRoute {
 
-  def receive = runRoute(`_query/template/`)
+  def receive = runRoute(
+    cors {
+      `_query/template/` ~
+      `_mapping/`
+    }
+  )
 }

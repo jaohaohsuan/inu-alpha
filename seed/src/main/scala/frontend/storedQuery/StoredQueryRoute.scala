@@ -1,20 +1,17 @@
 package frontend.storedQuery
 
+import frontend.CollectionJsonSupport
 import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
 import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
-import frontend.{CollectionJsonSupport, CorsSupport}
-import org.json4s._
 import protocol.storedQuery.Exchange._
 import protocol.storedQuery.Terminology._
-
 import spray.httpx.unmarshalling._
 import spray.routing._
-import spray.http.StatusCodes._
 
-trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonSupport {
+trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
-   def clause[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
+   def clausePath[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
     path(name) {
       entity(as[T]) { e => implicit ctx: RequestContext =>
         actorRefFactory.actorOf(AddClauseRequest.props(e))
@@ -22,7 +19,6 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
     }
 
   lazy val `_query/template/`: Route =
-  cors {
     get {
       path("_query" / "template") {
         parameters('q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, tags, size, from) => implicit ctx =>
@@ -52,9 +48,9 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
           }
         } ~
         pathPrefix(Segment) { implicit storedQueryId =>
-          clause[NamedClause]("named") ~
-          clause[MatchClause]("match") ~
-          clause[SpanNearClause]("near") ~
+          clausePath[NamedClause]("named") ~
+          clausePath[MatchClause]("match") ~
+          clausePath[SpanNearClause]("near") ~
           pathEnd {
             entity(as[NewTemplate]) { implicit entity => implicit ctx => implicit val referredId = Some(storedQueryId)
               actorRefFactory.actorOf(NewTemplateRequest.props)
@@ -73,5 +69,5 @@ trait StoredQueryRoute extends HttpService with CorsSupport with CollectionJsonS
         }
       }
     }
-  }
+
 }

@@ -26,7 +26,7 @@ object StoredQueryIndex {
     .put("cluster.name", "inu-dc")
 
   implicit lazy val client: Client = new TransportClient(settings)
-    .addTransportAddress(new InetSocketTransportAddress("192.168.99.100", 32774))
+    .addTransportAddress(new InetSocketTransportAddress("192.168.99.100",32768))
 
   val temporaryIdsQuery =  QueryBuilders.idsQuery(".percolator").ids("temporary")
 

@@ -30,8 +30,8 @@ lazy val seed = InuProject("seed")
       elastic4s,
       nscalaTime
     ),
-    cleanFiles += baseDirectory.value / "data"
-)
+    cleanFiles += baseDirectory.value / "data")
+  .enablePlugins(JavaAppPackaging)
 
 /*lazy val worker = InuProject("worker")
   .dependsOn(common, protocol)

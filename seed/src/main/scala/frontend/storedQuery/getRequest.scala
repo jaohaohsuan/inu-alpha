@@ -16,6 +16,7 @@ import read.storedQuery.StoredQueryIndex
 import read.storedQuery.StoredQueryIndex._
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
+import elastic.ImplicitConversions._
 import scalaz._, Scalaz._
 
 import scala.collection.JavaConversions._
@@ -34,9 +35,8 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, storedQueryId: Strin
     prepareGet(storedQueryId)
       .setFetchSource(Array(s"collection.$occur"), null)
       .setTransformSource(true)
-      .request()
 
-  StoredQueryIndex.get(getItemDetail).map {
+  getItemDetail.execute().asFuture.map {
     case r: GetResponse => r.getSourceAsString
   }.recover { case _ => """{ "error": { } }""" } pipeTo self
 
@@ -65,9 +65,9 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
     prepareGet(storedQueryId)
       .setFetchSource(Array("item"), null)
       .setTransformSource(true)
-      .request()
 
-  StoredQueryIndex.get(getItem).map {
+
+  getItem.execute().asFuture.map {
     case r: GetResponse => r.getSourceAsString
   }.recover { case _ => """{ "error": { } }""" } pipeTo self
 
@@ -133,11 +133,12 @@ case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[Stri
       queryTags.map { QueryBuilders.matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
   ).flatten.foldLeft(QueryBuilders.boolQuery().mustNot(temporaryIdsQuery))(_ must _)
 
-  search(prepareSearch
+  prepareSearch
     .setQuery(queryDefinition)
     .setFetchSource(Array("item"), null)
     .setSize(size).setFrom(from)
-    .request).recover { case ex => """{ "error": { } }""" } pipeTo self
+    .execute()
+    .asFuture.recover { case ex => """{ "error": { } }""" } pipeTo self
 
 
   def processResult: Receive = {
@@ -242,9 +243,9 @@ case class Preview(ctx: RequestContext, storedQueryId: String) extends PerReques
     prepareGet(storedQueryId)
       .setFetchSource(Array("query"), null)
       .setTransformSource(true)
-      .request()
 
-  StoredQueryIndex.get(getQuery).map {
+
+  getQuery.execute().asFuture.map {
     case r: GetResponse =>
       val boolQuery = compact(render(parse(r.getSourceAsString) \ "query"))
       boolQuery

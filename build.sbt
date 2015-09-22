@@ -12,7 +12,9 @@ def InuProject(name: String): Project = Project(name, file(name))
     )
 
 
-lazy val common = InuProject("common")
+lazy val common = InuProject("common").settings(
+  libraryDependencies ++= Seq(elasticsearch)
+)
 
 lazy val protocol = InuProject("protocol")
   .settings(
@@ -27,7 +29,7 @@ lazy val seed = InuProject("seed")
       akkaCluster, akkaClusterTools,
       leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics,
-      elastic4s,
+      elasticsearch,
       nscalaTime
     ),
     cleanFiles += baseDirectory.value / "data")

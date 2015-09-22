@@ -72,7 +72,7 @@ class StoredQueryAggregateRootView extends MaterializeView {
       import context.dispatcher
 
       source
-        .mapAsync(1)(save)
+        .mapAsync(1){ case (storedQueryId, doc) => save(storedQueryId, doc) }
         //.runForeach(f => println(f))
         .runWith(Sink.ignore)
   }

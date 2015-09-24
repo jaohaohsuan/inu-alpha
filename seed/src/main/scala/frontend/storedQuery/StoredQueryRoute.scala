@@ -11,7 +11,9 @@ import spray.routing._
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
-   def clausePath[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
+  implicit def client: org.elasticsearch.client.Client
+
+  def clausePath[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
     path(name) {
       entity(as[T]) { e => implicit ctx: RequestContext =>
         actorRefFactory.actorOf(AddClauseRequest.props(e))

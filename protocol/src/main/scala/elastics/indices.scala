@@ -6,3 +6,9 @@ package protocol.elastics
 object indices {
   val percolator = "inu-percolate"
 }
+
+object Client {
+
+
+
+}

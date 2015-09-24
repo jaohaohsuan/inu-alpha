@@ -35,6 +35,10 @@ object Library {
   val leveldbjniAll            = "org.fusesource.leveldbjni" % "leveldbjni-all"              % "1.8"
   val shapeless  = "com.chuusai" %% "shapeless" % "2.2.5"
   val scalazCore = "org.scalaz" %% "scalaz-core" % "7.1.4"
+  val elasticsearchGroovy = "org.elasticsearch" % "elasticsearch-groovy" % "1.7.2"
+  val luceneExpressions = "org.apache.lucene" % "lucene-expressions" % "4.9.0"
+  val jna = "net.java.dev.jna" % "jna" % "4.1.0"
+
 
 }
 

@@ -2,6 +2,7 @@ package frontend.storedQuery.getRequest
 
 import akka.actor.Props
 import akka.pattern._
+import es.indices.storedQuery
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
 import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.get.GetResponse
@@ -12,8 +13,7 @@ import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
-import read.storedQuery.StoredQueryIndex
-import read.storedQuery.StoredQueryIndex._
+import storedQuery._
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
 import elastic.ImplicitConversions._
@@ -22,13 +22,13 @@ import scalaz._, Scalaz._
 import scala.collection.JavaConversions._
 
 object GetStoredQueryDetailRequest {
-  def props(occur: String)(implicit ctx: RequestContext, storedQueryId: String) =
-    Props(classOf[GetStoredQueryDetailRequest], ctx, storedQueryId, occur)
+  def props(occur: String)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client, storedQueryId: String) =
+    Props(classOf[GetStoredQueryDetailRequest], ctx, client, storedQueryId, occur)
 }
 
-case class GetStoredQueryDetailRequest(ctx: RequestContext, storedQueryId: String, occur: String) extends PerRequest {
+case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client ,storedQueryId: String, occur: String) extends PerRequest {
 
-  import StoredQueryIndex._
+  import storedQuery._
   import context.dispatcher
 
   lazy val getItemDetail =
@@ -51,13 +51,13 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, storedQueryId: Strin
 }
 
 object GetStoredQueryRequest {
-  def props(implicit ctx: RequestContext, storedQueryId: String) =
-    Props(classOf[GetStoredQueryRequest], ctx, storedQueryId)
+  def props(implicit ctx: RequestContext, client: org.elasticsearch.client.Client,  storedQueryId: String) =
+    Props(classOf[GetStoredQueryRequest], ctx, client: org.elasticsearch.client.Client,  storedQueryId)
 }
 
-case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) extends PerRequest {
+case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client,  storedQueryId: String) extends PerRequest {
 
-  import StoredQueryIndex._
+  import storedQuery._
   import context.dispatcher
   implicit val formats = org.json4s.DefaultFormats
 
@@ -118,15 +118,15 @@ case class GetStoredQueryRequest(ctx: RequestContext, storedQueryId: String) ext
 }
 
 object QueryStoredQueryRequest {
-  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int, from: Int)(implicit ctx: RequestContext) =
-    Props(classOf[QueryStoredQueryRequest], ctx, queryString, queryTags, size, from)
+  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int, from: Int)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[QueryStoredQueryRequest], ctx, client, queryString, queryTags, size, from)
 }
 
-case class QueryStoredQueryRequest(ctx: RequestContext, queryString: Option[String], queryTags: Option[String], size: Int, from: Int) extends PerRequest {
+case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client , queryString: Option[String], queryTags: Option[String], size: Int, from: Int) extends PerRequest {
 
   import context.dispatcher
   import org.elasticsearch.index.query.QueryBuilders
-  import read.storedQuery.StoredQueryIndex._
+  import storedQuery._
 
   lazy val queryDefinition = Seq(
     queryString.map { QueryBuilders.queryStringQuery(_).field("_all") },
@@ -231,11 +231,11 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
 }
 
 object Preview {
-  def props(implicit ctx: RequestContext, storedQueryId: String) =
-    Props(classOf[Preview], ctx, storedQueryId)
+  def props(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) =
+    Props(classOf[Preview], ctx, client, storedQueryId)
 }
 
-case class Preview(ctx: RequestContext, storedQueryId: String) extends PerRequest {
+case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, storedQueryId: String) extends PerRequest {
 
   import context.dispatcher
 

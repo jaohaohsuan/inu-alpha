@@ -1,8 +1,18 @@
 package common
 
 import com.typesafe.config._
+import org.elasticsearch.node.Node
+import java.net.InetAddress
 
-case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, roles: Seq[String] = Seq.empty, seedNodes: Seq[String] = Seq.empty){
+import scala.util.Try
+
+
+case class NodeConfig(isSeed: Boolean = false,
+                      isEventsStore: Boolean = false,
+                      elasticsearch: org.elasticsearch.common.settings.ImmutableSettings.Builder =
+                      org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder().put("node.data", false),
+                      roles: Seq[String] = Seq.empty,
+                      seedNodes: Seq[String] = Seq.empty){
 
   import ConfigFactory._
   import NodeConfig._
@@ -13,9 +23,11 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, r
   // Name of the ActorSystem
   lazy val clusterName = config getString CLUSTER_NAME_PATH
 
+  //lazy val node: Node = org.elasticsearch.node.NodeBuilder.nodeBuilder().settings(elasticsearch).node()
+
   private def asConfig(): Config = {
 
-    val config = load(
+    val config: Config = load(
       getClass.getClassLoader,
       ConfigResolveOptions.defaults.setAllowUnresolved(true)
     )
@@ -36,10 +48,10 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, r
     val portValue = ConfigValueFactory fromAnyRef(if(isSeed) 2551 else 0)
 
     val seedNodesString = seedNodes.map {
-      node => s"""akka.cluster.seed-nodes += "akka.tcp://$name@$node""""
+      node => s"""akka.cluster.seed-nodes += "akka.tcp://$name@${lookupNodeAddress(node)}""""
     }.mkString("\n")
 
-    val rolesString = (if(isEventsStore) roles.+:("store") else roles).map {
+    val rolesString = rolesBuilder().map {
       role => s"""akka.cluster.roles += $role"""
     }.mkString("\n")
 
@@ -51,6 +63,16 @@ case class NodeConfig(isSeed: Boolean = false, isEventsStore: Boolean = false, r
     (clusterConfig :: persistenceConfig :: Some(config) :: Nil).flatten
       .foldLeft(zero){(acc, p)=> acc.withFallback(p)}.resolve
   }
+
+  lazy val isDataNode = elasticsearch.get("node.data") == "true"
+
+  def rolesBuilder() =
+     Seq(
+      Option("data-node").filter(_ => isDataNode),
+      Option("store").filter(_ => isEventsStore)
+    ).flatten.toList ++ roles
+
+
 }
 
 object NodeConfig {
@@ -70,6 +92,17 @@ object NodeConfig {
 
   private val CLUSTER_NAME_PATH = "clustering.cluster.name"
 
+  def lookupNodeAddress(value: String) = {
+
+    val node = """(\w*):*(\d*)""".r
+
+    value match {
+      case node(hostname, port) =>
+        Try(InetAddress.getByName(hostname).getHostAddress).map(addr => s"$addr:$port").getOrElse(value)
+      case _ => value
+    }
+  }
+
   def parse(args: Seq[String]): Option[NodeConfig] = {
     val parser = new scopt.OptionParser[NodeConfig]("inu") {
       opt[Unit]("seed") action { (_, c) =>
@@ -78,6 +111,9 @@ object NodeConfig {
       opt[Unit]("store") action { (_, c) =>
         c.copy(isEventsStore = true)
       } text "set this flag to start this system as a event store"
+      opt[Unit]("data-node") action { (_,c) =>
+        c.copy(elasticsearch = c.elasticsearch.put("node.data", true))
+      } text "Set elasticsearch node can hold data"
       opt[Seq[String]]('r',"role") valueName("small,large...") action { (x, c) =>
         c.copy(roles = x)
       } text "set this flag to start this machine as a compute role node"
@@ -85,8 +121,8 @@ object NodeConfig {
         c.copy(seedNodes = c.seedNodes :+ n)
       } text "give a list of seed nodes like this: <ip>:<port> <ip>:<port>"
       checkConfig {
-        case NodeConfig(false, _, _ ,Seq()) => failure("ClusterNodes need at least one seed node")
-        case NodeConfig(_, _, roles ,_) if roles.intersect(SYS_ROLES).nonEmpty => failure("forbidden roles found such as seed or store")
+        case NodeConfig(false, _, _, _ ,Seq()) => failure("ClusterNodes need at least one seed node")
+        case NodeConfig(_, _, _, roles ,_) if roles.intersect(SYS_ROLES).nonEmpty => failure("forbidden roles found such as seed or store")
         case _ => success
       }
     }

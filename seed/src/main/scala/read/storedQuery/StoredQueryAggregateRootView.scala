@@ -2,6 +2,7 @@ package read.storedQuery
 
 import akka.persistence.query.{EventEnvelope, EventsByPersistenceId}
 import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
+import es.indices.storedQuery
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
@@ -12,7 +13,7 @@ import scala.language.implicitConversions
 
 case class StoredQueryData(title: String, tags: Option[String])
 
-class StoredQueryAggregateRootView extends MaterializeView {
+class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {
 
   val source = readJournal
     .query(EventsByPersistenceId(AggregateRoot.Name))
@@ -67,13 +68,21 @@ class StoredQueryAggregateRootView extends MaterializeView {
 
   def receive: Receive = {
     case "GO" =>
-      import StoredQueryIndex._
+      import es.indices.storedQuery
       import akka.stream.scaladsl.Sink
+      import scala.util.Success
+      import elastic.ImplicitConversions._
       import context.dispatcher
 
-      source
-        .mapAsync(1){ case (storedQueryId, doc) => save(storedQueryId, doc) }
-        //.runForeach(f => println(f))
-        .runWith(Sink.ignore)
+      storedQuery.exists.asFuture.onComplete {
+        case Success(x) if x.isExists() =>
+          source
+            .mapAsync(1){ case (storedQueryId, doc) => storedQuery.save(storedQueryId, doc) }
+            //.runForeach(f => println(f))
+            .runWith(Sink.ignore)
+        case _ =>
+          log.warning(s"${storedQuery.index} doesn't exist then terminate StoredQueryAggregateRootView")
+          context.stop(self)
+      }
   }
 }

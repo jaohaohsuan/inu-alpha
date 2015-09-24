@@ -29,7 +29,7 @@ lazy val seed = InuProject("seed")
       akkaCluster, akkaClusterTools,
       leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics,
-      elasticsearch,
+      elasticsearch, elasticsearchGroovy, luceneExpressions, jna,
       nscalaTime
     ),
     cleanFiles += baseDirectory.value / "data")

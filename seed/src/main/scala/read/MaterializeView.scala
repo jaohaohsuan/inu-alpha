@@ -2,7 +2,7 @@ package read
 
 import akka.actor.{Actor, ActorLogging}
 import akka.persistence.query.PersistenceQuery
-import akka.persistence.query.journal.leveldb.LeveldbReadJournal
+import akka.persistence.query.journal.leveldb.scaladsl.LeveldbReadJournal
 import akka.stream.ActorMaterializer
 
 trait MaterializeView extends Actor with ActorLogging {
@@ -11,6 +11,6 @@ trait MaterializeView extends Actor with ActorLogging {
 
   implicit val mat = ActorMaterializer()(context)
 
-  val readJournal = PersistenceQuery(system).readJournalFor(LeveldbReadJournal.Identifier)
+  val readJournal = PersistenceQuery(system).readJournalFor[LeveldbReadJournal](LeveldbReadJournal.Identifier)
 
 }

@@ -2,7 +2,7 @@ package protocol.storedQuery
 
 import net.hamnaberg.json.collection.data.JavaReflectionData
 import org.json4s._
-
+import scala.language.implicitConversions
 
 object ImplicitJsonConversions {
 
@@ -17,7 +17,6 @@ object ImplicitJsonConversions {
    def boolClauseToJValue(boolClause: BoolClause): JValue = {
 
     import protocol.storedQuery.Exchange._
-    import scala.language.implicitConversions
     boolClause match {
       case NamedBoolClause(id, title, occur, _) => NamedClause(id, title, occur)
       case MatchBoolClause(query, field, op, occur) => MatchClause(query,field, op, occur)

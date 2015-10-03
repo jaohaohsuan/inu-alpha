@@ -10,8 +10,10 @@ import scala.util.Try
 
 case class NodeConfig(isSeed: Boolean = false,
                       isEventsStore: Boolean = false,
-                      elasticsearch: Builder = Settings.settingsBuilder().put("node.data", false)
-                        .put("path.home", "./es").put("network.host", "_non_loopback_"),
+                      elasticsearch: Builder = Settings.settingsBuilder()
+                        .put("node.data", false)
+                        .put("path.home", "./es")
+                        .put("network.host", "_non_loopback_"),
                       roles: Seq[String] = Seq.empty,
                       seedNodes: Seq[String] = Seq.empty){
 

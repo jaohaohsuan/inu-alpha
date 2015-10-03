@@ -34,7 +34,7 @@ lazy val seed = InuProject("seed")
     ),
     dockerExposedPorts := Seq(9200, 9300, 7879),
     unmanagedClasspath in Compile += baseDirectory.value / "es",
-    cleanFiles += baseDirectory.value / "data")
+    cleanFiles += baseDirectory.value / "es")
   .enablePlugins(JavaAppPackaging)
 
 //unmanagedClasspath in Runtime <+= (baseDirectory) map { bd => Attributed.blank(bd / "word") },

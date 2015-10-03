@@ -1,8 +1,7 @@
 package read.storedQuery
 
-import akka.persistence.query.{EventEnvelope, EventsByPersistenceId}
+import akka.persistence.query.{EventEnvelope}
 import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
-import es.indices.storedQuery
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
@@ -16,7 +15,7 @@ case class StoredQueryData(title: String, tags: Option[String])
 class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {
 
   val source = readJournal
-    .query(EventsByPersistenceId(AggregateRoot.Name))
+    .eventsByPersistenceId(AggregateRoot.Name)
     .mapConcat(flatten)
     .map(convertToReadSideType)
 

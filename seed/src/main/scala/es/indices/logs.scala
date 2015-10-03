@@ -2,16 +2,13 @@ package es.indices
 
 import org.elasticsearch.client.Client
 
-/**
- * Created by henry on 9/24/15.
- */
 object logs {
 
   def putIndexTemplate(implicit client: Client) =
     client.admin().indices().preparePutTemplate("template1")
       .setSource(
         s"""{
-          | "template" : "logs*",
+          | "template" : "logs-*",
           | "mappings" : { $ytx }
           |}""".stripMargin).execute()
 
@@ -26,8 +23,7 @@ object logs {
     |          {
     |            "agent": {
     |              "mapping": {
-    |                "search_analyzer": "whitespace",
-    |                "index_analyzer": "whitespace",
+    |                "analyzer": "whitespace",
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
@@ -37,8 +33,7 @@ object logs {
     |          {
     |            "customer": {
     |              "mapping": {
-    |                "search_analyzer": "whitespace",
-    |                "index_analyzer": "whitespace",
+    |                "analyzer": "whitespace",
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
@@ -56,17 +51,19 @@ object logs {
     |            "type": "string"
     |          },
     |          "vtt": {
+    |           "analyzer": "whitespace",
     |            "type": "string"
     |          },
     |          "parties": {
     |            "type": "string"
     |          },
     |          "dialogs": {
+    |           "analyzer": "whitespace",
     |            "type": "string"
     |          },
-    |          "agentTeamName": { "type": "string",
-    |          "index": "not_analyzed",
-    |          "_meta": { "syntax":  "eq"  }
+    |          "agentTeamName": {
+    |            "type": "string",
+    |            "index": "not_analyzed"
     |          },
     |          "custGrade": { "type": "string", "index": "not_analyzed" },
     |          "gameType": { "type": "string", "index": "not_analyzed" },

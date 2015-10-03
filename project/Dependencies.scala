@@ -4,6 +4,7 @@ object Version {
   val akka  = "2.4.0-RC2"
   val scala = "2.11.6"
   val spray = "1.3.3"
+  val elasticsearch = "2.0.0-beta2"
 }
 
 object Library {
@@ -16,6 +17,7 @@ object Library {
   val akkaCluster              = "com.typesafe.akka"      %% "akka-cluster"                  % Version.akka
   val akkaClusterMetrics       = "com.typesafe.akka"      %% "akka-cluster-metrics"          % Version.akka
 
+  val word = "org.apdplat" % "word" % "1.3"
   val slf4j = "org.slf4j" % "slf4j-api" % "1.7.12"
   val spray                    = "io.spray"               %% "spray-can"                     % Version.spray
   val sprayRouting             = "io.spray"               %% "spray-routing"                 % Version.spray
@@ -25,7 +27,7 @@ object Library {
   val json4sNative             = "org.json4s"             %% "json4s-native"                 % "3.2.10"
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"         % "2.3"
   //val elastic4s                = "com.sksamuel.elastic4s"    %% "elastic4s-core"                % "1.7.+"
-  val elasticsearch           = "org.elasticsearch" % "elasticsearch" % "1.7.2"
+  val elasticsearch           = "org.elasticsearch" % "elasticsearch" % Version.elasticsearch
   val hashids                  = "com.timesprint"            %% "hashids-scala"                 % "1.0.0"
  // val log4j                    = "log4j"                     %  "log4j"                         % "1.2.17"
   val nscalaTime               = "com.github.nscala-time"    %% "nscala-time"                   % "2.0.0"
@@ -35,8 +37,8 @@ object Library {
   val leveldbjniAll            = "org.fusesource.leveldbjni" % "leveldbjni-all"              % "1.8"
   val shapeless  = "com.chuusai" %% "shapeless" % "2.2.5"
   val scalazCore = "org.scalaz" %% "scalaz-core" % "7.1.4"
-  val elasticsearchGroovy = "org.elasticsearch" % "elasticsearch-groovy" % "1.7.2"
-  val luceneExpressions = "org.apache.lucene" % "lucene-expressions" % "4.9.0"
+  val elasticsearchGroovy = "org.elasticsearch" % "elasticsearch-groovy" % Version.elasticsearch
+  val luceneExpressions = "org.apache.lucene" % "lucene-expressions" % "5.2.1"
   val jna = "net.java.dev.jna" % "jna" % "4.1.0"
 
 

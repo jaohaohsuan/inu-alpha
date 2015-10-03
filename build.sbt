@@ -29,11 +29,15 @@ lazy val seed = InuProject("seed")
       akkaCluster, akkaClusterTools,
       leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics,
-      elasticsearch, elasticsearchGroovy, luceneExpressions, jna,
+      elasticsearch, elasticsearchGroovy, luceneExpressions, jna, word,
       nscalaTime
     ),
+    dockerExposedPorts := Seq(9200, 9300, 7879),
+    unmanagedClasspath in Compile += baseDirectory.value / "es",
     cleanFiles += baseDirectory.value / "data")
   .enablePlugins(JavaAppPackaging)
+
+//unmanagedClasspath in Runtime <+= (baseDirectory) map { bd => Attributed.blank(bd / "word") },
 
 /*lazy val worker = InuProject("worker")
   .dependsOn(common, protocol)

@@ -1,5 +1,6 @@
 package es
 
+import akka.actor.Status.Failure
 import akka.actor.{Props, ActorLogging, Actor}
 import elastic.ImplicitConversions._
 import es.indices._
@@ -10,11 +11,12 @@ import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateRespo
 import org.elasticsearch.client.Client
 import org.elasticsearch.node.Node
 
+
 case object IndexScan
 
 
 object Configurator {
-  def props(implicit node: Node) = Props(classOf[es.Configurator], node.client())
+  def props(implicit client: Client) = Props(classOf[es.Configurator], client)
 }
 
 /* node.client().admin().cluster().prepareClusterStats().execute().asFuture.onComplete {
@@ -32,7 +34,9 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
     case IndexScan =>
       storedQuery.exists.asFuture.map(_.isExists).flatMap {
         case false => storedQuery.create.asFuture
-        case true => storedQuery.mapping.asFuture
+        case true =>
+          log.info(s"${storedQuery.index} exists")
+          storedQuery.mapping.asFuture
       } pipeTo self
 
       logs.putIndexTemplate.asFuture pipeTo self
@@ -47,8 +51,10 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
     case r: PutIndexTemplateResponse if r.isAcknowledged =>
       log.info(s"indexTemplate updated")
       
-    case unexpected =>
-      log.error(s"$unexpected")
+    case Failure(ex) =>
+      log.error(ex ,s"elasticsearch checkup error")
+    case unknown =>
+      println(unknown.getClass.getName)
 
   }
 

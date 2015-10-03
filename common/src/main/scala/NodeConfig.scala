@@ -1,16 +1,17 @@
 package common
 
 import com.typesafe.config._
-import org.elasticsearch.node.Node
+import org.elasticsearch.common.settings.Settings
 import java.net.InetAddress
+import org.elasticsearch.common.settings.Settings.Builder
 
 import scala.util.Try
 
 
 case class NodeConfig(isSeed: Boolean = false,
                       isEventsStore: Boolean = false,
-                      elasticsearch: org.elasticsearch.common.settings.ImmutableSettings.Builder =
-                      org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder().put("node.data", false),
+                      elasticsearch: Builder = Settings.settingsBuilder().put("node.data", false)
+                        .put("path.home", "./es").put("network.host", "_non_loopback_"),
                       roles: Seq[String] = Seq.empty,
                       seedNodes: Seq[String] = Seq.empty){
 

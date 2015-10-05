@@ -8,6 +8,7 @@ import es.IndexScan
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
+import org.elasticsearch.node.NodeBuilder
 
 object Main extends App {
 
@@ -18,10 +19,9 @@ object Main extends App {
     implicit val system = ActorSystem(c.clusterName, c.config)
     import system._
 
-    implicit val node =
-      org.elasticsearch.node.NodeBuilder.nodeBuilder()
-      .settings(c.elasticsearch).node()
+    val nb: NodeBuilder = org.elasticsearch.node.NodeBuilder.nodeBuilder()
 
+    implicit val node = nb.settings(c.elasticsearch).node()
 
     /*implicit val client = TransportClient.builder().build()
       .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("127.0.0.1"), 9300))

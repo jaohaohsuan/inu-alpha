@@ -1,4 +1,12 @@
 import Library._
+import NativePackagerHelper._
+
+val installElasticsearch = taskKey[File]("Install Elasticsearch")
+
+installElasticsearch := {
+  val location = baseDirectory.value / "var"
+  location
+}
 
 def InuProject(name: String): Project = Project(name, file(name))
     .settings(
@@ -33,9 +41,13 @@ lazy val seed = InuProject("seed")
       nscalaTime
     ),
     dockerExposedPorts := Seq(9200, 9300, 7879),
-    unmanagedClasspath in Compile += baseDirectory.value / "es",
-    cleanFiles += baseDirectory.value / "es")
+    mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
+      val conf = src / "var" / "elastic" / "config" /"elasticsearch.yml"
+      conf -> "var/elastic/config/elasticsearch.yml"
+    },
+    cleanFiles += baseDirectory.value / "es" / "data")
   .enablePlugins(JavaAppPackaging)
+
 
 //unmanagedClasspath in Runtime <+= (baseDirectory) map { bd => Attributed.blank(bd / "word") },
 

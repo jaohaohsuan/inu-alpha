@@ -28,7 +28,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  implicit val log = LoggingContext.fromActorRefFactory(actorRefFactory)
+  implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
   implicit def client: Client
 
   def count(c: String, state: String, conditions: Iterable[String])(implicit queries: Map[String, Condition], client: Client) = {

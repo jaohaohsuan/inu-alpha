@@ -6,13 +6,15 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   with CorsSupport
   with storedQuery.StoredQueryRoute
   with mapping.MappingRoute
-  with analysis.AnalysisRoute {
+  with analysis.AnalysisRoute
+  with external.river.ImportRoute {
 
   def receive = runRoute(
     cors {
       `_query/template/` ~
       `_mapping/` ~
-      `_analysis`
+      `_analysis` ~
+      `_import`
     }
   )
 }

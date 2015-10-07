@@ -22,7 +22,36 @@ import spray.util._
 
 import scala.concurrent.Future
 
-case class Condition(storedQueryId: String, title: String, query: String, state: String = "", hits: Long = 0)
+object Condition {
+  def uncounted(storedQueryId: String, title: String, query: String) = Condition(storedQueryId, title, query, "", Seq.empty)
+  def set(conditions: Seq[String]) = Condition("set", "set", "", "set", conditions)
+}
+
+case class Condition(storedQueryId: String, title: String, query: String, state: String = "", conditions: Iterable[String], hits: Long = 0) {
+
+  def count(implicit queries: Map[String, Condition], client: Client) = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val qb = conditions.flatMap(queries.get).foldLeft(boolQuery()){ (acc, c) => acc.must(wrapperQuery(c.query)) }
+    client.prepareCount("logs*")
+      .setQuery(qb)
+      .execute().asFuture.map { resp =>
+      //set hits
+      queries.getOrElse(storedQueryId, this).copy(hits = resp.getCount, state = state)
+    }
+  }
+}
+
+class ConditionSet(conditions: Seq[String]) {
+
+  def exclude(storedQueryId: String): Condition =
+    Condition(storedQueryId, storedQueryId, "", "excludable", conditions.filterNot(_ == storedQueryId))
+
+  def include(storedQueryId: String): Condition =
+    Condition(storedQueryId, storedQueryId, "", "includable", conditions.+:(storedQueryId))
+
+  def all = Condition("set", "set", "", "set", conditions)
+
+}
 
 trait AnalysisRoute extends HttpService with CollectionJsonSupport {
 
@@ -31,38 +60,28 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
   implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
   implicit def client: Client
 
-  def count(c: String, state: String, conditions: Iterable[String])(implicit queries: Map[String, Condition], client: Client) = {
-    val qb = conditions.flatMap(queries.get).foldLeft(boolQuery()){ (acc, c) => acc.must(wrapperQuery(c.query)) }
-    client.prepareCount("clogs*")
-      .setQuery(qb)
-      .execute()
-      .asFuture
-      .map { resp =>
-        queries.getOrElse(c, Condition(c, c, "")).copy(hits = resp.getCount, state = state)
-      }
-  }
-
   def crossQuery(conditionSet: Seq[String], include: Seq[String], exclude: Seq[String]): Future[Seq[Condition]] = {
 
     import storedQuery._
     import scala.collection.JavaConversions._
 
+    implicit def seqStringToConditionSet(value: Seq[String]): ConditionSet = new ConditionSet(value)
+
     prepareSearch
       .setQuery(idsQuery(".percolator").addIds(conditionSet ++ include ++ exclude))
       .setFetchSource(Array("query", "title"), null)
-      .execute
-      .asFuture
+      .execute.asFuture
       .map { resp => resp.getHits.foldLeft(Map.empty[String, Condition]){ (acc, h) =>
         val source = parse(h.sourceAsString())
         val title = (source \ "title").extract[String]
         val query = compact(render(source \ "query"))
-        acc + (h.id() -> Condition(h.id(), title, query))}
+        acc + (h.id() -> Condition.uncounted(h.id(), title, query))}
     }.flatMap { implicit queries =>
        for {
-         excluded <- Future.traverse(exclude) { c => count(c, "excluded", conditionSet.filterNot(_ == c )) }
-         included <- Future.traverse(include) { c => count(c, "included", conditionSet.+:(c))}
-         set <- count("set", "set", conditionSet)
-       } yield excluded ++ included ++ Seq(set)
+         excluded <- Future.traverse(exclude) { c => conditionSet.exclude(c).count }
+         included <- Future.traverse(include) { c => conditionSet.include(c).count }
+         set <- conditionSet.all.count
+       } yield (excluded ++ included).:+(set)
     }
   }
 
@@ -101,11 +120,32 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
 
             crossQuery(conditionSet, include, exclude = conditionSet).onComplete {
               case Success(x) =>
-                val items = x.map { case Condition(storedQueryId, title, _, state, hits) =>
+
+                val items = x.map { case Condition(storedQueryId, title, _, state, _, hits) =>
+
+                  val action = state match {
+                    case "excludable" =>
+                      val map = Seq(Option(uri.query.get("conditionSet").getOrElse(storedQueryId).replace(storedQueryId, ""))
+                        .filter(_.trim.nonEmpty)
+                        .map("conditionSet" -> _),
+                      Option(uri.query.get("include").getOrElse("") + storedQueryId)
+                        .filter(_.trim.nonEmpty)
+                        .map("include" -> _)).flatten.toMap
+                      s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "exclude" } ]"""
+                    case "includable" =>
+                      val map = Seq(Option(uri.query.get("include").getOrElse(storedQueryId).replace(storedQueryId, ""))
+                                  .filter(_.trim.nonEmpty).map("include" -> _),
+                        Option(uri.query.get("conditionSet").getOrElse("") + storedQueryId)
+                                  .filter(_.trim.nonEmpty).map("conditionSet" -> _)).flatten.toMap
+                      s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "include" } ]"""
+                    case _ =>
+                      ""
+                  }
+
                   s"""{
                      | "data" : [
                      |  { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"}
-                     | ]
+                     | ] $action
                      |}""".stripMargin
                 }.mkString(",")
 

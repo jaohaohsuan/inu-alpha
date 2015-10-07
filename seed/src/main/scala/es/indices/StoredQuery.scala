@@ -47,12 +47,11 @@ object storedQuery {
     client.prepareGet(index, ".percolator", id)
   }
 
-  def save(storedQueryId: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[IndexResponse] = {
+  def save(storedQueryId: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor) =
     client.prepareIndex(index, ".percolator", storedQueryId).setSource(json).execute().asFuture
-  }
 
 
-  def putSourceMapping(name: String)(implicit client: Client): PutMappingRequestBuilder = {
+  def putSourceMapping(`type`: String)(implicit client: Client) = {
 
     import org.json4s.JsonAST.{JField, JObject}
     import org.json4s.JsonDSL._
@@ -63,11 +62,12 @@ object storedQuery {
     implicit def field(name: String): JField = name -> (("type" -> "string") ~ ("analyzer" -> "whitespace"))
 
     val `dialogs, customer*, agent*`: JObject =
-      "properties" -> (0 to 5).foldLeft(JObject("dialogs")) { (acc, n) => acc ~ s"customer$n" ~ s"agent$n" }
+      "properties" -> (0 to 9).foldLeft(JObject("dialogs")) { (acc, n) => acc ~ s"customer$n" ~ s"agent$n" }
 
     client.admin().indices().preparePutMapping(index)
-      .setType(name)
+      .setType(`type`)
       .setSource(compact(render(`dialogs, customer*, agent*`)))
+      .execute()
   }
 
   def mapping(implicit client: Client) = {
@@ -86,6 +86,26 @@ object storedQuery {
 
     client.admin().indices().preparePutMapping(index)
       .setType(".percolator")
+      .setSource(mappingSource)
+      .execute()
+  }
+
+  def mapping(`type`: String)(implicit client: Client) = {
+
+    val fields = (0 to 9).flatMap(n => Seq(
+      s""""agent$n" :    {  "type": "string" }""",
+      s""""customer$n" : {  "type": "string" }"""
+    )) + """"dialogs" : {  "type": "string }"""
+
+    val mappingSource =
+      s"""{
+        | "properties" : { ${fields.mkString(",")} }
+        |}""".stripMargin
+
+    println(mappingSource)
+
+    client.admin().indices().preparePutMapping(index)
+      .setType(`type`)
       .setSource(mappingSource)
       .execute()
   }

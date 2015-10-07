@@ -33,11 +33,6 @@ trait ImportRoute extends HttpService {
     Unmarshaller[NodeSeq](ContentTypeRange(`application/xml`, `UTF-8`)) {
     case HttpEntity.NonEmpty(contentType, data) ⇒
       val parser = XML.parser
-      try {
-        parser.setProperty("http://apache.org/xml/properties/locale", java.util.Locale.ROOT)
-      } catch {
-        case e: org.xml.sax.SAXNotRecognizedException ⇒ // property is not needed
-      }
       XML.withSAXParser(parser).load(new InputStreamReader(new ByteArrayInputStream(data.toByteArray), contentType.charset.nioCharset))
     case HttpEntity.Empty ⇒ NodeSeq.Empty
   }
@@ -49,6 +44,7 @@ trait ImportRoute extends HttpService {
             respondWithMediaType(`application/json`) {
               entity(as[NodeSeq]) { nodeSeq =>
                 authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName =>
+
                   val roles = (nodeSeq \\ "Subject" filter { n => (n \ "@Name").text.toString == "RecognizeText" }) \ "Role"
                   roles.foldLeft(JObject()){ (acc, n) =>
                     val item = (n \\ "Item")

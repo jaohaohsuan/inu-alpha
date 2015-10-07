@@ -40,11 +40,12 @@ lazy val seed = InuProject("seed")
       elasticsearch, elasticsearchGroovy, luceneExpressions, jna, word,
       nscalaTime
     ),
-    dockerExposedPorts := Seq(9200, 9300, 7879),
+    dockerExposedPorts := Seq(9200, 9300, 9301, 7879),
     mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
-      val conf = src / "var" / "elastic" / "config" /"elasticsearch.yml"
+      val conf = src / "var" / "elastic" / "config" / "elasticsearch.yml"
       conf -> "var/elastic/config/elasticsearch.yml"
     },
+    mappings in Universal ++= directory("var/elastic/config"),
     cleanFiles += baseDirectory.value / "es" / "data")
   .enablePlugins(JavaAppPackaging)
 

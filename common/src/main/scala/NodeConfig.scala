@@ -11,8 +11,8 @@ case class NodeConfig(isSeed: Boolean = false,
                       isEventsStore: Boolean = false,
                       elasticsearch: Builder = Settings.settingsBuilder()
                         .put("node.data", false)
-                        .put("path.home", "./var/elastic")
-                        .put("network.host", "_non_loopback_"),
+                        .put("path.home", "./var/elastic"),
+                      unicastHosts: Seq[String] = Seq("localhost"),
                       roles: Seq[String] = Seq.empty,
                       seedNodes: Seq[String] = Seq.empty){
 
@@ -74,7 +74,6 @@ case class NodeConfig(isSeed: Boolean = false,
       Option("store").filter(_ => isEventsStore)
     ).flatten.toList ++ roles
 
-
 }
 
 object NodeConfig {
@@ -113,8 +112,14 @@ object NodeConfig {
       opt[Unit]("store") action { (_, c) =>
         c.copy(isEventsStore = true)
       } text "set this flag to start this system as a event store"
+      opt[Seq[String]]('u',"unicast-hosts") unbounded() action { (n, c) =>
+       c.copy(
+         elasticsearch = c.elasticsearch.putArray("discovery.zen.ping.unicast.hosts", n.map(lookupNodeAddress(_)): _*)
+       )
+      } text ""
       opt[Unit]("data-node") action { (_,c) =>
-        c.copy(elasticsearch = c.elasticsearch.put("node.data", true))
+        c.copy(elasticsearch = c.elasticsearch
+          .put("node.data", true))
       } text "Set elasticsearch node can hold data"
       opt[Seq[String]]('r',"role") valueName("small,large...") action { (x, c) =>
         c.copy(roles = x)
@@ -123,8 +128,8 @@ object NodeConfig {
         c.copy(seedNodes = c.seedNodes :+ n)
       } text "give a list of seed nodes like this: <ip>:<port> <ip>:<port>"
       checkConfig {
-        case NodeConfig(false, _, _, _ ,Seq()) => failure("ClusterNodes need at least one seed node")
-        case NodeConfig(_, _, _, roles ,_) if roles.intersect(SYS_ROLES).nonEmpty => failure("forbidden roles found such as seed or store")
+        case NodeConfig(false, _, _, _ ,_ ,Seq()) => failure("ClusterNodes need at least one seed node")
+        case NodeConfig(_, _, _, _, roles ,_) if roles.intersect(SYS_ROLES).nonEmpty => failure("forbidden roles found such as seed or store")
         case _ => success
       }
     }

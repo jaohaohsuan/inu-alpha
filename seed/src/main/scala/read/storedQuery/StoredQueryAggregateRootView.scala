@@ -62,7 +62,9 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
       occur -> JArray(groupedClauses.map { case (clauseId, clause) => JObject(("data", boolClauseToJValue(clause)), ("id", JString(s"$clauseId")))}.toList) :: acc
     }
 
-    storedQueryId -> pretty(render(JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*))) merge percolatorDoc))
+    val body = pretty(render(JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*))) merge percolatorDoc))
+
+    storedQueryId -> body
   }
 
   def receive: Receive = {
@@ -77,8 +79,8 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
         case Success(x) if x.isExists() =>
           source
             .mapAsync(1){ case (storedQueryId, doc) => storedQuery.save(storedQueryId, doc) }
-            //.runForeach(f => println(f))
-            .runWith(Sink.ignore)
+            .runForeach(f => println(f))
+            //.runWith(Sink.ignore)
         case _ =>
           log.warning(s"${storedQuery.index} doesn't exist then terminate StoredQueryAggregateRootView")
           context.stop(self)

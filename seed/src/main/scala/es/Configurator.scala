@@ -13,7 +13,7 @@ import org.elasticsearch.node.Node
 
 
 case object IndexScan
-
+case class StoredQueryMappingResponse(responses: Seq[PutMappingResponse])
 
 object Configurator {
   def props(implicit client: Client) = Props(classOf[es.Configurator], client)
@@ -36,7 +36,11 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
         case false => storedQuery.create.asFuture
         case true =>
           log.info(s"${storedQuery.index} exists")
-          storedQuery.mapping.asFuture
+          for {
+            r1 <- storedQuery.mapping.asFuture
+            r2 <- storedQuery.putSourceMapping("logs").asFuture
+          } yield StoredQueryMappingResponse(Seq(r1,r2))
+
       } pipeTo self
 
       logs.putIndexTemplate.asFuture pipeTo self
@@ -44,6 +48,9 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
     case r: CreateIndexResponse if r.isAcknowledged =>
       log.info(s"index created")
       sender ! IndexScan
+
+    case r: StoredQueryMappingResponse =>
+      log.info(s"$r")
 
     case r: PutMappingResponse if r.isAcknowledged =>
       log.info(s"mapping updated")

@@ -58,7 +58,7 @@ object BoolQueryConversion {
 
         val (referredClausesList: List[String], keywordsList: List[String], boolQuery) = buildBoolQuery(e)
         Some((boolQuery,
-          ("query" -> parse(s"${boolQuery}"))
+          ("query" -> parse(s"$boolQuery"))
             ~ ("title" -> e.title)
             ~ ("tags" -> e.tags)
             ~ ("keywords" -> keywordsList)

@@ -7,6 +7,7 @@ import es.indices.storedQuery
 import frontend.CollectionJsonSupport
 import org.elasticsearch.action.count.CountResponse
 import org.elasticsearch.client.Client
+import spray.http.Uri
 import spray.routing._
 import spray.http.StatusCodes._
 import org.elasticsearch.index.query.QueryBuilders._
@@ -51,6 +52,37 @@ class ConditionSet(conditions: Seq[String]) {
 
   def all = Condition("set", "set", "", "set", conditions)
 
+}
+
+class CrossAnalysisUriQuery(uri: Uri) {
+
+  def further(storedQueryId: String, state: String) = {
+    state match {
+      case "excludable" => exclude(storedQueryId)
+      case "includable" => include(storedQueryId)
+      case _ =>
+        ""
+    }
+  }
+
+  def include(storedQueryId: String) = {
+    val map = Seq(Option(uri.query.get("include").getOrElse(storedQueryId).replace(storedQueryId, ""))
+      .filter(_.trim.nonEmpty).map("include" -> _),
+      Option(uri.query.get("conditionSet").getOrElse("") + storedQueryId)
+        .filter(_.trim.nonEmpty).map("conditionSet" -> _)).flatten.toMap
+    s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "include" } ]"""
+  }
+
+  def exclude(storedQueryId: String) = {
+    val map = Seq(Option(uri.query.get("conditionSet").getOrElse(storedQueryId).replace(storedQueryId, ""))
+      .filter(_.trim.nonEmpty)
+      .map("conditionSet" -> _),
+      Option(uri.query.get("include").getOrElse("") + storedQueryId)
+        .filter(_.trim.nonEmpty)
+        .map("include" -> _)).flatten.toMap
+
+    s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "exclude" } ]"""
+  }
 }
 
 trait AnalysisRoute extends HttpService with CollectionJsonSupport {
@@ -121,31 +153,14 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
             crossQuery(conditionSet, include, exclude = conditionSet).onComplete {
               case Success(x) =>
 
-                val items = x.map { case Condition(storedQueryId, title, _, state, _, hits) =>
+                implicit def uriTo(uri: Uri): CrossAnalysisUriQuery = new CrossAnalysisUriQuery(uri)
 
-                  val action = state match {
-                    case "excludable" =>
-                      val map = Seq(Option(uri.query.get("conditionSet").getOrElse(storedQueryId).replace(storedQueryId, ""))
-                        .filter(_.trim.nonEmpty)
-                        .map("conditionSet" -> _),
-                      Option(uri.query.get("include").getOrElse("") + storedQueryId)
-                        .filter(_.trim.nonEmpty)
-                        .map("include" -> _)).flatten.toMap
-                      s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "exclude" } ]"""
-                    case "includable" =>
-                      val map = Seq(Option(uri.query.get("include").getOrElse(storedQueryId).replace(storedQueryId, ""))
-                                  .filter(_.trim.nonEmpty).map("include" -> _),
-                        Option(uri.query.get("conditionSet").getOrElse("") + storedQueryId)
-                                  .filter(_.trim.nonEmpty).map("conditionSet" -> _)).flatten.toMap
-                      s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map)}", "prompt" : "include" } ]"""
-                    case _ =>
-                      ""
-                  }
+                val items = x.map { case Condition(storedQueryId, title, _, state, _, hits) =>
 
                   s"""{
                      | "data" : [
                      |  { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"}
-                     | ] $action
+                     | ] ${uri.further(storedQueryId, state)}
                      |}""".stripMargin
                 }.mkString(",")
 

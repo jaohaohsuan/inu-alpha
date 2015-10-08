@@ -9,8 +9,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse
 import org.elasticsearch.client.Client
-import org.elasticsearch.node.Node
-
 
 case object IndexScan
 case class StoredQueryMappingResponse(responses: Seq[PutMappingResponse])
@@ -38,7 +36,7 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
           log.info(s"${storedQuery.index} exists")
           for {
             r1 <- storedQuery.mapping.asFuture
-            r2 <- storedQuery.putSourceMapping("logs").asFuture
+            r2 <- storedQuery.putSourceMapping("ytx").asFuture
           } yield StoredQueryMappingResponse(Seq(r1,r2))
 
       } pipeTo self

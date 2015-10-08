@@ -1,5 +1,6 @@
 package es.indices
 
+import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.common.text.Text
@@ -28,7 +29,7 @@ object logs {
     |          {
     |            "agent": {
     |              "mapping": {
-    |                "analyzer": "whitespace",
+    |                "analyzer": "whitespace_stt_analyzer",
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
@@ -38,7 +39,7 @@ object logs {
     |          {
     |            "customer": {
     |              "mapping": {
-    |                "analyzer": "whitespace",
+    |                "analyzer": "whitespace_stt_analyzer",
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
@@ -63,7 +64,7 @@ object logs {
     |            "type": "string"
     |          },
     |          "dialogs": {
-    |           "analyzer": "whitespace",
+    |           "analyzer": "whitespace_stt_analyzer",
     |            "type": "string"
     |          },
     |          "agentTeamName": {
@@ -84,6 +85,12 @@ object logs {
       .indices()
       .prepareGetTemplates("template1")
       .execute()
+
+  def prepareGet(r: GetRequest)(implicit client: Client) =
+    client.prepareGet(r.index(), r.`type`(), r.id())
+      .setFields("vtt")
+      .execute()
+
 
   def prepareSearch(indices: String = "logs-*")(implicit client: Client) =
     client.prepareSearch(indices)
@@ -109,13 +116,16 @@ object logs {
 
     def unapply(value: AnyRef): Option[Map[String, String]] = {
       value match {
-        case doc: GetResponse if doc.exists {_.getName equals NAME} =>
+
+        case doc: GetResponse if doc.exists {_.getName equals NAME } =>
           Some(doc.getField(NAME).getValues.asMap())
 
         case h: SearchHit if h.fields().containsKey(NAME) =>
           Some(h.field(NAME).getValues.asMap())
 
-        case _ => None
+        case unexpected =>
+          println(s"$unexpected")
+          None
       }
     }
   }

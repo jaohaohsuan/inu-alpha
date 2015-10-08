@@ -280,7 +280,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
 
           val items = r.getHits.map { case logs.SearchHitHighlightFields(location, fragments) =>
             s"""{
-               |  "href" : "${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}",
+               |  "href" : "${uri.withPath(Path(s"/$location")).withQuery(("_id", storedQueryId))}",
                |  "data" : [
                |    { "name" : "highlight", "array" : [ ${fragments.toList.sortBy { e => startTime(e) }.map { case logs.VttHighlightFragment(start, keywords) => s""""$start $keywords"""" }.mkString(",")} ] },
                |    { "name" : "keywords" , "value" : "${fragments.flatMap { _.keywords.split("""\s""") }.toSet.mkString(" ")}" }

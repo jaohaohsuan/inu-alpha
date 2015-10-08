@@ -2,7 +2,7 @@ package es.indices
 
 import elastic.ImplicitConversions._
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequestBuilder
-import org.elasticsearch.action.get.GetRequestBuilder
+import org.elasticsearch.action.get.{GetRequest, GetRequestBuilder}
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
@@ -93,9 +93,9 @@ object storedQuery {
   def mapping(`type`: String)(implicit client: Client) = {
 
     val fields = (0 to 9).flatMap(n => Seq(
-      s""""agent$n" :    {  "type": "string" }""",
-      s""""customer$n" : {  "type": "string" }"""
-    )) + """"dialogs" : {  "type": "string }"""
+      s""""agent$n" :    {  "type": "string", "analyzer": "whitespace_stt_analyzer" }""",
+      s""""customer$n" : {  "type": "string", "analyzer": "whitespace_stt_analyzer" }"""
+    )) + """"dialogs" :  {  "type": "string", "analyzer": "whitespace_stt_analyzer" }"""
 
     val mappingSource =
       s"""{
@@ -113,5 +113,11 @@ object storedQuery {
   def prepareSearch(implicit client: Client): SearchRequestBuilder = {
     //import org.elasticsearch.index.query.QueryBuilders
     client.prepareSearch(index).setTypes(".percolator")
+  }
+
+  def preparePercolate(`type`: String)(implicit client: Client) = {
+    client.preparePercolate()
+      .setIndices(index)
+      .setDocumentType(`type`)
   }
 }

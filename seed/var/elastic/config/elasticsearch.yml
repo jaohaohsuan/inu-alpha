@@ -1,7 +1,7 @@
 cluster.name: inu-dc2
 
 discovery.zen.ping.unicast.enabled: true
-network.host: _non_loopback_
+# network.host: _non_loopback_
 
 index:
   analysis:

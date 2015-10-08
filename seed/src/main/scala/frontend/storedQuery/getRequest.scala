@@ -3,6 +3,7 @@ package frontend.storedQuery.getRequest
 import akka.actor.Props
 import akka.pattern._
 import es.indices.storedQuery
+import es.indices.logs
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
 import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.get.GetResponse
@@ -14,6 +15,7 @@ import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
+import spray.http.Uri.Path
 import storedQuery._
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
@@ -248,25 +250,69 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
     prepareGet(storedQueryId)
       .setFetchSource(Array("query"), null)
       .setTransformSource(true)
+      .execute().asFuture
+      .map{ r => compact(render(parse(r.getSourceAsString) \ "query")) }
 
+   def search(query: String) =
+     logs.prepareSearch()
+       .setQuery(query)
+       .addField("vtt")
+       .setHighlighterRequireFieldMatch(true)
+       .setHighlighterPreTags("<em>")
+       .setHighlighterPostTags("</em>")
+       .addHighlightedField("agent*", 100, 0)
+       .addHighlightedField("customer*", 100, 0)
+       .addHighlightedField("dialogs", 100, 0)
+       .execute().asFuture
 
-  getQuery.execute().asFuture.map {
-    case r: GetResponse =>
-      val boolQuery = compact(render(parse(r.getSourceAsString) \ "query"))
-      boolQuery
-  } recover { case _ => """{ "error": { } }"""  } pipeTo self
-
+  (for {
+    query <- getQuery
+    hits <- search(query)
+  } yield hits) pipeTo self
 
   def processResult: Receive = {
-    case json: String =>
-
+    case r: SearchResponse =>
       response {
-        URI( href =>  {
-          respondWithMediaType(`application/vnd.collection+json`) {
-            complete(OK, json)
-          }
-        })
-      }
+        requestUri { uri =>
+          val `HH:mm:ss.SSS` = org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS")
+          def startTime(value: logs.VttHighlightFragment): Int =
+            `HH:mm:ss.SSS`.parseDateTime(value.start).getMillisOfDay
 
+          val items = r.getHits.map { case logs.SearchHitHighlightFields(location, fragments) =>
+            s"""{
+               |  "href" : "${uri.withPath(Path(s"/_vtt/$location")).withQuery(("_id", storedQueryId))}",
+               |  "data" : [
+               |    { "name" : "highlight", "array" : [ ${fragments.toList.sortBy { e => startTime(e) }.map { case logs.VttHighlightFragment(start, keywords) => s""""$start $keywords"""" }.mkString(",")} ] },
+               |    { "name" : "keywords" , "value" : "${fragments.flatMap { _.keywords.split("""\s""") }.toSet.mkString(" ")}" }
+               |  ]
+               |}""".stripMargin
+          }.mkString(",")
+
+          complete(OK,
+            s"""{
+              |   "collection" : {
+              |     "version" : "1.0",
+              |     "href" : "$uri",
+              |     "links" : [ ],
+              |
+              |     "items" : [ $items ]
+              |   }
+              |}""".stripMargin)
+        }
+      }
+    case ex: Exception =>
+      response {
+        requestUri { uri =>
+          log.error(ex, s"$uri")
+          complete(InternalServerError,
+            s"""{
+               |  "collection" : {
+               |    "version" : "1.0",
+               |    "href" : "$uri",
+               |    "error": { "message" : "${ex.getMessage}" }
+               |  }
+               |}""".stripMargin)
+        }
+      }
   }
 }

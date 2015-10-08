@@ -8,6 +8,7 @@ import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.index.query.MatchQueryBuilder
+import protocol.storedQuery.Terminology._
 import org.json4s
 import org.json4s.JsonAST.JValue
 import org.json4s._
@@ -86,9 +87,11 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
 
     val data = json \ "item" \ "data"
 
+    val prompts = Map("title" -> "模型名稱", "tags" -> "模型組")
+
     val template = data.extractOpt[List[JObject]].map(_.map {
-      case o@JObject(("name", JString(name)) :: ("value", _) :: Nil) =>
-        o merge JObject(("prompt", JString("")))
+      case o@JObject(("name", JString(name)) :: ("value", _) :: Nil) if prompts.contains(name) =>
+        o merge JObject(("prompt", JString(prompts(name))))
       case o: JObject =>
         o merge JObject(("prompt", JString("")))
     }).map{ d => compact(render(JArray(d)))}.getOrElse("[]")
@@ -98,14 +101,16 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
        |   "version" : "1.0",
        |   "href" : "",
        |
-       |   "links" : [
-       |
-       |   ],
-       |
        |   "items" : [
        |     {
        |       "href" : "${href}",
-       |       "data" : ${compact(render(data))}
+       |       "data" : ${compact(render(data))},
+       |
+       |       "links" : [
+       |        { "rel" : "preview", "name" : "preview", "href" : "$href/preview" },
+       |        ${Occurrences.map(n => s"""{ "rel" : "section", "name" : "$n", "href" : "$href/$n" }""").mkString(",")},
+       |        ${BoolQueryClauses.map(n => s"""{ "rel" : "edit", "href" : "$href/$n" }""").mkString(",")}
+       |       ]
        |     }
        |   ],
        |

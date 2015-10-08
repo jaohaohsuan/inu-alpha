@@ -46,7 +46,7 @@ lazy val seed = InuProject("seed")
       conf -> "var/elastic/config/elasticsearch.yml"
     },
     mappings in Universal ++= directory("var/elastic/config"),
-    cleanFiles += baseDirectory.value / "es" / "data")
+    cleanFiles += baseDirectory.value / "var" / "elastic" / "data" )
   .enablePlugins(JavaAppPackaging)
 
 

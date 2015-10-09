@@ -142,6 +142,7 @@ object logs {
 
     def splitFragment(fragment: Text): List[String] = {
       //import util.ImplicitPrint._
+      println(s"$fragment")
       (highlightFragment findAllIn fragment.string()).toList//.println()
     }
 

@@ -59,7 +59,7 @@ object storedQuery {
 
     import scala.language.implicitConversions
 
-    implicit def field(name: String): JField = name -> (("type" -> "string") ~ ("analyzer" -> "whitespace"))
+    implicit def field(name: String): JField = name -> (("type" -> "string") ~ ("analyzer" -> "whitespace_stt_analyzer"))
 
     val `dialogs, customer*, agent*`: JObject =
       "properties" -> (0 to 9).foldLeft(JObject("dialogs")) { (acc, n) => acc ~ s"customer$n" ~ s"agent$n" }
@@ -115,9 +115,9 @@ object storedQuery {
     client.prepareSearch(index).setTypes(".percolator")
   }
 
-  def preparePercolate(`type`: String)(implicit client: Client) = {
+  def preparePercolate(typ: String)(implicit client: Client) =
     client.preparePercolate()
       .setIndices(index)
-      .setDocumentType(`type`)
-  }
+      .setDocumentType(typ)
+
 }

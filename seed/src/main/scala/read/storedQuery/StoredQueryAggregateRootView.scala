@@ -79,8 +79,8 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
         case Success(x) if x.isExists() =>
           source
             .mapAsync(1){ case (storedQueryId, doc) => storedQuery.save(storedQueryId, doc) }
-            .runForeach(f => println(f))
-            //.runWith(Sink.ignore)
+            //.runForeach(f => println(f))
+            .runWith(Sink.ignore)
         case _ =>
           log.warning(s"${storedQuery.index} doesn't exist then terminate StoredQueryAggregateRootView")
           context.stop(self)

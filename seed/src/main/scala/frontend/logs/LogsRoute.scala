@@ -1,19 +1,14 @@
 package frontend.logs
 
-import frontend.WebvttSupport
-import org.elasticsearch.action.get.GetRequest
-import org.elasticsearch.action.percolate.{PercolateRequest, PercolateResponse}
-import org.elasticsearch.client.Requests
-import org.elasticsearch.common.xcontent.{XContentFactory, XContentHelper}
-import org.elasticsearch.search.highlight.HighlightBuilder
-import spray.routing._
-import spray.http.StatusCodes._
 import elastic.ImplicitConversions._
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, QueryBuilder}
 import es.indices.logs
+import frontend.WebvttSupport
+import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders}
+import spray.http.StatusCodes._
+import spray.routing._
 import spray.util.LoggingContext
+
 import scala.collection.JavaConversions._
-import scala.concurrent.Future
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 
@@ -21,8 +16,6 @@ import scala.util.{Failure, Success}
 trait LogsRoute extends HttpService with WebvttSupport{
 
   implicit def client: org.elasticsearch.client.Client
-
-  import es.indices.storedQuery._
   import scala.concurrent.ExecutionContext.Implicits.global
   implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
@@ -37,16 +30,12 @@ trait LogsRoute extends HttpService with WebvttSupport{
       value.foldLeft(boolQuery())(must)
     }
 
-    def percolate(implicit params: Map[String, String]) = {
+    def percolate(filters: String) = {
 
       val (index, typ, id) = r
 
-      val source = """{
-        |    "filter" : {
-        |        "term" : {
-        |            "title" : "test1"
-        |        }
-        |    },
+      val source = s"""{
+        |    "filter" : $filters,
         |    "size" : 10,
         |    "highlight" : {
         |        "pre_tags" : ["<c>"],
@@ -88,9 +77,6 @@ trait LogsRoute extends HttpService with WebvttSupport{
         .flatMap { case (_, hf) =>
           hf.fragments().flatMap(splitFragment) }
         .flatMap { substitute(vtt)(_) }
-
-      //log.info(s"${XContentHelper.convertToJson(p.request().source(), true, true)}")
-
     }
   }
 
@@ -98,8 +84,13 @@ trait LogsRoute extends HttpService with WebvttSupport{
   lazy val `logs-*`: Route = {
     get {
       path(Segment / Segment / Segment ) { (index, `type`, id) =>
-        parameterMap { implicit params => {
-          onComplete((index, `type`, id).percolate) {
+        parameters('_id) { storedQueryId => {
+
+          val idsQuery = s""""ids" : { "type" : ".percolator", "values" : [ "$storedQueryId" ] } """
+
+          log.info(idsQuery)
+
+          onComplete((index, `type`, id).percolate(s"""[ { $idsQuery} ]""")) {
             case Success(value) =>
               respondWithMediaType(`text/vtt`) {
                 complete(OK, value)

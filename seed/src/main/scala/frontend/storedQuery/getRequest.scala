@@ -20,7 +20,10 @@ import storedQuery._
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
 import elastic.ImplicitConversions._
+import scala.language.implicitConversions
+import text.ImplicitConversions._
 import scalaz._, Scalaz._
+import scala.language.reflectiveCalls
 
 import scala.collection.JavaConversions._
 
@@ -36,7 +39,7 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client:
 
   lazy val getItemDetail =
     prepareGet(storedQueryId)
-      .setFetchSource(Array(s"collection.$occur"), null)
+      .setFetchSource(Array(s"occurs.$occur"), null)
       .setTransformSource(true)
 
   getItemDetail.execute().asFuture.map {
@@ -46,8 +49,25 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client:
   def processResult: Receive = {
     case json: String =>
       response {
-        respondWithMediaType(`application/vnd.collection+json`) {
-          complete(OK, compact(render(JObject("collection" -> (parse("""{ "version": "1.0" }""") merge (parse(json) \\ "must"))))))
+        requestUri { uri =>
+          respondWithMediaType(`application/vnd.collection+json`) {
+
+            val items = json match {
+              case "{}" => "[]"
+              case _ => compact(render(parse(json) \\ occur)) richFormat Map("uri" -> s"""\\/$occur$$""".r.replaceAllIn(s"$uri", ""))
+            }
+
+            complete(OK,
+              s"""{
+                 |  "collection" : {
+                 |    "version": "1.0",
+                 |    "href" : "${uri}",
+                 |
+                 |    "items" : $items
+                 |  }
+                 |}
+               """.stripMargin)
+          }
         }
       }
   }

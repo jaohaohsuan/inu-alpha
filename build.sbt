@@ -37,7 +37,7 @@ lazy val seed = InuProject("seed")
       akkaCluster, akkaClusterTools,
       leveldb, leveldbjniAll, akkaPersistenceQuery,
       akkaClusterMetrics,
-      elasticsearch, elasticsearchGroovy, luceneExpressions, jna, word,
+      elasticsearch, jna,
       nscalaTime
     ),
     dockerExposedPorts := Seq(9200, 9300, 9301, 7879),

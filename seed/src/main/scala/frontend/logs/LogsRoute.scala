@@ -3,21 +3,44 @@ package frontend.logs
 import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.WebvttSupport
+import org.elasticsearch.action.percolate.PercolateResponse.Match
 import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders}
 import spray.http.StatusCodes._
 import spray.routing._
 import spray.util.LoggingContext
-
 import scala.collection.JavaConversions._
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
-
 
 trait LogsRoute extends HttpService with WebvttSupport{
 
   implicit def client: org.elasticsearch.client.Client
   import scala.concurrent.ExecutionContext.Implicits.global
   implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
+
+
+  implicit class Vtt(vtt: Map[String, String]) {
+    import es.indices.logs.SearchHitHighlightFields._
+
+    private def substitute(txt: String): Option[(String, String)] = txt match {
+      case highlightedSentence(cueid, highlight) =>
+        for {
+          subtitle <- vtt.get(cueid)
+          tag <- party.findFirstIn(cueid).map { txt => s"c.$txt" }
+        } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=\<)c(?=>)""", tag)
+      case _ =>
+        log.warning(s"'$txt' can not match with highlightedSentence.")
+        None
+    }
+
+    def append(matches: Iterable[Match]): Map[String,String] = {
+      log.info(s"PercolateResponse.Matches: ${matches.size}")
+      vtt ++ matches
+        .flatMap(_.getHighlightFields)
+        .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
+        .flatMap(substitute)
+    }
+  }
 
   implicit class Logs(r: (String, String, String)) {
 
@@ -32,10 +55,12 @@ trait LogsRoute extends HttpService with WebvttSupport{
 
     def percolate(filters: String) = {
 
+      import es.indices.storedQuery._
       val (index, typ, id) = r
 
       val source = s"""{
         |    "filter" : $filters,
+        |    "doc" : %s,
         |    "size" : 10,
         |    "highlight" : {
         |        "pre_tags" : ["<c>"],
@@ -49,34 +74,18 @@ trait LogsRoute extends HttpService with WebvttSupport{
         |    }
         |}""".stripMargin
 
-      val xxx = client.preparePercolate()
-        .setIndices("stored-query")
-        .setDocumentType("ytx")
-        .setGetRequest(client.prepareGet(index,typ,id).request())
-        .setSource(source).execute().asFuture
+      def prepareGetLog = client.prepareGet(index,typ,id)
+                                .setFields("vtt")
+                                .setFetchSource(Array("dialogs", "agent*", "customer*"), null)
 
-      //log.info(s"${XContentHelper.convertToJson(xxx.request().source(), true, true)}")
-
-      import es.indices.logs.SearchHitHighlightFields._
-
-      def substitute(vtt: Map[String, String])(txt: String): Option[(String, String)] = txt match {
-        case highlightedSentence(cueid, highlight) =>
-          for {
-            subtitle <- vtt.get(cueid)
-            tag <- party.findFirstIn(cueid).map { txt => s"c.$txt" }
-          } yield cueid -> subtitle.replaceAll( insideTagV, s"$$1$highlight$$2").replaceAll("""(?<=\<)c(?=>)""", tag)
-        case _ =>
-          println(s"'$txt' can not match with highlightedSentence.")
-          None
-      }
       for {
-        logs.VttField(vtt) <- client.prepareGet(index,typ,id).setFields("vtt").execute().asFuture
-        percolateResp <- xxx
-      } yield vtt ++ percolateResp.getMatches()
-        .flatMap { m => m.getHighlightFields }
-        .flatMap { case (_, hf) =>
-          hf.fragments().flatMap(splitFragment) }
-        .flatMap { substitute(vtt)(_) }
+        response <- prepareGetLog.execute().asFuture
+        logs.VttField(vtt) = response
+        doc = response.getSourceAsString
+        matches <- preparePercolate(typ)
+                            //.setGetRequest(client.prepareGet(index,typ,id).request())
+                            .setSource(source.format(doc)).execute().asFuture.map(_.getMatches)
+      } yield vtt.append(matches)
     }
   }
 
@@ -88,9 +97,7 @@ trait LogsRoute extends HttpService with WebvttSupport{
 
           val idsQuery = s""""ids" : { "type" : ".percolator", "values" : [ "$storedQueryId" ] } """
 
-          log.info(idsQuery)
-
-          onComplete((index, `type`, id).percolate(s"""[ { $idsQuery} ]""")) {
+          onComplete((index, `type`, id).percolate(s"""{ $idsQuery }""")) {
             case Success(value) =>
               respondWithMediaType(`text/vtt`) {
                 complete(OK, value)

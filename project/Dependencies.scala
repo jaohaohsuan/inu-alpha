@@ -4,7 +4,7 @@ object Version {
   val akka  = "2.4.0"
   val scala = "2.11.7"
   val spray = "1.3.3"
-  val elasticsearch = "2.0.0-beta2"
+  val elasticsearch = "2.0.0-rc1"
 }
 
 object Library {
@@ -37,7 +37,7 @@ object Library {
   val leveldbjniAll            = "org.fusesource.leveldbjni" % "leveldbjni-all"              % "1.8"
   val shapeless  = "com.chuusai" %% "shapeless" % "2.2.5"
   val scalazCore = "org.scalaz" %% "scalaz-core" % "7.1.4"
-  val elasticsearchGroovy = "org.elasticsearch" % "elasticsearch-groovy" % Version.elasticsearch
+  //val elasticsearchGroovy = "org.elasticsearch" % "elasticsearch-groovy" % Version.elasticsearch
   val luceneExpressions = "org.apache.lucene" % "lucene-expressions" % "5.2.1"
   val jna = "net.java.dev.jna" % "jna" % "4.1.0"
 

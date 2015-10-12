@@ -209,6 +209,15 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
        |      ${pagination.mkString(",")}
        |   ],
        |
+       |   "queries" : [ {
+       |      "href" : "$href",
+       |      "rel" : "search",
+       |      "data" : [
+       |        { "name" : "q", "prompt" : "search title or any terms" },
+       |        { "name" : "tags", "prompt" : "" }
+       |      ]
+       |    } ],
+       |
        |   "items" : [$items],
        |
        |   "template" : {

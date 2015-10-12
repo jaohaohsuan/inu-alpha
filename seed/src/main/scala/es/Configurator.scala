@@ -30,7 +30,7 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
 
   def receive = {
     case IndexScan =>
-      storedQuery.exists.asFuture.map(_.isExists).flatMap {
+      storedQuery.exists.execute().asFuture.map(_.isExists).flatMap {
         case false => storedQuery.create.asFuture
         case true =>
           log.info(s"${storedQuery.index} exists")

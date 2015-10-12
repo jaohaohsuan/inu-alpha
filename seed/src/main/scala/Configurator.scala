@@ -33,7 +33,7 @@ class Configurator(client: org.elasticsearch.client.Client) extends Actor with S
       }
 
       if(m.hasRole("sync")) {
-        system.actorOf(Props(classOf[read.storedQuery.StoredQueryAggregateRootView], client)) ! "GO"
+        system.actorOf(Props(classOf[read.storedQuery.StoredQueryAggregateRootView], client))
       }
 
       if(m.hasRole("web")) {

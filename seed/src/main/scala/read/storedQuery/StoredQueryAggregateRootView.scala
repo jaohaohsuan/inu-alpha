@@ -1,23 +1,33 @@
 package read.storedQuery
 
-import akka.persistence.query.{EventEnvelope}
+import akka.pattern._
+import akka.persistence.query.EventEnvelope
+import akka.util.Timeout
 import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
+import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequestBuilder, IndicesExistsResponse}
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.{AggregateRoot, ImplicitJsonConversions, NamedBoolClause, StoredQuery}
 import read.MaterializeView
-
+import scala.language.postfixOps
+import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 case class StoredQueryData(title: String, tags: Option[String])
 
 class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {
 
+  import akka.stream.scaladsl.Sink
+  import context.dispatcher
+  import elastic.ImplicitConversions._
+  import es.indices.storedQuery
+
+  var tags = Set.empty[String]
+
   val source = readJournal
     .eventsByPersistenceId(AggregateRoot.Name)
     .mapConcat(flatten)
-    .map(convertToReadSideType)
 
   def flatten(envelope: EventEnvelope) = {
     envelope.event match {
@@ -67,23 +77,27 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
     storedQueryId -> body
   }
 
-  def receive: Receive = {
-    case "GO" =>
-      import es.indices.storedQuery
-      import akka.stream.scaladsl.Sink
-      import scala.util.Success
-      import elastic.ImplicitConversions._
-      import context.dispatcher
+  val checkingTask = context.system.scheduler.schedule(2.seconds, 5.seconds, self, storedQuery.exists)
 
-      storedQuery.exists.asFuture.onComplete {
-        case Success(x) if x.isExists() =>
-          source
-            .mapAsync(1){ case (storedQueryId, doc) => storedQuery.save(storedQueryId, doc) }
-            //.runForeach(f => println(f))
-            .runWith(Sink.ignore)
-        case _ =>
-          log.warning(s"${storedQuery.index} doesn't exist then terminate StoredQueryAggregateRootView")
-          context.stop(self)
-      }
+
+  def receive: Receive = {
+    case r: IndicesExistsResponse if r.isExists =>
+      checkingTask.cancel()
+      source.map(convertToReadSideType)
+                .mapAsync(1){ case (storedQueryId, doc) => storedQuery.save(storedQueryId, doc) }
+                //.runForeach(f => println(f))
+                .runWith(Sink.ignore)
+      implicit val timeout = Timeout(5 seconds)
+      source.mapAsync(1){ s => self ? s.tags }.runWith(Sink.ignore)
+
+    case b: IndicesExistsRequestBuilder =>
+      b.execute().asFuture pipeTo self
+
+    case xs: Set[String] =>
+      tags = tags ++ xs
+      sender ! "ack"
+      log.info(s"tags: $tags")
+    case _ =>
+      log.warning("unexpected message catch")
   }
 }

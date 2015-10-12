@@ -1,6 +1,8 @@
 package es.indices
 
 import elastic.ImplicitConversions._
+import org.elasticsearch.action.ListenableActionFuture
+import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequestBuilder, IndicesExistsResponse}
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequestBuilder
 import org.elasticsearch.action.get.{GetRequest, GetRequestBuilder}
 import org.elasticsearch.action.index.IndexResponse
@@ -14,7 +16,7 @@ object storedQuery {
 
   val index = "stored-query"
 
-  def exists(implicit client: Client) = client.admin().indices().prepareExists(index).execute()
+  def exists(implicit client: Client): IndicesExistsRequestBuilder = client.admin().indices().prepareExists(index)
 
   def create(implicit client: Client) =
     client.admin().indices()

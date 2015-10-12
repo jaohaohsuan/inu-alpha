@@ -200,13 +200,15 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
 
     }.filter(_.nonEmpty).mkString(",")
 
+   val links = s"""{ "href" : "$href/temporary", "rel" : "edit" }""" :: pagination.mkString(",") :: Nil
+
     s"""{
        | "collection" : {
        |   "version" : "1.0",
        |   "href" : "$href",
        |
        |   "links" : [
-       |      ${pagination.mkString(",")}
+       |      ${links.filter(_.trim.nonEmpty).mkString(",")}
        |   ],
        |
        |   "queries" : [ {

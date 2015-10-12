@@ -4,7 +4,6 @@ import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.WebvttSupport
 import org.elasticsearch.action.percolate.PercolateResponse.Match
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders}
 import spray.http.StatusCodes._
 import spray.routing._
 import spray.util.LoggingContext
@@ -17,7 +16,6 @@ trait LogsRoute extends HttpService with WebvttSupport{
   implicit def client: org.elasticsearch.client.Client
   import scala.concurrent.ExecutionContext.Implicits.global
   implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
-
 
   implicit class Vtt(vtt: Map[String, String]) {
     import es.indices.logs.SearchHitHighlightFields._
@@ -43,16 +41,6 @@ trait LogsRoute extends HttpService with WebvttSupport{
   }
 
   implicit class Logs(r: (String, String, String)) {
-
-    implicit def paramsToQuery(value: Map[String, String]): QueryBuilder = {
-      import QueryBuilders._
-      def must(bool: BoolQueryBuilder, param: (String, String)) = {
-        val (field, text) = param
-        bool.must(matchQuery(field, text))
-      }
-      value.foldLeft(boolQuery())(must)
-    }
-
     def percolate(filters: String) = {
 
       import es.indices.storedQuery._
@@ -89,14 +77,11 @@ trait LogsRoute extends HttpService with WebvttSupport{
     }
   }
 
-
   lazy val `logs-*`: Route = {
     get {
       path(Segment / Segment / Segment ) { (index, `type`, id) =>
         parameters('_id) { storedQueryId => {
-
           val idsQuery = s""""ids" : { "type" : ".percolator", "values" : [ "$storedQueryId" ] } """
-
           onComplete((index, `type`, id).percolate(s"""{ $idsQuery }""")) {
             case Success(value) =>
               respondWithMediaType(`text/vtt`) {

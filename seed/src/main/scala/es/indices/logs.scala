@@ -18,7 +18,6 @@ object logs {
           | "mappings" : { $ytx }
           |}""".stripMargin).execute()
 
-
   private val ytx = """
     |"ytx": {
     |        "_source": {
@@ -142,7 +141,7 @@ object logs {
 
     def splitFragment(fragment: Text): List[String] = {
       //import util.ImplicitPrint._
-      println(s"$fragment")
+      //println(s"$fragment")
       (highlightFragment findAllIn fragment.string()).toList//.println()
     }
 

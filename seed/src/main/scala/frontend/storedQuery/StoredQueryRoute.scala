@@ -37,8 +37,10 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
         path(BoolQueryClauseRegex ) { clause => implicit ctx =>
           actorRefFactory.actorOf(GetClauseTemplateRequest.props) ! clause
         } ~
-        path("preview") { implicit ctx =>
-          actorRefFactory.actorOf(Preview.props)
+        path("preview") {
+          parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (size, from) => implicit ctx =>
+            actorRefFactory.actorOf(Preview.props(size, from))
+          }
         }
       }
     } ~

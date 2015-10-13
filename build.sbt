@@ -41,6 +41,9 @@ lazy val seed = InuProject("seed")
       nscalaTime
     ),
     dockerExposedPorts := Seq(9200, 9300, 9301, 7879),
+    packageName in Docker := "inu",
+    version in Docker := "latest",
+    dockerRepository := Some("jaohaohsuan"),
     mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
       val conf = src / "var" / "elastic" / "config" / "elasticsearch.yml"
       conf -> "var/elastic/config/elasticsearch.yml"

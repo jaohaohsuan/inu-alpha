@@ -1,10 +1,16 @@
 package frontend
 
+import org.elasticsearch.action.search.SearchResponse
+import scala.language.implicitConversions
 import scalaz._, Scalaz._
 import scalaz.Ordering
 
+object Pagination {
 
-case class Pagination(size: Int, from: Int, totals: Long)(implicit uri: spray.http.Uri) {
+  implicit def extractHitsOfTotal(r: SearchResponse): Long = r.getHits.totalHits()
+}
+
+case class Pagination(size: Int, from: Int, totals: Long = 0)(implicit uri: spray.http.Uri) {
 
   private val next: Long = from + size
   private val previous = from - size

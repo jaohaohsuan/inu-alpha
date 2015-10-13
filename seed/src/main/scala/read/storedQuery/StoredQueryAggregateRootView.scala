@@ -1,20 +1,29 @@
 package read.storedQuery
 
+import akka.actor.Props
 import akka.pattern._
 import akka.persistence.query.EventEnvelope
 import akka.util.Timeout
 import domain.storedQuery.StoredQueryAggregateRoot.{ItemCreated, ItemsChanged}
 import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequestBuilder, IndicesExistsResponse}
+import org.elasticsearch.client.Client
 import org.json4s.JObject
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.{AggregateRoot, ImplicitJsonConversions, NamedBoolClause, StoredQuery}
+import protocol.storedQuery.{NameOfAggregate, ImplicitJsonConversions, NamedBoolClause, StoredQuery}
 import read.MaterializeView
 import scala.language.postfixOps
 import scala.concurrent.duration._
 import scala.language.implicitConversions
+import common.StringSetHolder
 
-case class StoredQueryData(title: String, tags: Option[String])
+
+object StoredQueryAggregateRootView {
+
+  case class StoredQueryData(title: String, tags: Option[String])
+
+  def props(implicit client: Client) = Props(classOf[read.storedQuery.StoredQueryAggregateRootView], client)
+}
 
 class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {
 
@@ -22,11 +31,12 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   import context.dispatcher
   import elastic.ImplicitConversions._
   import es.indices.storedQuery
+  import StoredQueryAggregateRootView._
 
-  var tags = Set.empty[String]
+  var tags = StringSetHolder(Set.empty[String])
 
   val source = readJournal
-    .eventsByPersistenceId(AggregateRoot.Name)
+    .eventsByPersistenceId(NameOfAggregate.Root)
     .mapConcat(flatten)
 
   def flatten(envelope: EventEnvelope) = {
@@ -88,16 +98,18 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
                 //.runForeach(f => println(f))
                 .runWith(Sink.ignore)
       implicit val timeout = Timeout(5 seconds)
-      source.mapAsync(1){ s => self ? s.tags }.runWith(Sink.ignore)
+      source.mapAsync(1){ s => self ? StringSetHolder(s.tags) }.runWith(Sink.ignore)
 
     case b: IndicesExistsRequestBuilder =>
       b.execute().asFuture pipeTo self
 
-    case xs: Set[String] =>
-      tags = tags ++ xs
+    case StringSetHolder(xs) =>
+      tags = tags.append(xs)
       sender ! "ack"
       log.info(s"tags: $tags")
-    case _ =>
-      log.warning("unexpected message catch")
+    case protocol.storedQuery.Exchange.SearchTags =>
+      sender() ! tags
+    case unknown =>
+      log.warning(s"unexpected message catch $unknown")
   }
 }

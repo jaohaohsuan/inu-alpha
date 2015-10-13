@@ -2,6 +2,7 @@ package frontend.storedQuery.getRequest
 
 import akka.actor.Props
 import akka.pattern._
+import akka.util.Timeout
 import es.indices.storedQuery
 import es.indices.logs
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
@@ -24,6 +25,8 @@ import scala.language.implicitConversions
 import text.ImplicitConversions._
 import scalaz._, Scalaz._
 import scala.language.reflectiveCalls
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import scala.collection.JavaConversions._
 
@@ -129,7 +132,14 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
        |       "data" : ${compact(render(data))},
        |
        |       "links" : [
-       |        { "rel" : "preview", "name" : "preview", "href" : "$href/preview" },
+       |        { "rel" : "preview",
+       |          "name" : "preview",
+       |          "href" : "$href/preview",
+       |          "data" : [
+       |            { "name" : "size", "prompt" : "size of displayed logs" },
+       |            { "name" : "from", "prompt" : "logs display from" }
+       |          ]
+       |        },
        |        ${Occurrences.map(n => s"""{ "rel" : "section", "name" : "$n", "href" : "$href/$n" }""").mkString(",")},
        |        ${BoolQueryClauses.map(n => s"""{ "rel" : "edit", "href" : "$href/$n" }""").mkString(",")}
        |       ]
@@ -160,17 +170,23 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
       queryTags.map { QueryBuilders.matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
   ).flatten.foldLeft(QueryBuilders.boolQuery().mustNot(temporaryIdsQuery))(_ must _)
 
-  prepareSearch
-    .setQuery(queryDefinition)
-    .setFetchSource(Array("item"), null)
-    .setSize(size).setFrom(from)
-    .execute()
-    .asFuture.recover { case ex => """{ "error": { } }""" } pipeTo self
+  implicit val timeout = Timeout(5 seconds)
+
+  (for {
+    common.StringSetHolder(tags) <- context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags
+    searchResponse <- prepareSearch
+      .setQuery(queryDefinition)
+      .setFetchSource(Array("item"), null)
+      .setSize(size).setFrom(from)
+      .execute()
+      .asFuture
+  } yield (searchResponse, tags.mkString(" "))) pipeTo self
 
 
   def processResult: Receive = {
-    case r: SearchResponse =>
+    case (r: SearchResponse, tags: String) =>
 
+      import Pagination._
       implicit val formats = org.json4s.DefaultFormats
 
       val hits: List[json4s.JValue] = r.getHits.map { h => parse(h.sourceAsString()) \ "item" }.toList
@@ -178,13 +194,13 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
       response {
         requestUri { implicit uri =>
           respondWithMediaType(`application/vnd.collection+json`) {
-            complete(OK, collectionRepresentation(hits, Pagination(size, from, r.getHits.totalHits).links ,uri))
+            complete(OK, collectionRepresentation(tags ,hits, Pagination(size, from, r).links ,uri))
           }
         }
       }
   }
 
-  def collectionRepresentation(hits: List[json4s.JValue], pagination: Iterable[String] ,uri: spray.http.Uri)(implicit formats: Formats) = {
+  def collectionRepresentation(tags: String,hits: List[json4s.JValue], pagination: Iterable[String] ,uri: spray.http.Uri)(implicit formats: Formats) = {
 
     val href = uri.withQuery(Map.empty[String,String])
 
@@ -216,7 +232,9 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
        |      "rel" : "search",
        |      "data" : [
        |        { "name" : "q", "prompt" : "search title or any terms" },
-       |        { "name" : "tags", "prompt" : "" }
+       |        { "name" : "tags", "prompt" : "$tags" },
+       |        { "name" : "size", "prompt" : "size of displayed items" },
+       |        { "name" : "from", "prompt" : "items display from" }
        |      ]
        |    } ],
        |
@@ -269,11 +287,11 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
 }
 
 object Preview {
-  def props(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) =
-    Props(classOf[Preview], ctx, client, storedQueryId)
+  def props(size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) =
+    Props(classOf[Preview], ctx, client, storedQueryId, size, from)
 }
 
-case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, storedQueryId: String) extends PerRequest {
+case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, storedQueryId: String, size: Int, from: Int) extends PerRequest {
 
   import context.dispatcher
 
@@ -286,14 +304,16 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
 
    def search(query: String) =
      logs.prepareSearch()
+       .setSize(size).setFrom(from)
        .setQuery(query)
        .addField("vtt")
        .setHighlighterRequireFieldMatch(true)
+       .setHighlighterNumOfFragments(0)
        .setHighlighterPreTags("<em>")
        .setHighlighterPostTags("</em>")
-       .addHighlightedField("agent*", 100, 0)
-       .addHighlightedField("customer*", 100, 0)
-       .addHighlightedField("dialogs", 100, 0)
+       .addHighlightedField("agent*")
+       .addHighlightedField("customer*")
+       .addHighlightedField("dialogs")
        .execute().asFuture
 
   (for {
@@ -304,7 +324,8 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
   def processResult: Receive = {
     case r: SearchResponse =>
       response {
-        requestUri { uri =>
+        requestUri { implicit uri =>
+          import Pagination._
           val `HH:mm:ss.SSS` = org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS")
           def startTime(value: logs.VttHighlightFragment): Int =
             `HH:mm:ss.SSS`.parseDateTime(value.start).getMillisOfDay
@@ -324,7 +345,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
               |   "collection" : {
               |     "version" : "1.0",
               |     "href" : "$uri",
-              |     "links" : [ ],
+              |     "links" : [ ${Pagination(size, from, r).links.mkString(",")} ],
               |
               |     "items" : [ $items ]
               |   }

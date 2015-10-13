@@ -30,4 +30,10 @@ object Exchange {
     require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
     def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
   }
+
+  case object SearchTags
 }
+
+
+
+

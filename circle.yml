@@ -23,8 +23,7 @@ dependencies:
   override:
     - docker info
     - if [[ -e ~/docker/image.tar ]]; then docker load --input ~/docker/image.tar; fi
-    - sbt docker
-    - mkdir -p ~/docker; docker save jaohaohsuan/inu-alpha:v1.0.3 > ~/docker/image.tar
+    - mkdir -p ~/docker; docker save jaohaohsuan/inu:latest > ~/docker/image.tar
 
 
 deployment:

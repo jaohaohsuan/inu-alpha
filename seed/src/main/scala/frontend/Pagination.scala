@@ -1,6 +1,7 @@
 package frontend
 
 import org.elasticsearch.action.search.SearchResponse
+import spray.http.Uri
 import scala.language.implicitConversions
 import scalaz._, Scalaz._
 import scalaz.Ordering
@@ -26,4 +27,22 @@ case class Pagination(size: Int, from: Int, totals: Long = 0)(implicit uri: spra
   }
 
   lazy val links = Seq(linkOfNext, linkOfPrevious).flatten
+}
+
+
+object UriImplicitConversions {
+
+  implicit class Uri0(uri: Uri) {
+    def append(key: String, value: String) = {
+      (uri.query.get(key).getOrElse("") :: value :: Nil).filter(_.trim.nonEmpty).mkString(" ") match {
+        case "" => uri
+        case appended =>
+          uri.withQuery(uri.query.+:((key, appended)))
+      }
+    }
+
+    def drop(keys: String*) = {
+      uri.withQuery(keys.foldLeft(uri.query.toMap)(_ - _))
+    }
+  }
 }

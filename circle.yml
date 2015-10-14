@@ -31,4 +31,4 @@ deployment:
     branch: master
     commands:
       - docker login -e $DOCKERHUB_MAIL -p $DOCKERHUB_PASSWORD -u $DOCKERHUB_LOGIN
-      - sbt 'project seed' 'docker:publishLocal'
+      - sbt 'project seed' 'docker:publish'

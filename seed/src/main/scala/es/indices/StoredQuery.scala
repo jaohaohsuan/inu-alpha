@@ -8,13 +8,20 @@ import org.elasticsearch.action.get.{GetRequest, GetRequestBuilder}
 import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.{MatchQueryBuilder, BoolQueryBuilder, QueryBuilders}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object storedQuery {
 
   val index = "stored-query"
+
+  def buildQueryDefinition(queryString: Option[String] = None, queryTags: Option[String] = None): BoolQueryBuilder = Seq(
+    queryString.map { queryStringQuery(_).field("_all") },
+    queryTags.map { matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
+  ).flatten.foldLeft(boolQuery().mustNot(temporaryIdsQuery))(_ must _)
+
 
   def exists(implicit client: Client): IndicesExistsRequestBuilder = client.admin().indices().prepareExists(index)
 

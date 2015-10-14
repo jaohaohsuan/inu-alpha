@@ -4,6 +4,7 @@ import akka.actor.Props
 import es.indices.storedQuery
 import elastic.ImplicitConversions._
 import frontend.PerRequest
+import frontend.storedQuery.getRequest.QueryStoredQueryRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
@@ -11,6 +12,7 @@ import org.json4s.{DefaultFormats, Formats}
 import org.json4s.native.JsonMethods._
 import spray.http.StatusCodes._
 import spray.http.Uri
+import spray.http.Uri.Path
 import spray.routing.RequestContext
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -70,7 +72,7 @@ class FurtherLinks(uri: Uri, storedQueryId: String) {
       case "includable" => Some(include, "include")
       case _ => None
     }).map { case (map, prompt) =>
-      println(s"mappppppp $map")
+      //println(s"mappppppp $map")
       s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map: _*)}", "prompt" : "$prompt" } ]"""
     }.getOrElse("")
   }
@@ -79,6 +81,40 @@ class FurtherLinks(uri: Uri, storedQueryId: String) {
 object CrossAnalysisRequest {
   def props(conditionSet: Seq[String], include: Seq[String], exclude: Seq[String])(implicit ctx: RequestContext, client: org.elasticsearch.client.Client): Props =
     Props(classOf[CrossAnalysisRequest], ctx, client, conditionSet, include, exclude)
+}
+
+object CrossAnalysisSourceRequest {
+
+  import org.elasticsearch.index.query.QueryBuilders._
+  import es.indices.storedQuery._
+  import frontend.UriImplicitConversions._
+
+  val defaultItemRender: (Option[String], String, Uri) => String = (idOpt: Option[String], data: String, uri: Uri) => {
+
+
+
+    idOpt match {
+      case None => ""
+      case Some(id) =>
+        val action = s"${uri.append("include", id)}".replaceFirst("""/source""", "")
+        s"""{
+           |  "data" : $data,
+           |  "links" : [
+           |    { "href" : "$action", "rel" : "action" }
+           |  ]
+           |}""".stripMargin
+    }
+
+  }
+
+  def props(exclude: Seq[String])(queryString: Option[String] = None,
+                                   queryTags: Option[String] = None,
+                                   size: Int = 10, from: Int = 0)
+                                   (implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[QueryStoredQueryRequest], ctx, client,
+      buildQueryDefinition(queryString, queryTags)
+        .mustNot(idsQuery().ids(exclude: _*)), size, from, defaultItemRender)
+
 }
 
 case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], include: Seq[String], exclude: Seq[String])
@@ -127,7 +163,8 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "version" : "1.0",
                          |    "href" : "$uri",
                          |    "links" : [
-                         |     { "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" }
+                         |     { "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" },
+                         |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" }
                          |    ],
                          |
                          |    "items" : [ $items ]

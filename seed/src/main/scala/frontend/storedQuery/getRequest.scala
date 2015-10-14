@@ -10,18 +10,20 @@ import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.count.CountResponse
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.Client
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.index.query.{QueryBuilders, MatchQueryBuilder}
+import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MatchQueryBuilder}
 import protocol.storedQuery.Terminology._
 import org.json4s
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
+import spray.http.Uri
 import spray.http.Uri.Path
 import storedQuery._
 import spray.http.StatusCodes._
-import spray.routing.RequestContext
+import spray.routing._
 import elastic.ImplicitConversions._
 import scala.language.implicitConversions
 import text.ImplicitConversions._
@@ -29,6 +31,7 @@ import scalaz._, Scalaz._
 import scala.language.reflectiveCalls
 import scala.concurrent.duration._
 import scala.language.postfixOps
+
 
 import scala.collection.JavaConversions._
 
@@ -157,21 +160,29 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
 }
 
 object QueryStoredQueryRequest {
-  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int, from: Int)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
-    Props(classOf[QueryStoredQueryRequest], ctx, client, queryString, queryTags, size, from)
+
+  val defaultItemRender: (Option[String], String, Uri) => String = (idOpt: Option[String], data: String, uri: Uri) => {
+    val prefix: Uri = uri.withQuery(Map.empty[String,String])
+    s"""{
+       |  "href" : "${idOpt.map { id => s"$prefix/$id"}.getOrElse("")}",
+       |  "data" : $data
+       |}""".stripMargin
+  }
+
+  def props(queryString: Option[String] = None, queryTags: Option[String] = None,
+            size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[QueryStoredQueryRequest], ctx, client, buildQueryDefinition(queryString, queryTags), size, from, defaultItemRender)
 }
 
-case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client , queryString: Option[String], queryTags: Option[String], size: Int, from: Int) extends PerRequest {
+case class QueryStoredQueryRequest(ctx: RequestContext,
+                                   implicit val client: Client ,
+                                   queryDefinition: BoolQueryBuilder, size: Int, from: Int,
+                                   itemRender: (Option[String],String, Uri) => String) extends PerRequest {
 
   import context.dispatcher
-  import org.elasticsearch.index.query.QueryBuilders
   import storedQuery._
 
-  lazy val queryDefinition = Seq(
-    queryString.map { QueryBuilders.queryStringQuery(_).field("_all") },
-      queryTags.map { QueryBuilders.matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
-  ).flatten.foldLeft(QueryBuilders.boolQuery().mustNot(temporaryIdsQuery))(_ must _)
-
+  
   implicit val timeout = Timeout(5 seconds)
 
   (for {
@@ -202,35 +213,32 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: org
       }
   }
 
-  def collectionRepresentation(tags: String,hits: List[json4s.JValue], pagination: Iterable[String] ,uri: spray.http.Uri)(implicit formats: Formats) = {
+  def collectionRepresentation(tags: String,hits: List[json4s.JValue], pagination: Iterable[String], uri: spray.http.Uri)(implicit formats: Formats) = {
 
-    val href = uri.withQuery(Map.empty[String,String])
+    import frontend.UriImplicitConversions._
+    val prefix: Uri = uri.withQuery(Map.empty[String,String])
 
-   val items = hits.map {
+
+    val items = hits.map {
       case o: JObject =>
-        val `item-href` = (o \ "id").extractOpt[String].map { id => s"$href/$id"}.getOrElse("")
-        val data = compact(render(o \ "data"))
-        s"""{
-           |  "href" : "${`item-href`}",
-           |  "data" : $data
-           |}""".stripMargin
+        itemRender((o \ "id").extractOpt[String], compact(render(o \ "data")), uri)
       case _ => ""
 
     }.filter(_.nonEmpty).mkString(",")
 
-   val links = s"""{ "href" : "$href/temporary", "rel" : "edit" }""" :: pagination.mkString(",") :: Nil
+    val links = s"""{ "href" : "$prefix/temporary", "rel" : "edit" }""" :: pagination.mkString(",") :: Nil
 
     s"""{
        | "collection" : {
        |   "version" : "1.0",
-       |   "href" : "$href",
+       |   "href" : "$prefix",
        |
        |   "links" : [
        |      ${links.filter(_.trim.nonEmpty).mkString(",")}
        |   ],
        |
        |   "queries" : [ {
-       |      "href" : "$href",
+       |      "href" : "${uri.drop("q", "tags", "size", "from")}",
        |      "rel" : "search",
        |      "data" : [
        |        { "name" : "q", "prompt" : "search title or any terms" },

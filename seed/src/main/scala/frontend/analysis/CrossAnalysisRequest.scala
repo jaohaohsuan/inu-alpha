@@ -58,11 +58,11 @@ class FurtherLinks(uri: Uri, storedQueryId: String) {
   lazy val include = Seq(remove("include"), append("conditionSet")).flatten
   lazy val exclude = Seq(remove("conditionSet"), append("include")).flatten
 
-  private def remove(key: String) =
+  private def remove(key: String): Option[(String, String)] =
     Option(uri.query.get(key).getOrElse(storedQueryId).replace(storedQueryId, "")).filter(_.trim.nonEmpty).map(key -> _)
 
-  private def append(key: String) =
-    Option(uri.query.get(key).getOrElse("") + storedQueryId).filter(_.trim.nonEmpty).map(key -> _)
+  private def append(key: String): Option[(String, String)] =
+    Option((uri.query.get(key).getOrElse("") :: storedQueryId :: Nil).filter(_.trim.nonEmpty).mkString(" ")).filter(_.trim.nonEmpty).map(key -> _)
 
   def actions(state: String) = {
     (state match {
@@ -70,6 +70,7 @@ class FurtherLinks(uri: Uri, storedQueryId: String) {
       case "includable" => Some(include, "include")
       case _ => None
     }).map { case (map, prompt) =>
+      println(s"mappppppp $map")
       s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map: _*)}", "prompt" : "$prompt" } ]"""
     }.getOrElse("")
   }
@@ -89,6 +90,8 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
   import context.dispatcher
   implicit def json4sFormats: Formats = DefaultFormats
   implicit def seqToSet(value: Seq[String]): ConditionSet = new ConditionSet(value)
+
+  log.info(s"conditionSet=$conditionSet, include=$include, exclude=$exclude")
 
   lazy val fetchStoredQueries =
     prepareSearch
@@ -124,7 +127,7 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "version" : "1.0",
                          |    "href" : "$uri",
                          |    "links" : [
-                         |     { "rel" : "more", "href" : "${uri.withPath(uri.path / "details")}" }
+                         |     { "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" }
                          |    ],
                          |
                          |    "items" : [ $items ]

@@ -38,13 +38,12 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
           complete(OK, body)
         } ~
         pathPrefix("cross") {
-          path("details") {
+          path("logs") {
             complete(ServiceUnavailable)
           } ~
           pathEnd {
             parameters('conditionSet.?, 'include.?) { (conditionSet, include) => implicit ctx =>
-
-            implicit def toSeq(p: Option[String]): Seq[String] = p.map(_.split("""\s+""").toSeq).getOrElse(Seq.empty)
+            implicit def toSeq(p: Option[String]): Seq[String] = p.map(_.split("""(\s|\+)+""").toSeq).getOrElse(Seq.empty).filter(_.trim.nonEmpty)
               actorRefFactory.actorOf(CrossAnalysisRequest.props(conditionSet, include, exclude = conditionSet))
             }
 	        }

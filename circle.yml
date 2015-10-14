@@ -23,10 +23,12 @@ dependencies:
   override:
     - docker info
 
+test:
+  override:
 
 deployment:
   hub:
-    branch: allinone
+    branch: master
     commands:
       - docker login -e $DOCKERHUB_MAIL -p $DOCKERHUB_PASSWORD -u $DOCKERHUB_LOGIN
       - sbt 'project seed' 'docker:publishLocal'

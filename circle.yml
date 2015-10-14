@@ -22,8 +22,6 @@ dependencies:
     - which sbt
   override:
     - docker info
-    - if [[ -e ~/docker/image.tar ]]; then docker load --input ~/docker/image.tar; fi
-    - mkdir -p ~/docker; docker save jaohaohsuan/inu:latest > ~/docker/image.tar
 
 
 deployment:

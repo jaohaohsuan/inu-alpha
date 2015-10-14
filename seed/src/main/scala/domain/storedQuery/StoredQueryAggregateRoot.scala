@@ -38,6 +38,7 @@ object StoredQueryAggregateRoot {
   case class UpdateTags(storedQueryId: String, tags: Set[String])
   case class RemoveClauses(storedQueryId: String, specified: List[Int]) extends Command
   case class CreateNewStoredQuery(title: String, referredId: Option[String], tags: Set[String]) extends Command
+  case object Initial extends Command
   case class UpdateStoredQuery(storedQueryId: String, title: String, tags: Option[String]) extends Command
   case class ResetOccurrence(storedQueryId: String, occurrence: String) extends Command {
     require(test)
@@ -99,11 +100,19 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
   val persistenceId: String = NameOfAggregate.Root
 
-  var state: StoredQueries = StoredQueries(items = Map(temporaryId -> StoredQuery(temporaryId, "temporary")))
+  var state: StoredQueries = StoredQueries()
 
   log.info("StoredQueryAggregateRoot established")
 
   val receiveCommand: Receive = {
+
+    case Initial if !state.items.contains(temporaryId) =>
+      def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
+        state = state.update(evt)
+        log.info(s"Add temporary storedQuery")
+      }
+      persist(ItemCreated(StoredQuery(temporaryId, "temporary"), Map.empty))(afterPersisted(sender(), _))
+
     case CreateNewStoredQuery(title, referredId, tags) =>
       log.info("Incoming command: CreateNewStoredQuery")
       def doPersist(entity: StoredQuery) = {
@@ -205,17 +214,6 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
         case None => log.error(s"$newTitle#$storedQueryId does not exist")
       }
-
-    /*case Pull =>
-      val items = state.changes.map { case (k, v) => (retrieveDependencies(state.items(k), state.items),v) }.toSet
-      if (items.nonEmpty)
-        sender() ! Changes(items)
-
-    case RegisterQueryOK(records) =>
-      persist(ChangesRegistered(records)) { evt =>
-        state = state.update(evt)
-        log.debug(s"remains: [${state.changes.mkString(",")}]")
-      }*/
   }
 
   /*private def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =

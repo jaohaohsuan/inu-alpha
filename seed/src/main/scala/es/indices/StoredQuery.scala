@@ -10,7 +10,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object storedQuery {
 
@@ -47,6 +47,17 @@ object storedQuery {
 
   def prepareGet(id: String)(implicit client: Client): GetRequestBuilder = {
     client.prepareGet(index, ".percolator", id)
+  }
+
+  def getSourceOf(id: String, field: String)(implicit client: Client, ctx: ExecutionContext)= {
+    import org.json4s._
+    import org.json4s.native.JsonMethods._
+
+    prepareGet(id)
+    .setFetchSource(Array(field), null)
+      .setTransformSource(true)
+      .execute().asFuture
+      .map{ r => compact(render(parse(r.getSourceAsString) \ field)) }
   }
 
   def save(storedQueryId: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor) =

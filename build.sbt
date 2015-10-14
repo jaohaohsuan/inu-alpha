@@ -44,11 +44,11 @@ lazy val seed = InuProject("seed")
     packageName in Docker := "inu",
     version in Docker := "latest",
     dockerRepository := Some("jaohaohsuan"),
-    mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
+   /* mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
       val conf = src / "var" / "elastic" / "config" / "elasticsearch.yml"
       conf -> "var/elastic/config/elasticsearch.yml"
     },
-    mappings in Universal ++= directory("var/elastic/config"),
+    mappings in Universal ++= directory("var/elastic/config"),*/
     cleanFiles += baseDirectory.value / "var" / "elastic" / "data" )
   .enablePlugins(JavaAppPackaging)
 

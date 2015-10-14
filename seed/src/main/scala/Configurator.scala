@@ -6,12 +6,9 @@ import akka.io.IO
 import akka.pattern._
 import akka.util.Timeout
 import domain.storedQuery.StoredQueryAggregateRoot
-import spray.can.Http
 import frontend.ServiceActor
+import spray.can.Http
 import scala.concurrent.duration._
-import elastic.ImplicitConversions._
-import scala.util.{Success, Failure}
-
 import scala.language.implicitConversions
 
 object Configurator {
@@ -49,7 +46,7 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
         system.actorOf(ClusterSingletonProxy.props(
           singletonManagerPath = s"/user/${protocol.storedQuery.NameOfAggregate.Root}",
           settings = ClusterSingletonProxySettings(system)
-        ), name = "aggregateRootProxy")
+        ), name = "aggregateRootProxy") ! StoredQueryAggregateRoot.Initial
 
         system.actorOf(ClusterSingletonProxy.props(
           singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,
@@ -63,6 +60,7 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
     //ClusterClientReceptionist(system).registerService(storedQueryAggregateRoot)
 
     case unknown =>
+      log.warning(s"$unknown")
   }
 
   def receive = registration orElse processReceive

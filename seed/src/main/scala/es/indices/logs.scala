@@ -92,7 +92,10 @@ object logs {
 
 
   def prepareSearch(indices: String = "logs-*")(implicit client: Client) =
-    client.prepareSearch(indices)
+  client.prepareSearch(indices)
+
+  def prepareCount(indices: String = "logs-*")(implicit client: Client) =
+    client.prepareCount(indices)
 
   case class VttHighlightFragment(start: String, keywords: String)
 

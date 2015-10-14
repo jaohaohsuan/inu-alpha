@@ -106,7 +106,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
     case StringSetHolder(xs) =>
       tags = tags.append(xs)
       sender ! "ack"
-      log.info(s"tags: $tags")
+      //log.info(s"tags: $tags")
     case protocol.storedQuery.Exchange.SearchTags =>
       sender() ! tags
     case unknown =>

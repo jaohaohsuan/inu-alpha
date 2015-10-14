@@ -11,7 +11,9 @@ import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateRespo
 import org.elasticsearch.client.Client
 
 case object IndexScan
-case class StoredQueryMappingResponse(responses: Seq[PutMappingResponse])
+case class StoredQueryMappingResponse(responses: Seq[PutMappingResponse]) {
+
+}
 
 object Configurator {
   def props(implicit client: Client) = Props(classOf[es.Configurator], client)
@@ -59,7 +61,7 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
     case Failure(ex) =>
       log.error(ex ,s"elasticsearch checkup error")
     case unknown =>
-      println(unknown.getClass.getName)
+      log.warning(unknown.getClass.getName)
 
   }
 

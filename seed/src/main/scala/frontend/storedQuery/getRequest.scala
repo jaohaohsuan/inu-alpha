@@ -7,9 +7,11 @@ import es.indices.storedQuery
 import es.indices.logs
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
 import frontend.{Pagination, PerRequest}
+import org.elasticsearch.action.count.CountResponse
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.index.query.MatchQueryBuilder
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.{QueryBuilders, MatchQueryBuilder}
 import protocol.storedQuery.Terminology._
 import org.json4s
 import org.json4s.JsonAST.JValue
@@ -330,6 +332,8 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
           def startTime(value: logs.VttHighlightFragment): Int =
             `HH:mm:ss.SSS`.parseDateTime(value.start).getMillisOfDay
 
+          val links = Pagination(size, from, r).links.+:(s"""{ "href" : "$uri/status", "rel" : "status" }""").filterNot(_.isEmpty).mkString(",")
+
           val items = r.getHits.map { case logs.SearchHitHighlightFields(location, fragments) =>
             s"""{
                |  "href" : "${uri.withPath(Path(s"/$location")).withQuery(("_id", storedQueryId))}",
@@ -345,7 +349,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
               |   "collection" : {
               |     "version" : "1.0",
               |     "href" : "$uri",
-              |     "links" : [ ${Pagination(size, from, r).links.mkString(",")} ],
+              |     "links" : [ $links ],
               |
               |     "items" : [ $items ]
               |   }
@@ -364,6 +368,47 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
                |    "error": { "message" : "${ex.getMessage}" }
                |  }
                |}""".stripMargin)
+        }
+      }
+  }
+}
+
+object Status {
+  def props(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) =
+    Props(classOf[Status], ctx, client, storedQueryId)
+}
+
+case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, storedQueryId: String) extends PerRequest {
+  import context.dispatcher
+
+  def count(query: String) = {
+    logs.prepareCount()
+      .setQuery(QueryBuilders.wrapperQuery(query))
+      .execute().asFuture
+  }
+
+  (for {
+    query <- getSourceOf(storedQueryId ,"query")
+    hits <- count(query)
+  } yield hits) pipeTo self
+
+  def processResult: Receive = {
+    case r: CountResponse =>
+      response {
+        requestUri { uri =>
+          complete(OK, s"""{
+                          |   "collection" : {
+                          |     "version" : "1.0",
+                          |     "href" : "$uri",
+                          |
+                          |     "items" : [ {
+                          |       "href" : "$uri",
+                          |       "data" : [
+                          |         { "name": "count", "value" : ${r.getCount} }
+                          |       ]
+                          |     } ]
+                          |   }
+                          |}""".stripMargin)
         }
       }
   }

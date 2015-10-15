@@ -57,27 +57,40 @@ class ConditionSet(conditions: Seq[String]) {
 
 class FurtherLinks(uri: Uri, storedQueryId: String) {
 
-  lazy val include = Seq(remove("include"), append("conditionSet")).flatten
-  lazy val exclude = Seq(remove("conditionSet"), append("include")).flatten
+  def include = append("conditionSet", remove("include", uri.query.toMap)).toSeq
+  def exclude = append("include", remove("conditionSet", uri.query.toMap)).toSeq
+  def deleteIncludable = remove("include", uri.query.toMap).toSeq
 
-  private def remove(key: String): Option[(String, String)] =
-    Option(uri.query.get(key).getOrElse(storedQueryId).replace(storedQueryId, "").trim).filter(_.nonEmpty).map(key -> _)
+  private def remove(key: String, map: Map[String, String]): Map[String, String] = {
+    map.getOrElse(key, storedQueryId).replace(storedQueryId, "").trim match {
+      case "" => map.-(key)
+      case value => map.+(key -> value)
+    }
+  }
+    //Option(uri.query.toMap.getOrElse(key, storedQueryId).replace(storedQueryId, "").trim).filter(_.nonEmpty).map(key -> _)
 
-  private def append(key: String): Option[(String, String)] =
-    s"${uri.query.get(key).getOrElse("")} $storedQueryId".trim match {
-      case "" => None
-      case appended => Some(key -> appended)
+  private def append(key: String, map: Map[String, String]):  Map[String, String] =
+    s"${map.getOrElse(key, "")} $storedQueryId".trim match {
+      case "" => map.-(key)
+      case appended =>  map.+(key -> appended)
     }
 
+  def action1(state: String): String = {
+    (state match {
+      case "includable" => Some(deleteIncludable)
+      case _ => None
+    }).map { map =>
+      s"""{"rel" : "remove", "href" : "${uri.withQuery(map: _*)}", "prompt" : "delete" }"""
+    }.getOrElse("")
+  }
 
-  def actions(state: String) = {
+  def action0(state: String): String = {
     (state match {
       case "excludable" => Some(exclude, "exclude")
       case "includable" => Some(include, "include")
       case _ => None
     }).map { case (map, prompt) =>
-      //println(s"mappppppp $map")
-      s""", "links" : [ {"rel" : "action", "href" : "${uri.withQuery(map: _*)}", "prompt" : "$prompt" } ]"""
+      s"""{"rel" : "action", "href" : "${uri.withQuery(map: _*)}", "prompt" : "$prompt" }"""
     }.getOrElse("")
   }
 }
@@ -140,13 +153,13 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
       response {
         requestUri { uri =>
           val items = xs.map { case Condition(storedQueryId, title, _, state, _, hits) =>
+
             implicit def toLink(id: String): FurtherLinks = new FurtherLinks(uri,id)
-
             //{ "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" },
-
+            val links = (storedQueryId.action0(state) :: storedQueryId.action1(state) :: Nil).filter(_.nonEmpty).mkString(",")
             s"""{
-                 | "data" : [ { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"} ]
-                 | ${storedQueryId.actions(state)}
+                 | "data" : [ { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"} ],
+                 | "links" : [ $links ]
                  |}""".stripMargin
             }.mkString(",")
 

@@ -224,10 +224,23 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
 
   def sample(clause: String): JValue = {
     import protocol.storedQuery.ImplicitJsonConversions._
-    clause match {
+    val data: JValue = clause match {
       case "named" => NamedClause("1", "template", "must")
       case "match" => MatchClause("hello search", "dialogs", "AND", "must")
       case "near" => SpanNearClause("term", "dialogs", 10, inOrder = false, "must")
+    }
+
+    //add property prompt
+    data match {
+      case JArray(arr) =>
+        JArray(arr.map(_.asInstanceOf[JObject]).foldLeft(List.empty[JObject]) { (acc, obj) =>
+          import org.json4s.JsonDSL._
+          obj \ "name" match {
+            case JString("field") => obj ~ ("prompt" -> "dialogs agent* customer*") :: acc
+            case _ => obj :: acc
+          }
+        })
+      case _ => data
     }
   }
 
@@ -238,7 +251,6 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
 
           val ver = JField("version", JString("1.0"))
           val data = JField("data", sample(clause))
-
           val template = JField("template", JObject(data))
           val collection = JField("collection", JObject(ver, JField("href", JString(s"$href")), template))
 

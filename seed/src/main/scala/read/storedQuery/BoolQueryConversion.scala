@@ -6,7 +6,6 @@ import org.json4s.JsonAST.JObject
 import protocol.storedQuery._
 import protocol.storedQuery.{BoolClause, StoredQuery}
 
-
 object BoolQueryConversion {
 
   type Fields = Map[String, Any]

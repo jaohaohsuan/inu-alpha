@@ -17,7 +17,6 @@ import scala.concurrent.duration._
 import scala.language.implicitConversions
 import common.StringSetHolder
 
-
 object StoredQueryAggregateRootView {
 
   case class StoredQueryData(title: String, tags: Option[String])
@@ -42,15 +41,16 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   def flatten(envelope: EventEnvelope) = {
     envelope.event match {
       case ItemCreated(entity, _) => entity :: Nil
-      case ItemsChanged(items, changes, _) => items.map(_._2).toList
-        /*val (entities, _) = changes.foldLeft((List.empty[StoredQuery], items.toMap)) { (acc, e) =>
+      case ItemsChanged(items, changes, _) =>
+        val (clausesRetrievedItems, _) = changes.foldLeft((List.empty[StoredQuery], items.toMap)) { (acc, changedItemId) =>
           val (result, sources) = acc
-          sources.get(e) match {
+          sources.get(changedItemId) match {
             case None => acc
-            case Some(s) =>
-              (s :: result, sources + (e -> retrieveDependencies(s, sources)))
+            case Some(entity) =>
+              val clausesRetrievedItem = retrieveDependencies(entity, sources)
+              (clausesRetrievedItem :: result, sources + (changedItemId -> clausesRetrievedItem))
           }}
-        entities*/
+        clausesRetrievedItems
       case _ => Nil
     }
   }
@@ -88,7 +88,6 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   }
 
   val checkingTask = context.system.scheduler.schedule(2.seconds, 5.seconds, self, storedQuery.exists)
-
 
   def receive: Receive = {
     case r: IndicesExistsResponse if r.isExists =>

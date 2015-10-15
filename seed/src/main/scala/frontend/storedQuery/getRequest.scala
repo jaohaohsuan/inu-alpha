@@ -1,6 +1,6 @@
 package frontend.storedQuery.getRequest
 
-import akka.actor.Props
+import akka.actor.{ActorLogging, Actor, Props}
 import akka.pattern._
 import akka.util.Timeout
 import es.indices.storedQuery
@@ -12,7 +12,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilders, MatchQueryBuilder}
+import org.elasticsearch.index.query.{QueryBuilder, BoolQueryBuilder, QueryBuilders, MatchQueryBuilder}
 import protocol.storedQuery.Terminology._
 import org.json4s
 import org.json4s.JsonAST.JValue
@@ -31,9 +31,25 @@ import scalaz._, Scalaz._
 import scala.language.reflectiveCalls
 import scala.concurrent.duration._
 import scala.language.postfixOps
-
-
+import scala.util.{Success, Failure}
 import scala.collection.JavaConversions._
+
+trait CollectionJsonBuilder {
+  def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String
+
+  def itemsMap(hits: Iterable[json4s.JValue]) = hits.map(extract)
+  private def extract(hit: json4s.JValue): Option[(String, String)] = {
+    implicit val formats = org.json4s.DefaultFormats
+    hit match {
+      case o: JObject =>
+        (o \ "id").extractOpt[String].map { id =>
+          val data = compact(render(o \ "data"))
+          Some((id, data))
+        }.getOrElse(None)
+      case _ => None
+    }
+  }
+}
 
 object GetStoredQueryDetailRequest {
   def props(occur: String)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client, storedQueryId: String) =
@@ -59,7 +75,6 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client:
       response {
         requestUri { uri =>
           respondWithMediaType(`application/vnd.collection+json`) {
-
             val items = json match {
               case "{}" => "[]"
               case _ => compact(render(parse(json) \\ occur)) richFormat Map("uri" -> s"""\\/$occur$$""".r.replaceAllIn(s"$uri", ""))
@@ -160,104 +175,43 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
 }
 
 object QueryStoredQueryRequest {
-
-  val defaultItemRender: (Option[String], String, Uri) => String = (idOpt: Option[String], data: String, uri: Uri) => {
-    val prefix: Uri = uri.withQuery(Map.empty[String,String])
-    s"""{
-       |  "href" : "${idOpt.map { id => s"$prefix/$id"}.getOrElse("")}",
-       |  "data" : $data
-       |}""".stripMargin
-  }
-
-  def props(queryString: Option[String] = None, queryTags: Option[String] = None,
+  def props(bodyBuilder: CollectionJsonBuilder,
+            queryString: Option[String] = None, queryTags: Option[String] = None,
             size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
-    Props(classOf[QueryStoredQueryRequest], ctx, client, buildQueryDefinition(queryString, queryTags), size, from, defaultItemRender)
+    Props(classOf[QueryStoredQueryRequest], ctx, client, bodyBuilder, buildQueryDefinition(queryString, queryTags), size, from)
 }
 
-case class QueryStoredQueryRequest(ctx: RequestContext,
-                                   implicit val client: Client ,
-                                   queryDefinition: BoolQueryBuilder, size: Int, from: Int,
-                                   itemRender: (Option[String],String, Uri) => String) extends PerRequest {
+case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Client,
+                                   bodyBuilder: CollectionJsonBuilder,
+                                   qb: QueryBuilder,
+                                   size: Int, from: Int) extends PerRequest {
 
   import context.dispatcher
+  import Pagination._
   import storedQuery._
 
-  
   implicit val timeout = Timeout(5 seconds)
 
   (for {
     common.StringSetHolder(tags) <- context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags
     searchResponse <- prepareSearch
-      .setQuery(queryDefinition)
+      .setQuery(qb)
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)
       .execute()
       .asFuture
   } yield (searchResponse, tags.mkString(" "))) pipeTo self
 
-
   def processResult: Receive = {
-    case (r: SearchResponse, tags: String) =>
-
-      import Pagination._
-      implicit val formats = org.json4s.DefaultFormats
-
-      val hits: List[json4s.JValue] = r.getHits.map { h => parse(h.sourceAsString()) \ "item" }.toList
-
+    case (r: SearchResponse ,tags: String) =>
       response {
-        requestUri { implicit uri =>
+        requestUri(implicit uri =>  {
           respondWithMediaType(`application/vnd.collection+json`) {
-            complete(OK, collectionRepresentation(tags ,hits, Pagination(size, from, r).links ,uri))
+            val hits = r.getHits.map { h => parse(h.sourceAsString()) \ "item" }
+            complete(OK, bodyBuilder.body(hits, tags, Pagination(size, from, r).links))
           }
-        }
+        })
       }
-  }
-
-  def collectionRepresentation(tags: String,hits: List[json4s.JValue], pagination: Iterable[String], uri: spray.http.Uri)(implicit formats: Formats) = {
-
-    import frontend.UriImplicitConversions._
-    val prefix: Uri = uri.withQuery(Map.empty[String,String])
-
-
-    val items = hits.map {
-      case o: JObject =>
-        itemRender((o \ "id").extractOpt[String], compact(render(o \ "data")), uri)
-      case _ => ""
-
-    }.filter(_.nonEmpty).mkString(",")
-
-    val links = s"""{ "href" : "$prefix/temporary", "rel" : "edit" }""" :: pagination.mkString(",") :: Nil
-
-    s"""{
-       | "collection" : {
-       |   "version" : "1.0",
-       |   "href" : "$prefix",
-       |
-       |   "links" : [
-       |      ${links.filter(_.trim.nonEmpty).mkString(",")}
-       |   ],
-       |
-       |   "queries" : [ {
-       |      "href" : "${uri.drop("q", "tags", "size", "from")}",
-       |      "rel" : "search",
-       |      "data" : [
-       |        { "name" : "q", "prompt" : "search title or any terms" },
-       |        { "name" : "tags", "prompt" : "$tags" },
-       |        { "name" : "size", "prompt" : "size of displayed items" },
-       |        { "name" : "from", "prompt" : "items display from" }
-       |      ]
-       |    } ],
-       |
-       |   "items" : [$items],
-       |
-       |   "template" : {
-       |      "data" : [
-       |        {"name":"title","value":""},
-       |        {"name":"tags","value":""}
-       |      ]
-       |   }
-       | }
-       |}""".stripMargin
   }
 }
 

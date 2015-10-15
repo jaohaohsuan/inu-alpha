@@ -4,7 +4,7 @@ import akka.actor.Props
 import es.indices.storedQuery
 import elastic.ImplicitConversions._
 import frontend.PerRequest
-import frontend.storedQuery.getRequest.QueryStoredQueryRequest
+import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
@@ -61,10 +61,14 @@ class FurtherLinks(uri: Uri, storedQueryId: String) {
   lazy val exclude = Seq(remove("conditionSet"), append("include")).flatten
 
   private def remove(key: String): Option[(String, String)] =
-    Option(uri.query.get(key).getOrElse(storedQueryId).replace(storedQueryId, "")).filter(_.trim.nonEmpty).map(key -> _)
+    Option(uri.query.get(key).getOrElse(storedQueryId).replace(storedQueryId, "").trim).filter(_.nonEmpty).map(key -> _)
 
   private def append(key: String): Option[(String, String)] =
-    Option((uri.query.get(key).getOrElse("") :: storedQueryId :: Nil).filter(_.trim.nonEmpty).mkString(" ")).filter(_.trim.nonEmpty).map(key -> _)
+    s"${uri.query.get(key).getOrElse("")} $storedQueryId".trim match {
+      case "" => None
+      case appended => Some(key -> appended)
+    }
+
 
   def actions(state: String) = {
     (state match {
@@ -87,33 +91,18 @@ object CrossAnalysisSourceRequest {
 
   import org.elasticsearch.index.query.QueryBuilders._
   import es.indices.storedQuery._
-  import frontend.UriImplicitConversions._
 
-  val defaultItemRender: (Option[String], String, Uri) => String = (idOpt: Option[String], data: String, uri: Uri) => {
-
-
-
-    idOpt match {
-      case None => ""
-      case Some(id) =>
-        val action = s"${uri.append("include", id)}".replaceFirst("""/source""", "")
-        s"""{
-           |  "data" : $data,
-           |  "links" : [
-           |    { "href" : "$action", "rel" : "action" }
-           |  ]
-           |}""".stripMargin
-    }
-
-  }
-
-  def props(exclude: Seq[String])(queryString: Option[String] = None,
+  def props(exclude: Seq[String], bodyBuilder: CollectionJsonBuilder)(queryString: Option[String] = None,
                                    queryTags: Option[String] = None,
                                    size: Int = 10, from: Int = 0)
-                                   (implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
-    Props(classOf[QueryStoredQueryRequest], ctx, client,
-      buildQueryDefinition(queryString, queryTags)
-        .mustNot(idsQuery().ids(exclude: _*)), size, from, defaultItemRender)
+                                   (implicit ctx: RequestContext, client: org.elasticsearch.client.Client) = {
+    println(s"CrossAnalysisSourceRequest.props $exclude")
+    Props(classOf[QueryStoredQueryRequest],
+      ctx, client,
+      bodyBuilder,
+      buildQueryDefinition(queryString, queryTags).mustNot(idsQuery().ids(exclude: _*)),
+      size, from)
+  }
 
 }
 
@@ -127,7 +116,7 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
   implicit def json4sFormats: Formats = DefaultFormats
   implicit def seqToSet(value: Seq[String]): ConditionSet = new ConditionSet(value)
 
-  log.info(s"conditionSet=$conditionSet, include=$include, exclude=$exclude")
+  //log.info(s"conditionSet=$conditionSet, include=$include, exclude=$exclude")
 
   lazy val fetchStoredQueries =
     prepareSearch
@@ -152,6 +141,9 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
         requestUri { uri =>
           val items = xs.map { case Condition(storedQueryId, title, _, state, _, hits) =>
             implicit def toLink(id: String): FurtherLinks = new FurtherLinks(uri,id)
+
+            //{ "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" },
+
             s"""{
                  | "data" : [ { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"} ]
                  | ${storedQueryId.actions(state)}
@@ -163,7 +155,6 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "version" : "1.0",
                          |    "href" : "$uri",
                          |    "links" : [
-                         |     { "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" },
                          |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" }
                          |    ],
                          |

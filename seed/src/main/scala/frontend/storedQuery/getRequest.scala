@@ -282,7 +282,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
      logs.prepareSearch()
        .setSize(size).setFrom(from)
        .setQuery(query)
-       .addField("vtt")
+       .addField("river")
        .setHighlighterRequireFieldMatch(true)
        .setHighlighterNumOfFragments(0)
        .setHighlighterPreTags("<em>")

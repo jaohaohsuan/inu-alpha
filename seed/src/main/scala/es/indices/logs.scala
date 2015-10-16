@@ -15,10 +15,10 @@ object logs {
       .setSource(
         s"""{
           | "template" : "logs-*",
-          | "mappings" : { $ytx }
+          | "mappings" : { $template1 }
           |}""".stripMargin).execute()
 
-  private val ytx = """
+  private val template1 = """
     |"ytx": {
     |        "_source": {
     |          "enabled": true
@@ -78,7 +78,6 @@ object logs {
     |      }
   """.stripMargin
 
-
   def getTemplate(implicit client: Client) =
     client.admin()
       .indices()
@@ -87,7 +86,7 @@ object logs {
 
   def prepareGet(r: GetRequest)(implicit client: Client) =
     client.prepareGet(r.index(), r.`type`(), r.id())
-      .setFields("vtt")
+      .setFields("river")
       .execute()
 
 
@@ -104,7 +103,7 @@ object logs {
     import org.elasticsearch.action.get.GetResponse
     import scala.collection.JavaConversions._
 
-    val NAME = "vtt"
+    val NAME = "river"
 
     private val line = """(.+-\d+)\s([\s\S]+)\s$""".r
 

@@ -25,8 +25,8 @@ lazy val common = InuProject("common").settings(
 )
 
 lazy val protocol = InuProject("protocol")
-  .settings(
-    libraryDependencies ++= Seq(akkaClusterTools, json4sNative, scalaJsonCollection)
+  .dependsOn(common)
+  .settings(libraryDependencies ++= Seq(akkaClusterTools, json4sNative, scalaJsonCollection, nscalaTime)
 )
 
 lazy val seed = InuProject("seed")

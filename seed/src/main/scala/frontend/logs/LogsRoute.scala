@@ -63,7 +63,7 @@ trait LogsRoute extends HttpService with WebvttSupport{
         |}""".stripMargin
 
       def prepareGetLog = client.prepareGet(index,typ,id)
-                                .setFields("vtt")
+                                .setFields("river")
                                 .setFetchSource(Array("dialogs", "agent*", "customer*"), null)
 
       for {

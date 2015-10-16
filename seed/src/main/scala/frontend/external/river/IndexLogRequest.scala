@@ -2,33 +2,61 @@ package frontend.external.river
 
 import akka.actor.Props
 import frontend.PerRequest
+import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.client.Client
 import river.ami.XmlStt
 import spray.routing.RequestContext
 import spray.http.StatusCodes._
+import elastic.ImplicitConversions._
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import river.ami.XmlStt
 import scala.xml.NodeSeq
+import scala.util.{ Try, Success, Failure }
+import akka.pattern._
 
 object IndexLogRequest {
 
-  def props(implicit ctx: RequestContext, client: Client) = {
-    Props(classOf[IndexLogRequest], ctx, client)
+  def props(id: String)(implicit ctx: RequestContext, client: Client) = {
+    Props(classOf[IndexLogRequest], ctx, client, id)
   }
 }
 
-case class IndexLogRequest(ctx: RequestContext, implicit val client: Client) extends PerRequest {
+case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id: String) extends PerRequest {
+
+  import context.dispatcher
 
   def processResult: Receive = {
-    case roles: NodeSeq =>
-      val doc = roles.foldLeft(XmlStt())(_ append _).asResult().body
-
-      log.info(s"${pretty(render(doc))}\n ")
-
+    case r: IndexResponse =>
       response {
-        complete(OK, """{ "acknowledged": true }""")
+        complete(OK, s"""{ "acknowledged": true, "created" : ${r.isCreated} }""")
+      }
+
+    case roles: NodeSeq =>
+      def f: XmlStt = roles.foldLeft(XmlStt())(_ append _).asResult
+      Try(f) match {
+
+        case Success(doc) =>
+          client.prepareIndex("logs-2015.12.12", "ami-l8k")
+            .setId(id)
+            .setSource(s"${compact(render(doc.body))}")
+            .execute().asFuture pipeTo self
+
+        case Failure(ex) => response {
+          requestUri { uri =>
+            log.error(ex, s"$uri")
+            complete(BadRequest, s"""{
+                                    |  "error" :
+                                    |  {
+                                    |    "title" : "XPath",
+                                    |    "code" : "400",
+                                    |    "message" : "unexpected path found ${ex.getMessage}"
+                                    |  }
+                                    |}""".stripMargin)
+
+          }
+        }
       }
   }
 }

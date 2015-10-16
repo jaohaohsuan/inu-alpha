@@ -32,7 +32,7 @@ trait LogsRoute extends HttpService with WebvttSupport{
     }
 
     def append(matches: Iterable[Match]): Map[String,String] = {
-      log.info(s"PercolateResponse.Matches: ${matches.size}")
+      //log.info(s"PercolateResponse.Matches: ${matches.size}")
       vtt ++ matches
         .flatMap(_.getHighlightFields)
         .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
@@ -63,7 +63,7 @@ trait LogsRoute extends HttpService with WebvttSupport{
         |}""".stripMargin
 
       def prepareGetLog = client.prepareGet(index,typ,id)
-                                .setFields("river")
+                                .setFields("vtt")
                                 .setFetchSource(Array("dialogs", "agent*", "customer*"), null)
 
       for {

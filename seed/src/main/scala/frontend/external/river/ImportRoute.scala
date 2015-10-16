@@ -51,19 +51,30 @@ trait ImportRoute extends HttpService {
                 authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName => implicit ctx =>
 
                   (nodeSeq \\ "Subject" filter { n => (n \ "@Name").text.toString == "RecognizeText" }) \ "Role" match {
-                    case roles: Seq[Node] if roles.nonEmpty =>
-                      log.info(s"---------${roles.getClass}")
-                      log.info(s"roles: ${roles}")
-                      actorRefFactory.actorOf(IndexLogRequest.props) ! roles
+                    case NodeSeq.Empty =>
+                      ctx.complete(BadRequest,
+                        s"""{
+                           |  "error" :
+                           |  {
+                           |    "title" : "XPath",
+                           |    "code" : "400",
+                           |    "message" : "\\ Subject @Name=RecognizeText \ Role is empty "
+                           |  }
+                           |}
+                       """.stripMargin)
+
+                    case roles@ Seq(x: Node, _*) if x.label == "Role" =>
+                      actorRefFactory.actorOf(IndexLogRequest.props(id)) ! roles
+
                     case other =>
                       log.warning(s"${ctx.request.method} ${ctx.request.uri} $other")
                       ctx.complete(BadRequest,
                       s"""{
                          |  "error" :
                          |  {
-                         |    "title" : "",
+                         |    "title" : "XPath",
                          |    "code" : "400",
-                         |    "message" : "${other}"
+                         |    "message" : "unexpected path found ${other}"
                          |  }
                          |}
                        """.stripMargin)

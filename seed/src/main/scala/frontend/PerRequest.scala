@@ -24,6 +24,9 @@ trait PerRequest extends Actor with ActorLogging with Directives {
   private def defaultReceive: Receive = {
     case ReceiveTimeout =>
       response { complete(RequestTimeout) }
+    case ex: Exception =>
+      log.error(ex, s"${ctx.request.uri}")
+      response { complete(InternalServerError, s"""{ "error": { "content": "${ex.getMessage}" } }""") }
     case res =>
       response { complete(InternalServerError, s"""{ "error": { "content": "${res}" } }""") }
   }

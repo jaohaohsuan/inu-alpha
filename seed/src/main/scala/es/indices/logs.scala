@@ -4,6 +4,7 @@ import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.common.text.Text
+import org.elasticsearch.search.internal.InternalSearchHit
 import scala.collection.JavaConversions._
 
 import scala.util.{Failure, Success, Try}
@@ -86,7 +87,7 @@ object logs {
 
   def prepareGet(r: GetRequest)(implicit client: Client) =
     client.prepareGet(r.index(), r.`type`(), r.id())
-      .setFields("river")
+      .setFields("vtt")
       .execute()
 
 
@@ -103,7 +104,7 @@ object logs {
     import org.elasticsearch.action.get.GetResponse
     import scala.collection.JavaConversions._
 
-    val NAME = "river"
+    val NAME = "vtt"
 
     private val line = """(.+-\d+)\s([\s\S]+)\s$""".r
 
@@ -125,7 +126,7 @@ object logs {
           Some(h.field(NAME).getValues.asMap())
 
         case unexpected =>
-          println(s"$unexpected")
+          println(s"unexpected unapply VttField$unexpected")
           None
       }
     }
@@ -172,9 +173,8 @@ object logs {
       value match {
         case h: SearchHit =>
           val VttField(map) = h
-          Some((s"${h.index}/${h.`type`}/${h.id}", h.highlightFields.values.flatMap {
-            _.fragments().flatMap(splitFragment)
-          }.flatMap(substitute(map)(_))))
+          Some((s"${h.index}/${h.`type`}/${h.id}",
+            h.highlightFields.values.flatMap(_.fragments().flatMap(splitFragment)).flatMap(substitute(map)(_))))
         case _ => None
       }
     }

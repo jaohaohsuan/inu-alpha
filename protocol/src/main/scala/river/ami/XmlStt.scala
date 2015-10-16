@@ -16,7 +16,7 @@ case class XmlStt(agentPartyCount:    Int = 0,
 
   import org.json4s.JsonDSL._
 
-  def asResult() = {
+  lazy val asResult: XmlStt = {
 
     val (dialogsArr, vttArr) = mixed.sortBy { s => s.end }.foldLeft((List.empty[JString],List.empty[JString])){ (acc, s) =>
       val (dialogs, vtt) = acc
@@ -24,7 +24,7 @@ case class XmlStt(agentPartyCount:    Int = 0,
     }
 
     copy(body = body ~
-      ("river" -> JArray(vttArr)) ~
+      ("vtt" -> JArray(vttArr)) ~
       ("dialogs" -> JArray(dialogsArr)) ~
       ("parties" -> JArray(parties.keys.map{s => JString(s)}.toList ))
     )

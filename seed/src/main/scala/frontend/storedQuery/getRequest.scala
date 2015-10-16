@@ -3,6 +3,7 @@ package frontend.storedQuery.getRequest
 import akka.actor.{ActorLogging, Actor, Props}
 import akka.pattern._
 import akka.util.Timeout
+import es.indices.logs.VttField
 import es.indices.storedQuery
 import es.indices.logs
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
@@ -282,7 +283,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
      logs.prepareSearch()
        .setSize(size).setFrom(from)
        .setQuery(query)
-       .addField("river")
+       .addField(VttField.NAME)
        .setHighlighterRequireFieldMatch(true)
        .setHighlighterNumOfFragments(0)
        .setHighlighterPreTags("<em>")

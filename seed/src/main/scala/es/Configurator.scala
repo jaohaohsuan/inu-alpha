@@ -23,9 +23,7 @@ object Configurator {
        case Success(x) => system.log.info(s"data-node status: ${x.getStatus}")
        case Failure(e) => system.log.error(e, s"Unable to run elasticsearch data-node")
      }*/
-/**
- * Created by henry on 9/24/15.
- */
+
 class Configurator(implicit val client: Client) extends Actor with ActorLogging {
 
   import context.dispatcher
@@ -39,6 +37,7 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
           for {
             r1 <- storedQuery.mapping.asFuture
             r2 <- storedQuery.putSourceMapping("ytx").asFuture
+            r3 <- storedQuery.putSourceMapping("ami-l8k").asFuture
           } yield StoredQueryMappingResponse(Seq(r1,r2))
 
       } pipeTo self

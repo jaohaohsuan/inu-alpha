@@ -32,6 +32,10 @@ object Exchange {
   }
 
   case object SearchTags
+
+  case class StoredQueryItem(title: String, tags: Option[String]) {
+    require( title.nonEmpty )
+  }
 }
 
 

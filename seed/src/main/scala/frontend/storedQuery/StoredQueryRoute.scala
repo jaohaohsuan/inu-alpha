@@ -4,6 +4,7 @@ import frontend.CollectionJsonSupport
 import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
 import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
+import frontend.storedQuery.putRequest.{UpdateStoredQueryItemRequest}
 import org.json4s
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -108,6 +109,15 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
             entity(as[NewTemplate]) { implicit entity => implicit ctx => implicit val referredId = Some(storedQueryId)
               actorRefFactory.actorOf(NewTemplateRequest.props)
             }
+          }
+        }
+      }
+    } ~
+    put {
+      pathPrefix("_query" / "template") {
+        path(Segment) { implicit  storedQueryId =>
+          entity(as[StoredQueryItem]) { entity => implicit ctx =>
+            actorRefFactory.actorOf(UpdateStoredQueryItemRequest.prop(entity))
           }
         }
       }

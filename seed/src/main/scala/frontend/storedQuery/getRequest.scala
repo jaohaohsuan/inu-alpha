@@ -194,14 +194,14 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Cli
   implicit val timeout = Timeout(5 seconds)
 
   (for {
-    common.StringSetHolder(tags) <- context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags
+    common.StringMapHolder(tags) <- context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags
     searchResponse <- prepareSearch
       .setQuery(qb)
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)
       .execute()
       .asFuture
-  } yield (searchResponse, tags.mkString(" "))) pipeTo self
+  } yield (searchResponse, tags.values.flatten.mkString(" ").trim)) pipeTo self
 
   def processResult: Receive = {
     case (r: SearchResponse ,tags: String) =>

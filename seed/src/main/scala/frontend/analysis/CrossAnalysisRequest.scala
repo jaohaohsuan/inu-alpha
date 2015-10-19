@@ -1,15 +1,23 @@
 package frontend.analysis
 
+import java.util
+
 import akka.actor.Props
-import es.indices.storedQuery
+import es.indices.{logs, storedQuery}
 import elastic.ImplicitConversions._
 import frontend.PerRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
+import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
+import org.elasticsearch.search.aggregations.{AggregationBuilder, Aggregation, AggregationBuilders}
+import org.elasticsearch.search.aggregations.bucket.filters.{FiltersAggregationBuilder, Filters}
+import org.json4s.JsonAST._
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.native.JsonMethods._
+import org.json4s.JsonDSL._
 import spray.http.StatusCodes._
 import spray.http.Uri
 import spray.http.Uri.Path
@@ -187,6 +195,77 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                |  }
                |}""".stripMargin)
         }
+      }
+  }
+}
+
+object ConditionSetBarChartRequest {
+  def props(conditionSet: Seq[String])(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[ConditionSetBarChartRequest], ctx, client, conditionSet)
+}
+
+case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String]) extends PerRequest {
+
+  import storedQuery._
+  import scala.collection.JavaConversions._
+  import akka.pattern._
+  import context.dispatcher
+  implicit def json4sFormats: Formats = DefaultFormats
+
+  lazy val sourceAgg  =
+    logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
+      .map{ resp =>
+        resp.getMappings.foldLeft(AggregationBuilders.filters("source")){ (acc, m) =>
+          log.info(s"sourceAgg: ${m.key}")
+          acc.filter(m.key, QueryBuilders.typeQuery(m.key))
+        }
+      }
+
+  lazy val storedQueryAgg =
+    prepareSearch
+      .setQuery(idsQuery(".percolator").addIds(conditionSet))
+      .setFetchSource(Array("query", "title"), null)
+      .execute.asFuture
+      .map { resp =>
+        conditionSet match {
+          case Nil => None
+          case _ => Some(resp.getHits.foldLeft(AggregationBuilders.filters("storedQuery")){ (acc, h) =>
+            val source = parse(h.sourceAsString())
+            val title = (source \ "title").extract[String]
+            compact(render(source \ "query")) match {
+              case "" => acc
+              case q: String =>
+                log.info(q)
+                acc.filter(title, QueryBuilders.wrapperQuery(q))
+            }
+          })
+        }
+      }
+
+  (for {
+    src <- sourceAgg
+    sq <- storedQueryAgg
+    r <- logs.prepareSearch().addAggregation(sq.map(src.subAggregation).getOrElse(src)).execute().asFuture
+    agg: Filters = r.getAggregations.get("source").asInstanceOf[Filters]
+    b = agg.getBuckets.toList
+  } yield b) pipeTo self
+
+  def processResult = {
+    case buckets: List[Bucket] =>
+      response {
+
+        val json = buckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
+
+          val arr = b0.getAggregations.asMap().toMap.get("storedQuery") match {
+            case Some(filters: Filters) => filters.getBuckets
+                .foldLeft(List.empty[JArray]){ (acc1, b1) => acc1 :+ JArray(List(JString(s"${b1.getKey}"), JInt(b1.getDocCount))) }
+            case None => List(JArray(List(JString("*"), JInt(b0.getDocCount))))
+          }
+
+          acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
+        }
+
+        complete(OK, s"${pretty(render(json))}")
       }
   }
 }

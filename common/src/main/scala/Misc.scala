@@ -16,6 +16,11 @@ object HostIP {
   }
 }
 
-case class StringSetHolder(set: Set[String]) {
+/*case class StringSetHolder(set: Set[String]) {
   def append(xs: Set[String]) = StringSetHolder(xs ++ set)
+}*/
+
+
+case class StringMapHolder(map: Map[String, Set[String]]) {
+  def append(xs: Map[String, Set[String]]) = StringMapHolder(xs ++ map)
 }

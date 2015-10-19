@@ -15,7 +15,7 @@ import read.MaterializeView
 import scala.language.postfixOps
 import scala.concurrent.duration._
 import scala.language.implicitConversions
-import common.StringSetHolder
+import common.StringMapHolder
 
 object StoredQueryAggregateRootView {
 
@@ -32,7 +32,8 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   import es.indices.storedQuery
   import StoredQueryAggregateRootView._
 
-  var tags = StringSetHolder(Set.empty[String])
+
+  var tags = StringMapHolder(Map.empty)
 
   val source = readJournal
     .eventsByPersistenceId(NameOfAggregate.Root)
@@ -97,12 +98,12 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
                 //.runForeach(f => println(f))
                 .runWith(Sink.ignore)
       implicit val timeout = Timeout(5 seconds)
-      source.mapAsync(1){ s => self ? StringSetHolder(s.tags.filter(_.trim.nonEmpty)) }.runWith(Sink.ignore)
+      source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.ignore)
 
     case b: IndicesExistsRequestBuilder =>
       b.execute().asFuture pipeTo self
 
-    case StringSetHolder(xs) =>
+    case StringMapHolder(xs) =>
       tags = tags.append(xs)
       sender ! "ack"
       //log.info(s"tags: $tags")

@@ -92,6 +92,11 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
               actorRefFactory.actorOf(CrossAnalysisSourceRequest.props(exclude, b)(q, tags, size, from))
             }
           } ~
+          path("graph0") {
+            parameters('conditionSet.?, 'include.?) { (conditionSet, include) => implicit ctx =>
+              actorRefFactory.actorOf(ConditionSetBarChartRequest.props(conditionSet))
+            }
+          } ~
           pathEnd {
             parameters('conditionSet.?, 'include.?) { (conditionSet, include) => implicit ctx =>
               actorRefFactory.actorOf(CrossAnalysisRequest.props(conditionSet, include, exclude = conditionSet))

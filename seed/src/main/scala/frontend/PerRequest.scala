@@ -1,5 +1,6 @@
 package frontend
 
+import akka.actor.Status.Failure
 import akka.actor._
 import spray.http.StatusCodes._
 import spray.routing._
@@ -24,11 +25,12 @@ trait PerRequest extends Actor with ActorLogging with Directives {
   private def defaultReceive: Receive = {
     case ReceiveTimeout =>
       response { complete(RequestTimeout) }
-    case ex: Exception =>
+    case Failure(ex) =>
       log.error(ex, s"${ctx.request.uri}")
-      response { complete(InternalServerError, s"""{ "error": { "content": "${ex.getMessage}" } }""") }
-    case res =>
-      response { complete(InternalServerError, s"""{ "error": { "content": "${res}" } }""") }
+      response { complete(InternalServerError, s"""{ "error": { "content": "${ex}" } }""") }
+    case unexpected =>
+      log.warning(s"${ctx.request.uri} $unexpected")
+      response { complete(InternalServerError, s"""{ "error": { "content": "${unexpected}" } }""") }
   }
 
   def response(finalStep: Route): Unit = {

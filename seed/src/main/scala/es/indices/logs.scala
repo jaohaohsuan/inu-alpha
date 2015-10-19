@@ -16,11 +16,11 @@ object logs {
       .setSource(
         s"""{
           | "template" : "logs-*",
-          | "mappings" : { $template1 }
+          | "mappings" : { ${template1("ytx")}, ${template1("ami-l8k")} }
           |}""".stripMargin).execute()
 
-  private val template1 = """
-    |"ytx": {
+  def template1(source: String) = s"""
+    |"$source": {
     |        "_source": {
     |          "enabled": true
     |        },

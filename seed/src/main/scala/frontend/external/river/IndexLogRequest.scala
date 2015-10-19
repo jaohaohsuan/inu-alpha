@@ -12,7 +12,7 @@ import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import river.ami.XmlStt
-import scala.xml.NodeSeq
+import scala.xml.{Elem, Node, NodeSeq}
 import scala.util.{ Try, Success, Failure }
 import akka.pattern._
 
@@ -33,10 +33,11 @@ case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id:
         complete(OK, s"""{ "acknowledged": true, "created" : ${r.isCreated} }""")
       }
 
-    case roles: NodeSeq =>
+    //警告：保存的json無法被保證欄位的正確性
+
+    case roles: Seq[Elem] =>
       def f: XmlStt = roles.foldLeft(XmlStt())(_ append _).asResult
       Try(f) match {
-
         case Success(doc) =>
           client.prepareIndex("logs-2015.12.12", "ami-l8k")
             .setId(id)

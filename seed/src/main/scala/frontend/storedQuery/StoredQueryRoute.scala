@@ -4,13 +4,10 @@ import frontend.CollectionJsonSupport
 import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
 import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
-import frontend.storedQuery.putRequest.{UpdateStoredQueryItemRequest}
+import frontend.storedQuery.putRequest.UpdateStoredQueryItemRequest
 import org.json4s
-import org.json4s._
-import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange._
 import protocol.storedQuery.Terminology._
-import spray.http.Uri
 import spray.httpx.unmarshalling._
 import spray.routing._
 
@@ -50,7 +47,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
                    |      "rel" : "search",
                    |      "data" : [
                    |        { "name" : "q", "prompt" : "search title or any terms" },
-                   |        { "name" : "tags", "prompt" : "$tags " },
+                   |        { "name" : "tags", "prompt" : "${tags}" },
                    |        { "name" : "size", "prompt" : "size of displayed items" },
                    |        { "name" : "from", "prompt" : "items display from" }
                    |      ]

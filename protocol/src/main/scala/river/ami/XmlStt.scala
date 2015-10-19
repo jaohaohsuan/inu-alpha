@@ -1,15 +1,64 @@
 package river.ami
 
-
 import org.json4s.JsonAST.{JArray, JField, JValue}
 import org.json4s._
+import text.ImplicitConversions._
+import scala.collection.JavaConversions._
+import scala.collection.immutable.Seq
+import scala.xml.{Elem, Node, NodeSeq}
 
-import scala.xml.NodeSeq
+
+case class SentencePeriod(str: String) {
+  require(str.nonEmpty, "period value is empty")
+  require(validation(values), s"invalid Time values($values)")
+
+  lazy val values = str.split(" ").map(_.split(",").map(_.trim).filter(_.matches("""\d*""")).map(_.toInt).head).toList
+
+  def validation(values: List[Int]) = {
+     values match {
+       case (begin: Int) :: Nil => true
+       case (begin: Int) :: xs => begin < xs.last
+       case _ => false
+    }
+  }
+}
+
+case class ItemElem(node: Node) {
+  require(node.label == "Item", s"${node.label} doesn't support excepted 'Item'")
+  require(text.nonEmpty, "silence found")
+
+  private val period = SentencePeriod((node \ "Time").text.trim)
+
+  lazy val text = (node \ "Text").text
+
+  lazy val begin :: _ =  period.values
+  lazy val end :: _ = period.values.reverse
+
+}
+case class RoleElem(elem: Elem) {
+
+  val Role = """[R,r]\d+""".r
+
+  require(elem.label == "Role", s"${elem.label} doesn't support excepted 'Role'")
+  require(Role.matches(name), s"""Attributes ${elem.attributes} doesn't match any rule that is Name="Role{number}"""")
+  require(items.nonEmpty , "Role must contains Items")
+
+  lazy val name = elem.attributes.get("Name").map(_.text.trim).getOrElse("")
+
+  lazy val items = (elem \\ "Item").map(ItemElem)
+
+}
+
+case class VttSupportedLogs(node: Node) {
+
+  //val roles = nodeSeq.iterator.filter(_.isInstanceOf[Elem]).map(_.asInstanceOf[Elem]).map(RoleElem)
+
+}
 
 case class XmlStt(agentPartyCount:    Int = 0,
                   customerPartyCount: Int = 0,
                   parties:         Map[String,String] = Map.empty,
-                  body: JObject = JObject(), mixed: List[SttSentence] = List.empty) {
+                  body: JObject = JObject(), mixed: List[VttSentence] = List.empty) {
 
   val agentRole = """[R,r]0""".r
   val customerRole = """[R,r]1""".r
@@ -37,7 +86,7 @@ case class XmlStt(agentPartyCount:    Int = 0,
     }
   }
 
-  private def defineProperties(code: String): (XmlStt, SttSentence)= {
+  private def defineProperties(code: String): (XmlStt, VttSentence)= {
     import text.ImplicitConversions._
 
     val doc = code match {
@@ -52,18 +101,19 @@ case class XmlStt(agentPartyCount:    Int = 0,
       case _ => this
     }
 
-    (doc, SttSentence(code, doc.parties(code)))
+    (doc, VttSentence(code, doc.parties(code)))
   }
 
-  def append(n: NodeSeq) = {
+  def append(n: Elem) = {
 
+    val re = RoleElem(n)
     val (transformed, sentence) = defineProperties((n \ "@Name").text)
 
-    (n \ "EndPoint" \ "Item").foldLeft(transformed){ (acc, item) =>
+    re.items.foldLeft(transformed){ (acc, item) =>
 
-      val begin = (item \ "@Begin").text.toInt
-      val end = (item \ "@End").text.toInt
-      val content = (item \ "Text").text
+      val begin = item.begin
+      val end = item.end
+      val content = item.text
 
       acc.body transformField {
         case JField(name, JArray(arr)) if name == sentence.party =>

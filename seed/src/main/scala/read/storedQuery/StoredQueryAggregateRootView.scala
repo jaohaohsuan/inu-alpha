@@ -69,7 +69,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
 
     import ImplicitJsonConversions._
 
-    implicit def setToOptionString(value : Set[String]): Option[String] = Option(value.mkString(" ")).filter(_.trim.nonEmpty)
+    implicit def setToOptionString(value : Set[String]): Option[String] = Option(value.mkString(" ").trim)
 
     val BoolQueryConversion(_, percolatorDoc) = value
     val StoredQuery(storedQueryId, title , clauses, tags) = value
@@ -97,7 +97,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
                 //.runForeach(f => println(f))
                 .runWith(Sink.ignore)
       implicit val timeout = Timeout(5 seconds)
-      source.mapAsync(1){ s => self ? StringSetHolder(s.tags) }.runWith(Sink.ignore)
+      source.mapAsync(1){ s => self ? StringSetHolder(s.tags.filter(_.trim.nonEmpty)) }.runWith(Sink.ignore)
 
     case b: IndicesExistsRequestBuilder =>
       b.execute().asFuture pipeTo self

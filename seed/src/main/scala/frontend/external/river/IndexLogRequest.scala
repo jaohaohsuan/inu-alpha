@@ -18,12 +18,12 @@ import akka.pattern._
 
 object IndexLogRequest {
 
-  def props(id: String)(implicit ctx: RequestContext, client: Client) = {
-    Props(classOf[IndexLogRequest], ctx, client, id)
+  def props(id: String, index: String)(implicit ctx: RequestContext, client: Client) = {
+    Props(classOf[IndexLogRequest], ctx, client, id, index)
   }
 }
 
-case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id: String) extends PerRequest {
+case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id: String, index: String) extends PerRequest {
 
   import context.dispatcher
 
@@ -39,7 +39,7 @@ case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id:
       def f: XmlStt = roles.foldLeft(XmlStt())(_ append _).asResult
       Try(f) match {
         case Success(doc) =>
-          client.prepareIndex("logs-2015.12.12", "ami-l8k")
+          client.prepareIndex(s"logs-$index", "ami-l8k")
             .setId(id)
             .setSource(s"${compact(render(doc.body))}")
             .execute().asFuture pipeTo self

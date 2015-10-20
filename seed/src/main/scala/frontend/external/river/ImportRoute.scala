@@ -3,6 +3,7 @@ package frontend.external.river
 import java.io.{ByteArrayInputStream, InputStreamReader}
 
 import com.typesafe.config.ConfigFactory
+import org.joda.time.DateTime
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -50,22 +51,42 @@ trait ImportRoute extends HttpService {
               entity(as[NodeSeq]) { nodeSeq =>
                 authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName => implicit ctx =>
 
-                  val node = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
-                                                  .map(_.child.collect { case e: Elem => e })
+                  val file = """(\d{17})I(\d{3})(\d{3})(\d{4})""".r
+                  def idExtractor: DateTime = id match {
+                    case file(datetime, _, _ ,_) =>
+                      val yyyyMMddHHmmssSSS = org.joda.time.format.DateTimeFormat.forPattern("yyyyMMddHHmmssSSS")
+                      yyyyMMddHHmmssSSS.parseDateTime(datetime)
+                  }
 
-                  node match {
-                    case Some(roles) =>
-                      actorRefFactory.actorOf(IndexLogRequest.props(id)) ! roles
-                    case None =>
-                      ctx.complete(BadRequest,
-                        s"""{
-                           |  "error" :
-                           |  {
-                           |    "title" : "XPath",
-                           |    "code" : "400",
-                           |    "message" : "unexpected path found"
-                           |  }
-                           |}
+                  Try(idExtractor) match {
+                    case Success(dateTime) =>
+                      val node = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
+                        .map(_.child.collect { case e: Elem => e })
+                      node match {
+                        case Some(roles) =>
+                          actorRefFactory.actorOf(IndexLogRequest.props(id, s"${dateTime.toString("yyyy.MM.dd")}")) ! roles
+                        case None =>
+                          ctx.complete(BadRequest,
+                            s"""{
+                               |  "error" :
+                               |  {
+                               |    "title" : "XPath",
+                               |    "code" : "400",
+                               |    "message" : "unexpected path found"
+                               |  }
+                               |}
+                       """.stripMargin)
+                      }
+                    case Failure(ex) =>
+                      log.error(ex, s"${ctx.request.uri}")
+                      ctx.complete(BadRequest, s"""{
+                                                  |  "error" :
+                                                  |  {
+                                                  |    "title" : "id extracting",
+                                                  |    "code" : "400",
+                                                  |    "message" : "${ex.getMessage}"
+                                                  |  }
+                                                  |}
                        """.stripMargin)
                   }
                 }

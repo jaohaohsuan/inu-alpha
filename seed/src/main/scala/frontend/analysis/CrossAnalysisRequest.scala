@@ -15,7 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
 import org.elasticsearch.search.aggregations.{AggregationBuilder, Aggregation, AggregationBuilders}
 import org.elasticsearch.search.aggregations.bucket.filters.{FiltersAggregationBuilder, Filters}
 import org.json4s.JsonAST._
-import org.json4s.{DefaultFormats, Formats}
+import org.json4s.{Formats, DefaultFormats}
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
 import spray.http.StatusCodes._
@@ -200,6 +200,18 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
   }
 }
 
+case class StoredQueryQuery(title: String, query: String)
+
+object StoredQueryQuery {
+  def unapply(searchHit: SearchHit): StoredQueryQuery = {
+    implicit def json4sFormats: Formats = DefaultFormats
+    val source = parse(searchHit.sourceAsString())
+    val title = (source \ "title").extract[String]
+    StoredQueryQuery(title, compact(render(source \ "query")))
+  }
+}
+
+
 object ConditionSetBarChartRequest {
   def props(conditionSet: Seq[String])(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
     Props(classOf[ConditionSetBarChartRequest], ctx, client, conditionSet)
@@ -213,26 +225,12 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
   import context.dispatcher
   implicit def json4sFormats: Formats = DefaultFormats
 
-  lazy val buildSourceAgg  =
-    logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
-      .map{ resp =>
-        resp.getMappings.foldLeft(AggregationBuilders.filters("source")){ (acc, m) =>
-          log.info(s"sourceAgg: ${m.key}")
-          acc.filter(m.key, QueryBuilders.typeQuery(m.key))
-        }
-      }
-
   def buildStoredQueryAgg(source: FiltersAggregationBuilder) =
-    prepareSearch
-      .setQuery(idsQuery(".percolator").addIds(conditionSet))
-      .setFetchSource(Array("query", "title"), null)
-      .execute.asFuture
-      .map( _.getHits.foldLeft(List.empty[(String, WrapperQueryBuilder)]){ (acc, h) =>
-              val source = parse(h.sourceAsString())
-              val title = (source \ "title").extract[String]
-              compact(render(source \ "query")) match {
-                case "" => acc
-                case q: String => (title, QueryBuilders.wrapperQuery(q)) :: acc
+    prepareSearchStoredQueryQuery(conditionSet).execute.asFuture
+      .map(_.getHits.foldLeft(List.empty[(String, WrapperQueryBuilder)]){ (acc, h) =>
+        StoredQueryQuery.unapply(h) match {
+                case StoredQueryQuery(title, q) if q.nonEmpty => (title, QueryBuilders.wrapperQuery(q)) :: acc
+                case _ => acc
               }})
       .map {
         case Nil => source
@@ -245,13 +243,12 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
   def search(agg: FiltersAggregationBuilder) = logs.prepareSearch().addAggregation(agg).execute().asFuture
 
   (for {
-    source <- buildSourceAgg
+    source <- logs.buildSourceAgg()
     agg <- buildStoredQueryAgg(source)
     searchResponse <- search(agg)
   } yield searchResponse.getAggregations.asMap().toMap.get("source")) pipeTo self
 
   def processResult = {
-
     case Some(agg: Filters) =>
       response {
         val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
@@ -263,6 +260,22 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
           acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
         }
         complete(OK, s"${pretty(render(json))}")
+      }
+  }
+}
+
+object CrossAnalysisLineChartRequest {
+  def props(conditionSet: Seq[String], includable: Seq[String])(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[CrossAnalysisLineChartRequest], ctx, client, conditionSet, includable)
+
+
+}
+
+case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], includable: Seq[String]) extends PerRequest {
+  def processResult = {
+    case _ =>
+      response {
+        complete(OK)
       }
   }
 }

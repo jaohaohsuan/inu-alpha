@@ -2,14 +2,26 @@ package es.indices
 
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.client.Client
+import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.common.text.Text
-import org.elasticsearch.search.internal.InternalSearchHit
+import org.elasticsearch.search.aggregations.AggregationBuilders
 import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext
 
 import scala.util.{Failure, Success, Try}
 
 object logs {
+
+  def buildSourceAgg(key: String = "source")(implicit client: Client, executionContext: ExecutionContext) = {
+    import elastic.ImplicitConversions._
+    getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
+      .map { resp =>
+        resp.getMappings.foldLeft(AggregationBuilders.filters(key)) { (acc, m) =>
+          acc.filter(m.key, QueryBuilders.typeQuery(m.key))
+        }
+      }
+  }
 
   def putIndexTemplate(implicit client: Client) =
     client.admin().indices().preparePutTemplate("template1")

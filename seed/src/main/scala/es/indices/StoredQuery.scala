@@ -10,6 +10,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.{MatchQueryBuilder, BoolQueryBuilder, QueryBuilders}
+import scala.collection.JavaConversions._
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
@@ -134,6 +135,11 @@ object storedQuery {
     //import org.elasticsearch.index.query.QueryBuilders
     client.prepareSearch(index).setTypes(".percolator")
   }
+
+  def prepareSearchStoredQueryQuery(ids: Seq[String])(implicit client: Client) =
+    prepareSearch
+      .setQuery(idsQuery(".percolator").addIds(ids))
+      .setFetchSource(Array("query", "title"), null)
 
   def preparePercolate(typ: String)(implicit client: Client) =
     client.preparePercolate()

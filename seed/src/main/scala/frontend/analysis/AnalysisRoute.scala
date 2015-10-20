@@ -47,7 +47,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
             complete(ServiceUnavailable)
           } ~
           path("source"){
-            parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, include, q, tags, size, from) => implicit ctx =>
+            parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, includable, q, tags, size, from) => implicit ctx =>
               //log.info(s"$exclude")
               val b = new CollectionJsonBuilder {
                 def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String = {
@@ -88,18 +88,23 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
                      |}""".stripMargin
                 }
               }
-              val exclude = (conditionSet: Seq[String]) ++ include
+              val exclude = (conditionSet: Seq[String]) ++ includable
               actorRefFactory.actorOf(CrossAnalysisSourceRequest.props(exclude, b)(q, tags, size, from))
             }
           } ~
           path("graph0") {
-            parameters('conditionSet.?, 'include.?) { (conditionSet, include) => implicit ctx =>
+            parameters('conditionSet.?, 'include.?) { (conditionSet, includable) => implicit ctx =>
               actorRefFactory.actorOf(ConditionSetBarChartRequest.props(conditionSet))
             }
           } ~
+          path("graph1") {
+            parameters('conditionSet.?, 'include.?) { (conditionSet, includable) => implicit ctx =>
+              actorRefFactory.actorOf(CrossAnalysisLineChartRequest.props(conditionSet, includable))
+            }
+          } ~
           pathEnd {
-            parameters('conditionSet.?, 'include.?) { (conditionSet, include) => implicit ctx =>
-              actorRefFactory.actorOf(CrossAnalysisRequest.props(conditionSet, include, exclude = conditionSet))
+            parameters('conditionSet.?, 'include.?) { (conditionSet, includable) => implicit ctx =>
+              actorRefFactory.actorOf(CrossAnalysisRequest.props(conditionSet, includable, exclude = conditionSet))
             }
 	        }
         }

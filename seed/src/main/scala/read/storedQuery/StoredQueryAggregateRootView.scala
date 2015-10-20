@@ -104,10 +104,12 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
       b.execute().asFuture pipeTo self
 
     case StringMapHolder(xs) =>
+      //log.info(s"wirte xs: $xs")
       tags = tags.append(xs)
+      //log.info(s"wirte tags: $tags")
       sender ! "ack"
-      //log.info(s"tags: $tags")
     case protocol.storedQuery.Exchange.SearchTags =>
+      //log.info(s"get tags: $tags")
       sender() ! tags
     case unknown =>
       log.warning(s"unexpected message catch $unknown")

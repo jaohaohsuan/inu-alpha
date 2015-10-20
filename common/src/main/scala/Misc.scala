@@ -22,5 +22,5 @@ object HostIP {
 
 
 case class StringMapHolder(map: Map[String, Set[String]]) {
-  def append(xs: Map[String, Set[String]]) = StringMapHolder(xs ++ map)
+  def append(xs: Map[String, Set[String]]) = copy(map = xs.foldLeft(map)( _ + _ ))
 }

@@ -267,8 +267,6 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
 object CrossAnalysisLineChartRequest {
   def props(conditionSet: Seq[String], includable: Seq[String])(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
     Props(classOf[CrossAnalysisLineChartRequest], ctx, client, conditionSet, includable)
-
-
 }
 
 case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], includable: Seq[String]) extends PerRequest {

@@ -18,7 +18,6 @@ import spray.routing.authentication.{BasicAuth, UserPass}
 import spray.util.LoggingContext
 import akka.pattern._
 
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{ Try, Success, Failure }
 import scala.xml._
@@ -43,59 +42,66 @@ trait ImportRoute extends HttpService {
     case HttpEntity.Empty ⇒ NodeSeq.Empty
   }
 
+  var handleAllExceptions = ExceptionHandler {
+    case ex: Exception =>
+      log.error(ex, "MatchError")
+      complete(BadRequest, s"""{
+                              |  "error" :
+                              |  {
+                              |    "title" : "Invalid id format",
+                              |    "code" : "400",
+                              |    "message" : "${ex.getMessage()}, please follow the pattern '[YYYYMMDDhhmmssSSS]['I'][RECType][CustomerID][SerialNumber] '"
+                              |  }
+                              |}
+                     """.stripMargin)
+  }
+
+  def datetimeExtractorDirective(id: String): Directive1[() => String] = {
+    val file = """(\d{17})I(\d{3})(\d{3})(\d{4})""".r
+    def idExtractor(): String = id match {
+      case file(datetime, _, _ ,_) =>
+        val yyyyMMddHHmmssSSS = org.joda.time.format.DateTimeFormat.forPattern("yyyyMMddHHmmssSSS")
+        yyyyMMddHHmmssSSS.parseDateTime(datetime).toString("yyyy.MM.dd")
+    }
+    provide(idExtractor _)
+  }
+
   lazy val `_import`: Route = {
 
-      pathPrefix("_river" / "stt" / "ami" / Segment ) { id =>
+    pathPrefix("_river" / "stt" / "ami" / Segment ) { id =>
+      handleExceptions(handleAllExceptions){
+        datetimeExtractorDirective(id) { getIndex =>
           put {
             respondWithMediaType(`application/json`) {
               entity(as[NodeSeq]) { nodeSeq =>
                 authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName => implicit ctx =>
-
-                  val file = """(\d{17})I(\d{3})(\d{3})(\d{4})""".r
-                  def idExtractor: DateTime = id match {
-                    case file(datetime, _, _ ,_) =>
-                      val yyyyMMddHHmmssSSS = org.joda.time.format.DateTimeFormat.forPattern("yyyyMMddHHmmssSSS")
-                      yyyyMMddHHmmssSSS.parseDateTime(datetime)
-                  }
-
-                  Try(idExtractor) match {
-                    case Success(dateTime) =>
-                      val node = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
-                        .map(_.child.collect { case e: Elem => e })
-                      node match {
-                        case Some(roles) =>
-                          actorRefFactory.actorOf(IndexLogRequest.props(id, s"${dateTime.toString("yyyy.MM.dd")}")) ! roles
-                        case None =>
-                          ctx.complete(BadRequest,
-                            s"""{
-                               |  "error" :
-                               |  {
-                               |    "title" : "XPath",
-                               |    "code" : "400",
-                               |    "message" : "unexpected path found"
-                               |  }
-                               |}
-                       """.stripMargin)
-                      }
-                    case Failure(ex) =>
-                      log.error(ex, s"${ctx.request.uri}")
-                      ctx.complete(BadRequest, s"""{
-                                                  |  "error" :
-                                                  |  {
-                                                  |    "title" : "id extracting",
-                                                  |    "code" : "400",
-                                                  |    "message" : "${ex.getMessage}"
-                                                  |  }
-                                                  |}
-                       """.stripMargin)
+                  val node = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
+                    .map(_.child.collect { case e: Elem => e })
+                  node match {
+                    case Some(roles) =>
+                      actorRefFactory.actorOf(IndexLogRequest.props(id, s"${getIndex()}")) ! roles
+                    case None =>
+                      ctx.complete(BadRequest,
+                        s"""{
+                             |  "error" :
+                             |  {
+                             |    "title" : "XPath",
+                             |    "code" : "400",
+                             |    "message" : "unexpected path found"
+                             |  }
+                             |}
+                     """.stripMargin)
+                    }
                   }
                 }
               }
-            }
           } ~
           delete {
-              complete(NoContent)
-            }
-       }
+              //onComplete(client.prepareDelete().setIndex(s"logs-$"))
+            complete(NoContent)
+          }
+        }
+      }
+    }
   }
 }

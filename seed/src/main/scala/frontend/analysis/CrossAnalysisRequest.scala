@@ -1,10 +1,12 @@
 package frontend.analysis
 
-import java.util
-
+import akka.pattern._
 import akka.actor.Props
+import org.elasticsearch.index.query.QueryBuilder
+import es.indices.storedQuery._
 import es.indices.{logs, storedQuery}
 import elastic.ImplicitConversions._
+import scala.collection.JavaConversions._
 import frontend.PerRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
@@ -220,7 +222,6 @@ object ConditionSetBarChartRequest {
 case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String]) extends PerRequest {
 
   import storedQuery._
-  import scala.collection.JavaConversions._
   import akka.pattern._
   import context.dispatcher
   implicit def json4sFormats: Formats = DefaultFormats
@@ -234,7 +235,7 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
               }})
       .map {
         case Nil => source
-        case xs => source.subAggregation(xs.foldLeft(AggregationBuilders.filters("storedQuery")){ (acc, e) =>
+        case xs => source.subAggregation(xs.foldLeft(AggregationBuilders.filters("individual")){ (acc, e) =>
           val (title, query) = e
           acc.filter(title, query)
         })
@@ -252,10 +253,10 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
     case Some(agg: Filters) =>
       response {
         val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
-          val arr = b0.getAggregations.asMap().toMap.get("storedQuery") match {
+          val arr = b0.getAggregations.asMap().toMap.get("individual") match {
             case Some(filters: Filters) => filters.getBuckets
                 .foldLeft(List.empty[JArray]){ (acc1, b1) => acc1 :+ JArray(List(JString(s"${b1.getKey}"), JInt(b1.getDocCount))) }
-            case _ => List(JArray(List(JString("*"), JInt(b0.getDocCount))))
+            case _ => List(JArray(List(JString("*"), JInt(b0.getDocCount.toInt))))
           }
           acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
         }
@@ -270,10 +271,58 @@ object CrossAnalysisLineChartRequest {
 }
 
 case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], includable: Seq[String]) extends PerRequest {
+
+  import context.dispatcher
+
+  implicit class Ids0(ids: Seq[String]) {
+    import QueryBuilders._
+    def buildQuery =
+      prepareSearchStoredQueryQuery(ids).execute.asFuture
+        .map(_.getHits.foldLeft(QueryBuilders.boolQuery()){ (acc, h) =>
+          StoredQueryQuery.unapply(h) match {
+            case StoredQueryQuery(title, q) if q.nonEmpty => acc.must(QueryBuilders.wrapperQuery(q))
+            case _ => acc
+          }})
+
+    def toAgg(source: FiltersAggregationBuilder, filter: QueryBuilder) =
+      prepareSearchStoredQueryQuery(ids).execute.asFuture
+        .map(_.getHits.foldLeft(List.empty[(String, QueryBuilder)]){ (acc, h) =>
+          StoredQueryQuery.unapply(h) match {
+            case StoredQueryQuery(title, q) if q.nonEmpty => (title, boolQuery().filter(filter).must(wrapperQuery(q))) :: acc
+            case _ => acc
+          }})
+        .map {
+          case Nil => source
+          case xs => source.subAggregation(xs.foldLeft(AggregationBuilders.filters("cross")){ (acc, e) =>
+            val (title, query) = e
+            acc.filter(title, query)
+          })
+        }
+  }
+
+  (for {
+    source <- logs.buildSourceAgg()
+    filter <- conditionSet.buildQuery
+    cross <- includable.toAgg(source, filter)
+    result <- logs.prepareSearch().addAggregation(cross).execute().asFuture
+  } yield result.getAggregations.asMap().toMap.get("source")) pipeTo self
+
   def processResult = {
-    case _ =>
+    case Some(agg: Filters) =>
       response {
-        complete(OK)
+        val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
+
+          val arr: List[JObject] = b0.getAggregations.asMap().toMap.get("cross") match {
+            case Some(filters: Filters) =>
+              val zero = JObject("label" -> JString("*"), "y" -> JInt(b0.getDocCount.toInt), "x" -> JInt(0)) :: Nil
+              filters.getBuckets.foldLeft(zero){ (acc1, b1) =>
+                JObject("label" -> JString(s"${b1.getKey}"), "y" -> JInt(b1.getDocCount), "x" -> JInt(acc1.size)) :: acc1
+              }
+          }
+
+          acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr.reverse)))
+        }
+        complete(OK, s"${pretty(render(json))}")
       }
   }
 }

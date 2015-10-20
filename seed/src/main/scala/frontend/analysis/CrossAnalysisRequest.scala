@@ -8,7 +8,7 @@ import elastic.ImplicitConversions._
 import frontend.PerRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.{WrapperQueryBuilder, QueryBuilders}
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
@@ -176,7 +176,8 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "version" : "1.0",
                          |    "href" : "$uri",
                          |    "links" : [
-                         |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" }
+                         |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" },
+                         |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" }
                          |    ],
                          |
                          |    "items" : [ $items ]
@@ -212,7 +213,7 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
   import context.dispatcher
   implicit def json4sFormats: Formats = DefaultFormats
 
-  lazy val sourceAgg  =
+  lazy val buildSourceAgg  =
     logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
       .map{ resp =>
         resp.getMappings.foldLeft(AggregationBuilders.filters("source")){ (acc, m) =>
@@ -221,50 +222,46 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
         }
       }
 
-  lazy val storedQueryAgg =
+  def buildStoredQueryAgg(source: FiltersAggregationBuilder) =
     prepareSearch
       .setQuery(idsQuery(".percolator").addIds(conditionSet))
       .setFetchSource(Array("query", "title"), null)
       .execute.asFuture
-      .map { resp =>
-        conditionSet match {
-          case Nil => None
-          case _ => Some(resp.getHits.foldLeft(AggregationBuilders.filters("storedQuery")){ (acc, h) =>
-            val source = parse(h.sourceAsString())
-            val title = (source \ "title").extract[String]
-            compact(render(source \ "query")) match {
-              case "" => acc
-              case q: String =>
-                log.info(q)
-                acc.filter(title, QueryBuilders.wrapperQuery(q))
-            }
-          })
-        }
+      .map( _.getHits.foldLeft(List.empty[(String, WrapperQueryBuilder)]){ (acc, h) =>
+              val source = parse(h.sourceAsString())
+              val title = (source \ "title").extract[String]
+              compact(render(source \ "query")) match {
+                case "" => acc
+                case q: String => (title, QueryBuilders.wrapperQuery(q)) :: acc
+              }})
+      .map {
+        case Nil => source
+        case xs => source.subAggregation(xs.foldLeft(AggregationBuilders.filters("storedQuery")){ (acc, e) =>
+          val (title, query) = e
+          acc.filter(title, query)
+        })
       }
 
+  def search(agg: FiltersAggregationBuilder) = logs.prepareSearch().addAggregation(agg).execute().asFuture
+
   (for {
-    src <- sourceAgg
-    sq <- storedQueryAgg
-    r <- logs.prepareSearch().addAggregation(sq.map(src.subAggregation).getOrElse(src)).execute().asFuture
-    agg: Filters = r.getAggregations.get("source").asInstanceOf[Filters]
-    b = agg.getBuckets.toList
-  } yield b) pipeTo self
+    source <- buildSourceAgg
+    agg <- buildStoredQueryAgg(source)
+    searchResponse <- search(agg)
+  } yield searchResponse.getAggregations.asMap().toMap.get("source")) pipeTo self
 
   def processResult = {
-    case buckets: List[Bucket] =>
+
+    case Some(agg: Filters) =>
       response {
-
-        val json = buckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
-
+        val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
           val arr = b0.getAggregations.asMap().toMap.get("storedQuery") match {
             case Some(filters: Filters) => filters.getBuckets
                 .foldLeft(List.empty[JArray]){ (acc1, b1) => acc1 :+ JArray(List(JString(s"${b1.getKey}"), JInt(b1.getDocCount))) }
-            case None => List(JArray(List(JString("*"), JInt(b0.getDocCount))))
+            case _ => List(JArray(List(JString("*"), JInt(b0.getDocCount))))
           }
-
           acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
         }
-
         complete(OK, s"${pretty(render(json))}")
       }
   }

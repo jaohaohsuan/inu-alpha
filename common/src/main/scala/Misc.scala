@@ -23,4 +23,6 @@ object HostIP {
 
 case class StringMapHolder(map: Map[String, Set[String]]) {
   def append(xs: Map[String, Set[String]]) = copy(map = xs.foldLeft(map)( _ + _ ))
+
+  lazy val text = map.values.flatten.toSet.mkString(" ").trim
 }

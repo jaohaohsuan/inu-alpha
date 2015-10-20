@@ -193,15 +193,23 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Cli
 
   implicit val timeout = Timeout(5 seconds)
 
+  val getTags = (context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags)
+    .map {
+      case r: common.StringMapHolder => r.text
+      case unexpected =>
+        log.warning(s"SearchTags error with an unexpected Tags: $unexpected")
+        ""
+    }
+
   (for {
-    common.StringMapHolder(tags) <- context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags
+    tags <- getTags
     searchResponse <- prepareSearch
       .setQuery(qb)
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)
       .execute()
       .asFuture
-  } yield (searchResponse, tags.values.flatten.mkString(" ").trim)) pipeTo self
+  } yield (searchResponse, tags)) pipeTo self
 
   def processResult: Receive = {
     case (r: SearchResponse ,tags: String) =>

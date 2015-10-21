@@ -41,7 +41,7 @@ lazy val seed = InuProject("seed")
       nscalaTime
     ),
     dockerExposedPorts := Seq(9200, 9300, 9301, 7879),
-    dockerExposedVolumes := Seq("/opt/docker/target", "/opt/docker/var/elastic/data"),
+    dockerExposedVolumes := Seq("/opt/docker/var"),
     packageName in Docker := "inu",
     version in Docker := "latest",
     dockerRepository := Some("jaohaohsuan"),
@@ -50,7 +50,7 @@ lazy val seed = InuProject("seed")
       conf -> "var/elastic/config/elasticsearch.yml"
     },
     mappings in Universal ++= directory("var/elastic/config"),*/
-    cleanFiles += baseDirectory.value / "var" / "elastic" / "data" )
+    cleanFiles ++= Seq(baseDirectory.value / "var" / "elastic" / "data", baseDirectory.value / "var" / "leveldb" ) )
   .enablePlugins(JavaAppPackaging)
 
 

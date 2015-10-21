@@ -12,12 +12,14 @@ import spray.http.HttpCharsets._
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
 import spray.http.{ContentTypeRange, HttpEntity}
+import spray.httpx.Json4sSupport
 import spray.httpx.unmarshalling.Unmarshaller
 import spray.routing._
 import spray.routing.authentication.{BasicAuth, UserPass}
 import spray.util.LoggingContext
 import akka.pattern._
-
+import org.json4s.native.JsonMethods._
+import org.json4s._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{ Try, Success, Failure }
 import scala.xml._
@@ -25,7 +27,7 @@ import scala.xml._
 /**
  * Created by henry on 10/5/15.
  */
-trait ImportRoute extends HttpService {
+trait ImportRoute extends HttpService with Json4sSupport {
 
   implicit def client: org.elasticsearch.client.Client
 
@@ -67,8 +69,7 @@ trait ImportRoute extends HttpService {
   }
 
   lazy val `_import`: Route = {
-
-    pathPrefix("_river" / "stt" / "ami" / Segment ) { id =>
+    path("_river" / "stt" / "ami" / Segment ) { id =>
       handleExceptions(handleAllExceptions){
         datetimeExtractorDirective(id) { getIndex =>
           put {
@@ -99,6 +100,20 @@ trait ImportRoute extends HttpService {
           delete {
               //onComplete(client.prepareDelete().setIndex(s"logs-$"))
             complete(NoContent)
+          }
+        }
+      }
+    } ~
+    path("_river" / "dim" / "LOG8000" / Segment ) { id =>
+      handleExceptions(handleAllExceptions){
+        datetimeExtractorDirective(id) { getIndex =>
+          put {
+            authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName =>
+              entity(as[JObject]) { obj => implicit ctx =>
+                //log.info(s"$obj")
+                ctx.complete(OK)
+              }
+            }
           }
         }
       }

@@ -24,11 +24,15 @@ object Exchange {
   }
 
   case class SpanNearClause(query: String, field: String, slop: Int, inOrder: Boolean, occurrence: String){
+
+    val matchSubSpanMinimumSize: Boolean = 1 < query.trim.split("""\s+""").size
+
+    require(matchSubSpanMinimumSize, s"""The query must contain at least two words""")
     require(test)
     require(field.nonEmpty)
     require(singleField(field), s"single field only")
     require(queryFieldConstrain(field), s"field only can be 'dialogs' or 'agent*' or 'customer*'")
-    def test = occurrence.matches(OccurrenceRegex.toString()) && !query.trim.isEmpty
+    def test = occurrence.matches(OccurrenceRegex.toString())
   }
 
   case object SearchTags

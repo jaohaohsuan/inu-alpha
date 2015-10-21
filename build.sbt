@@ -41,7 +41,7 @@ lazy val seed = InuProject("seed")
       nscalaTime
     ),
     dockerExposedPorts := Seq(9200, 9300, 9301, 7879),
-    dockerExposedVolumes := Seq("/opt/docker/var"),
+    dockerExposedVolumes := Seq("/opt/docker/var/elastic/data", "/opt/docker/var/leveldb"),
     packageName in Docker := "inu",
     version in Docker := "latest",
     dockerRepository := Some("jaohaohsuan"),

@@ -1,5 +1,6 @@
 import Library._
 import NativePackagerHelper._
+import com.typesafe.sbt.packager.docker.ExecCmd
 
 val installElasticsearch = taskKey[File]("Install Elasticsearch")
 
@@ -40,11 +41,17 @@ lazy val seed = InuProject("seed")
       elasticsearch, jna,
       nscalaTime
     ),
-    dockerExposedPorts := Seq(9200, 9300, 9301, 7879),
+    dockerExposedPorts := Seq(9200, 9300, 7879),
     dockerExposedVolumes := Seq("/opt/docker/var/elastic/data", "/opt/docker/var/leveldb"),
     packageName in Docker := "inu",
     version in Docker := "latest",
     dockerRepository := Some("jaohaohsuan"),
+    /*dockerCommands ++= Seq(
+      // setting the run script executable
+      ExecCmd("RUN",
+        "chown", "-R", "elasticsearch:elasticsearch",
+        s"${(defaultLinuxInstallLocation in Docker).value}/var/elastic")
+    ),*/
    /* mappings in Universal <+= (packageBin in Compile, baseDirectory ) map { (_, src) =>
       val conf = src / "var" / "elastic" / "config" / "elasticsearch.yml"
       conf -> "var/elastic/config/elasticsearch.yml"

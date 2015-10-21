@@ -2,6 +2,7 @@ package frontend.analysis
 
 import akka.pattern._
 import akka.actor.Props
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.index.query.QueryBuilder
 import es.indices.storedQuery._
 import es.indices.{logs, storedQuery}
@@ -14,7 +15,7 @@ import org.elasticsearch.index.query.{WrapperQueryBuilder, QueryBuilders}
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
-import org.elasticsearch.search.aggregations.{AggregationBuilder, Aggregation, AggregationBuilders}
+import org.elasticsearch.search.aggregations.{Aggregations, AggregationBuilder, Aggregation, AggregationBuilders}
 import org.elasticsearch.search.aggregations.bucket.filters.{FiltersAggregationBuilder, Filters}
 import org.json4s.JsonAST._
 import org.json4s.{Formats, DefaultFormats}
@@ -23,6 +24,7 @@ import org.json4s.JsonDSL._
 import spray.http.StatusCodes._
 import spray.http.Uri
 import spray.http.Uri.Path
+import scala.util.{Try}
 import spray.routing.RequestContext
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -179,7 +181,8 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "href" : "$uri",
                          |    "links" : [
                          |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" },
-                         |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" }
+                         |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" },
+                         |     { "rel" : "graph", "render" : "line", "href" : "${uri.withPath(uri.path / "graph1")}" }
                          |    ],
                          |
                          |    "items" : [ $items ]
@@ -245,19 +248,22 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
 
   (for {
     source <- logs.buildSourceAgg()
-    agg <- buildStoredQueryAgg(source)
-    searchResponse <- search(agg)
-  } yield searchResponse.getAggregations.asMap().toMap.get("source")) pipeTo self
+    individual <- buildStoredQueryAgg(source)
+    result <- search(individual).map(_.getAggregations)
+    agg = if(result == null) None else result.asMap().toMap.get("source")
+  } yield agg) pipeTo self
 
   def processResult = {
     case Some(agg: Filters) =>
       response {
         val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
-          val arr = b0.getAggregations.asMap().toMap.get("individual") match {
+
+          val arr = Try({ b0.getAggregations.asMap().toMap.get("individual") }).map {
             case Some(filters: Filters) => filters.getBuckets
-                .foldLeft(List.empty[JArray]){ (acc1, b1) => acc1 :+ JArray(List(JString(s"${b1.getKey}"), JInt(b1.getDocCount))) }
+              .foldLeft(List.empty[JArray]){ (acc1, b1) => acc1 :+ JArray(List(JString(s"${b1.getKey}"), JInt(b1.getDocCount))) }
             case _ => List(JArray(List(JString("*"), JInt(b0.getDocCount.toInt))))
-          }
+          }.getOrElse(List.empty)
+
           acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
         }
         complete(OK, s"${pretty(render(json))}")
@@ -304,23 +310,26 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
     source <- logs.buildSourceAgg()
     filter <- conditionSet.buildQuery
     cross <- includable.toAgg(source, filter)
-    result <- logs.prepareSearch().addAggregation(cross).execute().asFuture
-  } yield result.getAggregations.asMap().toMap.get("source")) pipeTo self
+    result <- logs.prepareSearch().addAggregation(cross).execute().asFuture.map(_.getAggregations)
+    agg = if(result == null) None else result.asMap().toMap.get("source")
+  } yield agg) pipeTo self
 
   def processResult = {
+
     case Some(agg: Filters) =>
       response {
         val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
 
-          val arr: List[JObject] = b0.getAggregations.asMap().toMap.get("cross") match {
-            case Some(filters: Filters) =>
-              val zero = JObject("label" -> JString("*"), "y" -> JInt(b0.getDocCount.toInt), "x" -> JInt(0)) :: Nil
-              filters.getBuckets.foldLeft(zero){ (acc1, b1) =>
-                JObject("label" -> JString(s"${b1.getKey}"), "y" -> JInt(b1.getDocCount), "x" -> JInt(acc1.size)) :: acc1
-              }
-          }
+          val zero = JObject("label" -> JString("*"), "y" -> JInt(b0.getDocCount.toInt), "x" -> JInt(0)) :: Nil
 
-          acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr.reverse)))
+          val arr = Try({ b0.getAggregations.asMap().toMap.get("cross") }).map {
+           case Some(filters: Filters) =>
+             filters.getBuckets.foldLeft(zero){ (acc1, b1) =>
+               JObject("label" -> JString(s"${b1.getKey}"), "y" -> JInt(b1.getDocCount), "x" -> JInt(acc1.size)) :: acc1
+             }
+         }.getOrElse(zero).reverse
+
+          acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))
         }
         complete(OK, s"${pretty(render(json))}")
       }

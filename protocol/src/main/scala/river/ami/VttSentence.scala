@@ -6,7 +6,7 @@ case class VttSentence(code: String, party: String = "", begin: Int = 0, end: In
   def formatTime(value: Int) =
     new org.joda.time.DateTime(value, org.joda.time.DateTimeZone.UTC).toString("HH:mm:ss.SSS")
 
-  lazy val subtitle = s"""$party-$begin ${formatTime(begin)} --> ${formatTime(end)} <v $code>$content</v>\n"""
+  lazy val subtitle = s"""$party-$begin ${formatTime(begin)} --> ${formatTime(end)}\n<v $code>$content</v>\n"""
 
   lazy val text = s"$party-$begin $content"
 }

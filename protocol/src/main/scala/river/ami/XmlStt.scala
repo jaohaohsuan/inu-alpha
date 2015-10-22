@@ -41,11 +41,11 @@ case class RoleElem(elem: Elem) {
 
   require(elem.label == "Role", s"${elem.label} doesn't support excepted 'Role'")
   require(Role.matches(name), s"""Attributes ${elem.attributes} doesn't match any rule that is Name="Role{number}"""")
-  require(items.nonEmpty , "Role must contains Items")
+  //require(items.nonEmpty , s"'$elem' Role must contains Items")
 
   lazy val name = elem.attributes.get("Name").map(_.text.trim).getOrElse("")
 
-  lazy val items = (elem \\ "Item").map(ItemElem)
+  lazy val items: Seq[ItemElem] = (elem \\ "Item").map(ItemElem)
 
 }
 

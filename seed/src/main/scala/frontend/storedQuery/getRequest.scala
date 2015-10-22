@@ -236,7 +236,7 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
     val data: JValue = clause match {
       case "named" => NamedClause("1", "template", "must")
       case "match" => MatchClause("hello search", "dialogs", "AND", "must")
-      case "near" => SpanNearClause("term", "dialogs", 10, inOrder = false, "must")
+      case "near" => SpanNearClause("it must contain at least two words", "dialogs", 10, inOrder = false, "must")
     }
 
     //add property prompt

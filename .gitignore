@@ -98,9 +98,3 @@ project/plugins/project/
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
-
-# elasticsearch
-!config/ik
-!plugins/**
-
-

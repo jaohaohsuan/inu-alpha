@@ -39,5 +39,7 @@ object Main extends App {
     }
 
     log info s"ActorSystem $name started successfully"
+
+    sys.addShutdownHook(system.terminate())
   }
 }

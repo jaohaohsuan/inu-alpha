@@ -234,9 +234,14 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
   def sample(clause: String): JValue = {
     import protocol.storedQuery.ImplicitJsonConversions._
     val data: JValue = clause match {
-      case "named" => NamedClause("1", "template", "must")
-      case "match" => MatchClause("hello search", "dialogs", "AND", "must")
-      case "near" => SpanNearClause("it must contain at least two words", "dialogs", 10, inOrder = false, "must")
+      case "named" => NamedClause("", "template", "must")
+      case "match" => MatchClause("", "dialogs", "AND", "must")
+      case "near" => SpanNearClause("hello search", "dialogs", 10, inOrder = false, "must")
+    }
+
+    val queryPrompt = clause match {
+      case "near" => "it must contain at least two words"
+      case _ => ""
     }
 
     //add property prompt
@@ -246,6 +251,7 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
           import org.json4s.JsonDSL._
           obj \ "name" match {
             case JString("field") => obj ~ ("prompt" -> "dialogs agent* customer*") :: acc
+            case JString("query") => obj ~ ("prompt" -> queryPrompt) ~ ("value" -> "") :: acc
             case _ => obj :: acc
           }
         })

@@ -8,8 +8,7 @@ index:
     analyzer:
       whitespace_stt_analyzer:
         type: custom
-        tokenizer: ik
-        use_smart: true
+        tokenizer: whitespace
         char_filter: ['role_normalizer']
     char_filter:
       role_normalizer:

@@ -1,6 +1,7 @@
 package frontend.analysis
 
 import frontend.CollectionJsonSupport
+import frontend.analysis.cross.GetLogsRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
 import org.json4s
@@ -44,7 +45,9 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
         pathPrefix("cross") {
           implicit def toSeq(p: Option[String]): Seq[String] = p.map(_.split("""(,|\s|\+)+""").toSeq).getOrElse(Seq.empty).filter(_.trim.nonEmpty)
           path("logs") {
-            complete(ServiceUnavailable)
+            parameters('conditionSet.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, size, from) => implicit ctx =>
+              actorRefFactory.actorOf(GetLogsRequest.props(conditionSet, size, from))
+            }
           } ~
           path("source"){
             parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, includable, q, tags, size, from) => implicit ctx =>

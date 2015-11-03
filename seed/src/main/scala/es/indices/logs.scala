@@ -1,6 +1,7 @@
 package es.indices
 
 import org.elasticsearch.action.get.GetRequest
+import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
@@ -12,6 +13,19 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 object logs {
+
+  implicit class SearchRequestBuilder0(builder: SearchRequestBuilder) {
+    def setVttHighlighter = {
+      builder.addField(VttField.NAME)
+        .setHighlighterRequireFieldMatch(true)
+        .setHighlighterNumOfFragments(0)
+        .setHighlighterPreTags("<em>")
+        .setHighlighterPostTags("</em>")
+        .addHighlightedField("agent*")
+        .addHighlightedField("customer*")
+        .addHighlightedField("dialogs")
+    }
+  }
 
   def buildSourceAgg(key: String = "source")(implicit client: Client, executionContext: ExecutionContext) = {
     import elastic.ImplicitConversions._

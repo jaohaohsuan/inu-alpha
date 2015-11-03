@@ -181,6 +181,7 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
                          |    "href" : "$uri",
                          |    "links" : [
                          |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" },
+                         |     { "rel" : "logs", "href" : "${uri.withPath(uri.path / "logs")}" },
                          |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" },
                          |     { "rel" : "graph", "render" : "line", "href" : "${uri.withPath(uri.path / "graph1")}" }
                          |    ],

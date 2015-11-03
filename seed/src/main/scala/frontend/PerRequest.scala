@@ -13,8 +13,8 @@ trait PerRequest extends Actor with ActorLogging with Directives {
 
   val URI = extract(ctx => s"${ctx.request.uri}".uri)
 
-  //import scala.concurrent.duration._
-  //setReceiveTimeout(10.seconds)
+  import scala.concurrent.duration._
+  setReceiveTimeout(5.seconds)
 
   def ctx: RequestContext
 
@@ -25,12 +25,26 @@ trait PerRequest extends Actor with ActorLogging with Directives {
   private def defaultReceive: Receive = {
     case ReceiveTimeout =>
       response { complete(RequestTimeout) }
+
     case Failure(ex) =>
       log.error(ex, s"${ctx.request.uri}")
-      response { complete(InternalServerError, s"""{ "error": { "content": "${ex}" } }""") }
+      response {
+        requestUri { uri =>
+          complete(InternalServerError,
+            s"""{
+               |  "collection" : {
+               |    "version" : "1.0",
+               |    "href" : "$uri",
+               |    "error": { "message" : "${ex.getMessage}" }
+               |  }
+               |}""".stripMargin)
+        }
+      }
+
     case unexpected =>
       log.warning(s"${ctx.request.uri} $unexpected")
       response { complete(InternalServerError, s"""{ "error": { "content": "${unexpected}" } }""") }
+
   }
 
   def response(finalStep: Route): Unit = {

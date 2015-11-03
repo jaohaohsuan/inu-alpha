@@ -1,39 +1,34 @@
 package frontend.storedQuery.getRequest
 
-import akka.actor.{ActorLogging, Actor, Props}
+import akka.actor.Props
 import akka.pattern._
 import akka.util.Timeout
+import elastic.ImplicitConversions._
 import es.indices.logs.VttField
-import es.indices.storedQuery
-import es.indices.logs
+import es.indices.{logs, storedQuery}
+import es.indices.storedQuery._
 import frontend.CollectionJsonSupport.`application/vnd.collection+json`
 import frontend.{Pagination, PerRequest}
 import org.elasticsearch.action.count.CountResponse
 import org.elasticsearch.action.get.GetResponse
-import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.client.Client
-import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.index.query.{QueryBuilder, BoolQueryBuilder, QueryBuilders, MatchQueryBuilder}
-import protocol.storedQuery.Terminology._
+import org.elasticsearch.index.query.{QueryBuilder, QueryBuilders}
 import org.json4s
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
-import spray.http.Uri
-import spray.http.Uri.Path
-import storedQuery._
+import protocol.storedQuery.Terminology._
 import spray.http.StatusCodes._
+import spray.http.Uri.Path
 import spray.routing._
-import elastic.ImplicitConversions._
-import scala.language.implicitConversions
 import text.ImplicitConversions._
-import scalaz._, Scalaz._
-import scala.language.reflectiveCalls
-import scala.concurrent.duration._
-import scala.language.postfixOps
-import scala.util.{Success, Failure}
+
 import scala.collection.JavaConversions._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.language.{implicitConversions, postfixOps, reflectiveCalls}
 
 trait CollectionJsonBuilder {
   def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String
@@ -59,8 +54,8 @@ object GetStoredQueryDetailRequest {
 
 case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client ,storedQueryId: String, occur: String) extends PerRequest {
 
-  import storedQuery._
   import context.dispatcher
+  import storedQuery._
 
   lazy val getItemDetail =
     prepareGet(storedQueryId)
@@ -104,8 +99,8 @@ object GetStoredQueryRequest {
 
 case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client,  storedQueryId: String) extends PerRequest {
 
-  import storedQuery._
   import context.dispatcher
+  import storedQuery._
   implicit val formats = org.json4s.DefaultFormats
 
   lazy val getItem =
@@ -187,8 +182,8 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Cli
                                    qb: QueryBuilder,
                                    size: Int, from: Int) extends PerRequest {
 
-  import context.dispatcher
   import Pagination._
+  import context.dispatcher
   import storedQuery._
 
   implicit val timeout = Timeout(5 seconds)
@@ -235,7 +230,7 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
     import protocol.storedQuery.ImplicitJsonConversions._
     val data: JValue = clause match {
       case "named" => NamedClause("", "template", "must")
-      case "match" => MatchClause("", "dialogs", "AND", "must")
+      case "match" => MatchClause("term", "dialogs", "AND", "must")
       case "near" => SpanNearClause("hello search", "dialogs", 10, inOrder = false, "must")
     }
 
@@ -277,40 +272,53 @@ case class GetClauseTemplateRequest(ctx: RequestContext) extends PerRequest {
   }
 }
 
+
 object Preview {
-  def props(size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) =
-    Props(classOf[Preview], ctx, client, storedQueryId, size, from)
+
+  implicit class SearchRequestBuilder0(builder: SearchRequestBuilder) {
+    def setVttHighlight() =
+      builder
+        .addField(VttField.NAME)
+        .setHighlighterRequireFieldMatch(true)
+        .setHighlighterNumOfFragments(0)
+        .setHighlighterPreTags("<em>")
+        .setHighlighterPostTags("</em>")
+        .addHighlightedField("agent*")
+        .addHighlightedField("customer*")
+        .addHighlightedField("dialogs")
+  }
+
+  def props(size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client , storedQueryId: String) = {
+
+    import scala.concurrent.ExecutionContext.Implicits.global
+
+    val getQuery =
+      prepareGet(storedQueryId)
+        .setFetchSource(Array("query"), null)
+        .setTransformSource(true)
+        .execute().asFuture
+        .map { r => compact(render(parse(r.getSourceAsString) \ "query")) }
+
+    val search = for {
+      query <- getQuery
+      hits <- logs.prepareSearch()
+        .setSize(size).setFrom(from)
+        .setQuery(query).setVttHighlight().execute().asFuture
+    } yield hits
+
+    Props(classOf[Preview], ctx, client, search, size, from, Map(("_id", storedQueryId)))
+  }
+
 }
 
-case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, storedQueryId: String, size: Int, from: Int) extends PerRequest {
+case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client,
+                   search: Future[SearchResponse],
+                   size: Int, from: Int,
+                   itemUriQuery: Map[String,String]) extends PerRequest {
 
   import context.dispatcher
 
-  lazy val getQuery =
-    prepareGet(storedQueryId)
-      .setFetchSource(Array("query"), null)
-      .setTransformSource(true)
-      .execute().asFuture
-      .map{ r => compact(render(parse(r.getSourceAsString) \ "query")) }
-
-   def search(query: String) =
-     logs.prepareSearch()
-       .setSize(size).setFrom(from)
-       .setQuery(query)
-       .addField(VttField.NAME)
-       .setHighlighterRequireFieldMatch(true)
-       .setHighlighterNumOfFragments(0)
-       .setHighlighterPreTags("<em>")
-       .setHighlighterPostTags("</em>")
-       .addHighlightedField("agent*")
-       .addHighlightedField("customer*")
-       .addHighlightedField("dialogs")
-       .execute().asFuture
-
-  (for {
-    query <- getQuery
-    hits <- search(query)
-  } yield hits) pipeTo self
+  search pipeTo self
 
   def processResult: Receive = {
     case r: SearchResponse =>
@@ -325,7 +333,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
 
           val items = r.getHits.map { case logs.SearchHitHighlightFields(location, fragments) =>
             s"""{
-               |  "href" : "${uri.withPath(Path(s"/$location")).withQuery(("_id", storedQueryId))}",
+               |  "href" : "${uri.withPath(Path(s"/$location")).withQuery(itemUriQuery)}",
                |  "data" : [
                |    { "name" : "highlight", "array" : [ ${fragments.toList.sortBy { e => startTime(e) }.map { case logs.VttHighlightFragment(start, keywords) => s""""$start $keywords"""" }.mkString(",")} ] },
                |    { "name" : "keywords" , "value" : "${fragments.flatMap { _.keywords.split("""\s""") }.toSet.mkString(" ")}" }

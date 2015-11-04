@@ -2,10 +2,11 @@ package frontend
 
 import akka.actor.Status.Failure
 import akka.actor._
+import common.ImplicitActorLogging
 import spray.http.StatusCodes._
 import spray.routing._
 
-trait PerRequest extends Actor with ActorLogging with Directives {
+trait PerRequest extends Actor with ImplicitActorLogging with Directives {
 
   import context._
 

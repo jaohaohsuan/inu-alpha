@@ -113,7 +113,7 @@ case class XmlStt(agentPartyCount:    Int = 0,
 
       val begin = item.begin
       val end = item.end
-      val content = item.text.replaceAll("""\s+""", "")
+      val content = item.text//.replaceAll("""\s+""", "")
 
       acc.body transformField {
         case JField(name, JArray(arr)) if name == sentence.party =>

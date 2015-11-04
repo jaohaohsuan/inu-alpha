@@ -294,7 +294,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
       .execute().asFuture
       .map{ r => compact(render(parse(r.getSourceAsString) \ "query")) }
 
-   def search(query: String) = logs.prepareSearch().setQuery(query).setSize(size).setFrom(from)
+   def search(query: String) = logs.prepareSearch().setQuery(query).setSize(size).setFrom(from).logInfo()
 
   (for {
     query <- getQuery

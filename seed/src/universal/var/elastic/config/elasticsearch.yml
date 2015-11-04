@@ -9,7 +9,11 @@ index:
       whitespace_stt_analyzer:
         type: custom
         tokenizer: whitespace
+        use_smart: true
         char_filter: ['role_normalizer']
+    tokenizer :
+      myTokenizer1 :
+        type : whitespace
     char_filter:
       role_normalizer:
         type: pattern_replace

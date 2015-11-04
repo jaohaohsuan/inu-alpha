@@ -1,10 +1,10 @@
 package es
 
 import akka.actor.Status.Failure
-import akka.actor.{Props, ActorLogging, Actor}
+import akka.actor.{Actor, ActorLogging, Props}
+import akka.pattern._
 import elastic.ImplicitConversions._
 import es.indices._
-import akka.pattern._
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse

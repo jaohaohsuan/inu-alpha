@@ -6,12 +6,12 @@ import java.net.InetAddress
 import org.elasticsearch.common.settings.Settings.Builder
 import scala.util.Try
 
-
 case class NodeConfig(isSeed: Boolean = false,
                       isEventsStore: Boolean = false,
                       elasticsearch: Builder = Settings.settingsBuilder()
                         .put("node.data", false)
-                        .put("path.home", "./var/elastic"),
+                        .put("path.home", "./var/elastic")
+                        .put("plugin.types", "org.elasticsearch.plugin.analysis.ik.AnalysisIkPlugin"),
                       unicastHosts: Seq[String] = Seq("localhost"),
                       roles: Seq[String] = Seq.empty,
                       seedNodes: Seq[String] = Seq.empty){
@@ -29,6 +29,7 @@ case class NodeConfig(isSeed: Boolean = false,
 
   private def asConfig(): Config = {
 
+    //println(s"${classOf[org.elasticsearch.plugin.analysis.ik.AnalysisIkPlugin].getName}")
     val config: Config = load(
       getClass.getClassLoader,
       ConfigResolveOptions.defaults.setAllowUnresolved(true)

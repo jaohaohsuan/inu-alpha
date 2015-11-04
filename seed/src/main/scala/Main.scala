@@ -24,8 +24,7 @@ object Main extends App {
     implicit val node = nb.settings(c.elasticsearch).node()
 
     /*implicit val client = TransportClient.builder().build()
-      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("127.0.0.1"), 9300))
-*/
+      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("127.0.0.1"), 9300))*/
 
     log info s"Scopt: $c"
 

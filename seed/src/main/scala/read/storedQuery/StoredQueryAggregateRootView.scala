@@ -83,7 +83,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
       occur -> JArray(groupedClauses.map(boolClauseToJObject).toList) :: acc
     }
 
-    val body = pretty(render(JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*))) merge percolatorDoc))
+    val body = pretty(render(percolatorDoc merge JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*)))))
 
     storedQueryId -> body
   }

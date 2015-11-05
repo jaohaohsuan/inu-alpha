@@ -31,5 +31,9 @@ trait ImplicitActorLogging extends ActorLogging {
       log.error(f(a))
       a
     }
+    def logDebug(f: T ⇒ String = _.toString): T = {
+      log.debug(f(a))
+      a
+    }
   }
 }

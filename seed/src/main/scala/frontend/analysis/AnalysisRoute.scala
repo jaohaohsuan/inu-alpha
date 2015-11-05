@@ -62,7 +62,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
 
                   val items = itemsMap(hits).flatMap(_.map { case (id, data) =>
 
-                    val action = s"${prefix.append("include", id)}".replaceFirst("""/source""", "")
+                    val action = s"""${prefix.appendToValueOfKey("include")(id)}""".replaceFirst("""/source""", "")
                     s"""{"href":"$itemPrefix/$id","data":$data,"links":[{"href":"$action","rel":"action"}]}"""
                   })
                   val links = pagination

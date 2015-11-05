@@ -18,7 +18,7 @@ object Library {
   val akkaClusterMetrics       = "com.typesafe.akka"      %% "akka-cluster-metrics"          % Version.akka
 
   val word = "org.apdplat" % "word" % "1.3"
-  val slf4j = "org.slf4j" % "slf4j-api" % "1.7.12"
+  //val slf4j = "org.slf4j" % "slf4j-api" % "1.7.12"
   val spray                    = "io.spray"               %% "spray-can"                     % Version.spray
   val sprayRouting             = "io.spray"               %% "spray-routing"                 % Version.spray
   //val sprayTestkit             = "io.spray"               %% "spray-testkit"                 % Version.spray % "test"

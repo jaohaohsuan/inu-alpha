@@ -158,7 +158,13 @@ object logs {
     }
   }
 
+
+
   object SearchHitHighlightFields {
+
+    object Path {
+      def unapply(h: SearchHit): Option[String] = Some(s"${h.index}/${h.`type`}/${h.id}")
+    }
 
     val insideHighlightTag = """(?:<\w+\b[^>]*>)([^<>]*)(?:<\/\w+>)""".r
     // "agent0-780</c> 喂哎哎您好下<c>女士</c>是吧" extract '780' and '喂哎哎您好下<c>女士</c>是吧'
@@ -174,33 +180,24 @@ object logs {
       (highlightFragment findAllIn fragment.string()).toList//.println()
     }
 
-    def substitute(vtt: Map[String, String])(txt: String): Option[VttHighlightFragment] = {
-      txt match {
+    def substitute(vtt: Map[String, String])(txt: String): Try[VttHighlightFragment] =
+      Try(txt match {
         case highlightedSentence(cueid, highlighted) =>
           //println(s"$cueid, $highlighted")
-          (for {
+          for {
             highlightedSubtitle <- Try(vtt(cueid).replaceAll(insideTagV, s"$$1$highlighted$$2"))
-            keywords <- Try((for (m <- insideHighlightTag findAllMatchIn highlighted) yield m group 1).mkString(" "))
-            time <- Try(startTime.findFirstIn(highlightedSubtitle).get)
-          } yield VttHighlightFragment(time, keywords)) match {
-            case Failure(ex) =>
-              println(s"extract error: $highlighted ${ex}")
-              None
-            case Success(v) => Some(v)
-          }
-
-        case _ =>
-          println(s"highlightedSentence '$txt' unmatched.")
-          None
-      }
-    }
+            keywords            <- Try((for (m <- insideHighlightTag findAllMatchIn highlighted) yield m group 1).mkString(" "))
+            time                <- Try(startTime.findFirstIn(highlightedSubtitle).get)
+          } yield VttHighlightFragment(time, keywords)
+      }).flatten
 
     def unapply(value: AnyRef): Option[(String, scala.Iterable[VttHighlightFragment])]= {
       value match {
         case h: SearchHit =>
           val VttField(map) = h
-          Some((s"${h.index}/${h.`type`}/${h.id}",
-            h.highlightFields.values.flatMap(_.fragments().flatMap(splitFragment)).flatMap(substitute(map)(_))))
+          val Path(path) = h
+
+          Some((path, h.highlightFields.values.flatMap(_.fragments().flatMap(splitFragment)).flatMap(substitute(map)(_).toOption)))
         case _ => None
       }
     }

@@ -44,10 +44,8 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport {
         } ~
         pathPrefix("cross") {
           implicit def toSeq(p: Option[String]): Seq[String] = p.map(_.split("""(,|\s|\+)+""").toSeq).getOrElse(Seq.empty).filter(_.trim.nonEmpty)
-          path("logs") {
-            parameters('conditionSet.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, size, from) => implicit ctx =>
-              actorRefFactory.actorOf(GetLogsRequest.props(conditionSet, size, from))
-            }
+          path("logs") { implicit ctx =>
+              actorRefFactory.actorOf(GetLogsRequest.props)
           } ~
           path("source"){
             parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (conditionSet, includable, q, tags, size, from) => implicit ctx =>

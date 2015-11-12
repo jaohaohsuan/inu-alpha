@@ -1,5 +1,7 @@
 package frontend
 
+import java.net.URI
+
 import akka.actor.Status.Failure
 import akka.actor._
 import common.ImplicitActorLogging
@@ -12,7 +14,7 @@ trait PerRequest extends Actor with ImplicitActorLogging with Directives {
 
   implicit class stringUri(s: String) { def uri: java.net.URI = java.net.URI.create(s) }
 
-  val URI = extract(ctx => s"${ctx.request.uri}".uri)
+  val URI: Directive1[URI] = extract(ctx => s"${ctx.request.uri}".uri)
 
   import scala.concurrent.duration._
   setReceiveTimeout(5.seconds)

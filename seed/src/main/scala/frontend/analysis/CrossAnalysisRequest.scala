@@ -1,33 +1,31 @@
 package frontend.analysis
 
-import akka.pattern._
 import akka.actor.Props
-import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.index.query.QueryBuilder
+import akka.pattern._
+import elastic.ImplicitConversions._
 import es.indices.storedQuery._
 import es.indices.{logs, storedQuery}
-import elastic.ImplicitConversions._
-import scala.collection.JavaConversions._
 import frontend.PerRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
-import org.elasticsearch.index.query.{WrapperQueryBuilder, QueryBuilders}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.{QueryBuilder, QueryBuilders, WrapperQueryBuilder}
 import org.elasticsearch.search.SearchHit
+import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
-import org.elasticsearch.search.aggregations.{Aggregations, AggregationBuilder, Aggregation, AggregationBuilders}
-import org.elasticsearch.search.aggregations.bucket.filters.{FiltersAggregationBuilder, Filters}
+import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAggregationBuilder}
 import org.json4s.JsonAST._
-import org.json4s.{Formats, DefaultFormats}
-import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
+import org.json4s.native.JsonMethods._
+import org.json4s.{DefaultFormats, Formats}
 import spray.http.StatusCodes._
 import spray.http.Uri
-import spray.http.Uri.Path
-import scala.util.{Try}
 import spray.routing.RequestContext
+import frontend.UriImplicitConversions._
+import scala.collection.JavaConversions._
 import scala.concurrent.Future
 import scala.language.implicitConversions
+import scala.util.Try
 
 object Condition {
 
@@ -114,14 +112,15 @@ object CrossAnalysisRequest {
 
 object CrossAnalysisSourceRequest {
 
-  import org.elasticsearch.index.query.QueryBuilders._
+  import common.ImplicitPrint._
   import es.indices.storedQuery._
+  import org.elasticsearch.index.query.QueryBuilders._
 
   def props(exclude: Seq[String], bodyBuilder: CollectionJsonBuilder)(queryString: Option[String] = None,
                                    queryTags: Option[String] = None,
                                    size: Int = 10, from: Int = 0)
                                    (implicit ctx: RequestContext, client: org.elasticsearch.client.Client) = {
-    println(s"CrossAnalysisSourceRequest.props $exclude")
+    s"CrossAnalysisSourceRequest.props $exclude".println()
     Props(classOf[QueryStoredQueryRequest],
       ctx, client,
       bodyBuilder,
@@ -134,14 +133,15 @@ object CrossAnalysisSourceRequest {
 case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], include: Seq[String], exclude: Seq[String])
   extends PerRequest {
 
-  import storedQuery._
-  import scala.collection.JavaConversions._
   import akka.pattern._
   import context.dispatcher
+  import storedQuery._
+
+  import scala.collection.JavaConversions._
   implicit def json4sFormats: Formats = DefaultFormats
   implicit def seqToSet(value: Seq[String]): ConditionSet = new ConditionSet(value)
 
-  //log.info(s"conditionSet=$conditionSet, include=$include, exclude=$exclude")
+  s"conditionSet=$conditionSet, include=$include, exclude=$exclude".logDebug()
 
   lazy val fetchStoredQueries =
     prepareSearch
@@ -164,31 +164,43 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
     case xs: Seq[_] =>
       response {
         requestUri { uri =>
-          val items = xs.map { case Condition(storedQueryId, title, _, state, _, hits) =>
+          parameters('type.?) { typ =>
 
-            implicit def toLink(id: String): FurtherLinks = new FurtherLinks(uri,id)
-            //{ "rel" : "more", "href" : "${uri.withPath(uri.path / "logs")}" },
-            val links = (storedQueryId.action0(state) :: storedQueryId.action1(state) :: Nil).filter(_.nonEmpty).mkString(",")
-            s"""{
-                 | "data" : [ { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"} ],
-                 | "links" : [ $links ]
-                 |}""".stripMargin
-            }.mkString(",")
+            val items = xs.map { case Condition(storedQueryId, title, _, state, _, hits) =>
 
-          complete(OK, s"""{
-                         |  "collection" : {
-                         |    "version" : "1.0",
-                         |    "href" : "$uri",
-                         |    "links" : [
-                         |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" },
-                         |     { "rel" : "logs", "href" : "${uri.withPath(uri.path / "logs")}" },
-                         |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" },
-                         |     { "rel" : "graph", "render" : "line", "href" : "${uri.withPath(uri.path / "graph1")}" }
-                         |    ],
-                         |
-                         |    "items" : [ $items ]
-                         |  }
-                         |}""".stripMargin)
+              implicit def toLink(id: String): FurtherLinks = new FurtherLinks(uri,id)
+
+              val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
+
+              val logs = title match {
+                case "set" => typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
+                  .getOrElse(List(logsLink.format("*", uri.withPath(uri.path / "logs"))))
+                case _ => List.empty
+              }
+
+              log.debug(s"$uri extracted type is ${typ.getOrElse("")}")
+
+              val links = (storedQueryId.action0(state) :: storedQueryId.action1(state) :: logs).filter(_.nonEmpty).mkString(",")
+              s"""{
+                   | "data" : [ { "name" : "hits", "value" : $hits }, { "name" : "title", "value" : "$title" }, { "name" : "state", "value" : "$state"} ],
+                   | "links" : [ $links ]
+                   |}""".stripMargin
+              }.mkString(",")
+
+            complete(OK, s"""{
+                           |  "collection" : {
+                           |    "version" : "1.0",
+                           |    "href" : "$uri",
+                           |    "links" : [
+                           |     { "rel" : "source", "href" : "${uri.withPath(uri.path / "source")}" },
+                           |     { "rel" : "graph", "render" : "bar", "href" : "${uri.withPath(uri.path / "graph0")}" },
+                           |     { "rel" : "graph", "render" : "line", "href" : "${uri.withPath(uri.path / "graph1")}" }
+                           |    ],
+                           |
+                           |    "items" : [ $items ]
+                           |  }
+                           |}""".stripMargin)
+          }
         }
       }
     case ex: Exception =>
@@ -225,9 +237,9 @@ object ConditionSetBarChartRequest {
 
 case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String]) extends PerRequest {
 
-  import storedQuery._
   import akka.pattern._
   import context.dispatcher
+  import storedQuery._
   implicit def json4sFormats: Formats = DefaultFormats
 
   def buildStoredQueryAgg(source: FiltersAggregationBuilder) =

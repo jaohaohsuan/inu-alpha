@@ -23,6 +23,7 @@ object Library {
   val sprayRouting             = "io.spray"               %% "spray-routing"                 % Version.spray
   //val sprayTestkit             = "io.spray"               %% "spray-testkit"                 % Version.spray % "test"
   val logbackClassic           = "ch.qos.logback"         %  "logback-classic"               % "1.1.3"
+  val scalaLogging             = "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   //val sigar                    = "org.fusesource"         %  "sigar"                         % "1.6.4" classifier("native") classifier("")
   val json4sNative             = "org.json4s"             %% "json4s-native"                 % "3.2.10"
   val scalaJsonCollection      = "net.hamnaberg.rest"     %% "scala-json-collection"         % "2.3"

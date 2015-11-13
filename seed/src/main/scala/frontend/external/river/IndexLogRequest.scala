@@ -16,6 +16,8 @@ import scala.xml.{Elem, Node, NodeSeq}
 import scala.util.{ Try, Success, Failure }
 import akka.pattern._
 
+case class Roles(values: Seq[Elem])
+
 object IndexLogRequest {
 
   def props(id: String, index: String)(implicit ctx: RequestContext, client: Client) = {
@@ -35,8 +37,8 @@ case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id:
 
     //警告：保存的json無法被保證欄位的正確性
 
-    case roles: Seq[Elem] =>
-      def f: XmlStt = roles.foldLeft(XmlStt())(_ append _).asResult
+    case Roles(values) =>
+      def f: XmlStt = values.foldLeft(XmlStt())(_ append _).asResult
       Try(f) match {
         case Success(doc) =>
           client.prepareIndex(s"logs-$index", "ami-l8k")

@@ -4,6 +4,7 @@ import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.common.text.Text
 import org.elasticsearch.search.aggregations.AggregationBuilders
@@ -24,6 +25,16 @@ object logs {
         .addHighlightedField("agent*")
         .addHighlightedField("customer*")
         .addHighlightedField("dialogs")
+    }
+  }
+
+  implicit class String0(value: Option[String]) {
+    def asTypeQuery = {
+      value match {
+        case None => boolQuery()
+        case Some(value) =>
+          boolQuery().filter(value.split("""(\s+|,)""").foldLeft(boolQuery()){ (acc, t) => acc.should(QueryBuilders.typeQuery(t))})
+      }
     }
   }
 

@@ -38,7 +38,7 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
             r1 <- storedQuery.mapping.asFuture
             r2 <- storedQuery.putSourceMapping("ytx").asFuture
             r3 <- storedQuery.putSourceMapping("ami-l8k").asFuture
-          } yield StoredQueryMappingResponse(Seq(r1,r2))
+          } yield StoredQueryMappingResponse(Seq(r1, r2, r3))
 
       } pipeTo self
 
@@ -48,8 +48,8 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
       log.info(s"index created")
       sender ! IndexScan
 
-    case r: StoredQueryMappingResponse =>
-      log.info(s"$r")
+    case StoredQueryMappingResponse(responses) =>
+      log.info(s"$responses")
 
     case r: PutMappingResponse if r.isAcknowledged =>
       log.info(s"mapping updated")

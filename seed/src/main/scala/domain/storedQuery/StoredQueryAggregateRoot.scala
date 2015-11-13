@@ -6,12 +6,10 @@ import common.ImplicitActorLogging
 import protocol.storedQuery._
 import domain.algorithm.TopologicalSort
 import protocol.storedQuery.Terminology._
+import domain._
 
 import scala.util.{Failure, Success, Try}
 
-sealed trait Event
-sealed trait State
-sealed trait Command
 
 object StoredQueryAggregateRoot {
 

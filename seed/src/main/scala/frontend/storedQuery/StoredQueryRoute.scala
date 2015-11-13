@@ -15,7 +15,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
 
   implicit def client: org.elasticsearch.client.Client
-  implicit val executionContext = actorRefFactory.dispatcher
+  implicit private val executionContext = actorRefFactory.dispatcher
 
   def clausePath[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
     path(name) {

@@ -9,9 +9,6 @@ import spray.routing.RequestContext
 import frontend.PerRequest
 import scala.language.implicitConversions
 
-object NewTemplateImplicits {
-  implicit def optionStringToSet(value : Option[String]) = value.map { _.split("""\s+""").toSet }.getOrElse(Set.empty)
-}
 
 case class NewTemplate(title: String, tags: Option[String]){
   require( title.nonEmpty )
@@ -22,8 +19,6 @@ object NewTemplateRequest {
     Props(classOf[NewTemplateRequest], ctx, e, referredId)
 }
 case class NewTemplateRequest(ctx: RequestContext, e: NewTemplate, referredId: Option[String] = None) extends PerRequest {
-
-  import NewTemplateImplicits._
 
   context.actorSelection("/user/aggregateRootProxy") ! CreateNewStoredQuery(e.title, referredId, e.tags)
 

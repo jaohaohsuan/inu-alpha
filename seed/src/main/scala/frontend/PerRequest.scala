@@ -11,6 +11,9 @@ import spray.routing._
 trait PerRequest extends Actor with ImplicitActorLogging with Directives {
 
   import context._
+  import scala.language.implicitConversions
+
+  implicit def optionStringToSet(value : Option[String]): Set[String] = value.map { _.split("""\s+""").toSet }.getOrElse(Set.empty)
 
   implicit class stringUri(s: String) { def uri: java.net.URI = java.net.URI.create(s) }
 

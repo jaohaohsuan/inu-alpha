@@ -22,7 +22,7 @@ def InuProject(name: String): Project = Project(name, file(name))
 
 
 lazy val common = InuProject("common").settings(
-  libraryDependencies ++= Seq(elasticsearch)
+  libraryDependencies ++= Seq(elasticsearch, scalaLogging)
 )
 
 lazy val protocol = InuProject("protocol")

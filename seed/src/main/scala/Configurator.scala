@@ -5,6 +5,7 @@ import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerS
 import akka.io.IO
 import akka.pattern._
 import akka.util.Timeout
+import domain.storedFilter.StoredFilterAggregateRoot
 import domain.storedQuery.StoredQueryAggregateRoot
 import frontend.ServiceActor
 import spray.can.Http
@@ -29,6 +30,13 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
           terminationMessage = PoisonPill,
           settings = ClusterSingletonManagerSettings(system)),
           name = protocol.storedQuery.NameOfAggregate.Root)
+
+        system.actorOf(ClusterSingletonManager.props(
+          singletonProps = Props(classOf[StoredFilterAggregateRoot]),
+          terminationMessage = PoisonPill,
+          settings = ClusterSingletonManagerSettings(system)),
+          name = s"${protocol.storedFilter.NameOfAggregate.root}"
+        )
       }
 
       if(m.hasRole("sync")) {
@@ -53,6 +61,10 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
           settings = ClusterSingletonProxySettings(system)
         ), protocol.storedQuery.NameOfAggregate.view.proxy)
 
+        system.actorOf(ClusterSingletonProxy.props(
+          singletonManagerPath = protocol.storedFilter.NameOfAggregate.root.manager,
+          settings = ClusterSingletonProxySettings(system)
+        ), name = protocol.storedFilter.NameOfAggregate.root.proxy)
 
         val service = system.actorOf(Props(classOf[ServiceActor], client), "service")
         IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)

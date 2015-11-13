@@ -3,6 +3,7 @@ package frontend.external.river
 import java.io.{ByteArrayInputStream, InputStreamReader}
 
 import com.typesafe.config.ConfigFactory
+import frontend.ImplicitHttpServiceLogging
 import org.joda.time.DateTime
 import org.json4s.JsonAST.JValue
 import org.json4s._
@@ -27,14 +28,12 @@ import scala.xml._
 /**
  * Created by henry on 10/5/15.
  */
-trait ImportRoute extends HttpService with Json4sSupport {
+trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
 
   def extractUser(userPass: UserPass): String = userPass.user
   val config = ConfigFactory.parseString("atlas = subaru")
-
-  implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   implicit val NodeSeqUnmarshaller =
     Unmarshaller[NodeSeq](ContentTypeRange(`application/xml`, `UTF-8`)) {
@@ -46,7 +45,7 @@ trait ImportRoute extends HttpService with Json4sSupport {
 
   var handleAllExceptions = ExceptionHandler {
     case ex: Exception =>
-      log.error(ex, "MatchError")
+      "MatchError".logError(ex)()
       complete(BadRequest, s"""{
                               |  "error" :
                               |  {
@@ -76,11 +75,11 @@ trait ImportRoute extends HttpService with Json4sSupport {
             respondWithMediaType(`application/json`) {
               entity(as[NodeSeq]) { nodeSeq =>
                 authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName => implicit ctx =>
-                  val node = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
+                  val node: Option[Seq[Elem]] = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
                     .map(_.child.collect { case e: Elem => e })
                   node match {
-                    case Some(roles) =>
-                      actorRefFactory.actorOf(IndexLogRequest.props(id, s"${getIndex()}")) ! roles
+                    case Some(elems) =>
+                      actorRefFactory.actorOf(IndexLogRequest.props(id, s"${getIndex()}")) ! Roles(elems)
                     case None =>
                       ctx.complete(BadRequest,
                         s"""{

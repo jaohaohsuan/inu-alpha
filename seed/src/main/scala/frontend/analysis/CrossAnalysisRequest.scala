@@ -9,7 +9,7 @@ import frontend.PerRequest
 import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.{QueryBuilder, QueryBuilders, WrapperQueryBuilder}
+import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders, WrapperQueryBuilder}
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
@@ -41,11 +41,11 @@ object Condition {
 
 case class Condition(storedQueryId: String, title: String, query: String, state: String = "", conditions: Iterable[String], hits: Long = 0) {
 
-  def count(implicit queries: Map[String, Condition], client: Client) = {
+  def count(implicit queries: Map[String, Condition], filter: QueryBuilder, client: Client) = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val qb = conditions.flatMap(queries.get).foldLeft(boolQuery()){ (acc, c) => acc.must(wrapperQuery(c.query)) }
     client.prepareCount("logs*")
-      .setQuery(qb)
+      .setQuery(qb.filter(filter))
       .execute().asFuture.map { resp =>
       //set hits
       queries.getOrElse(storedQueryId, this).copy(hits = resp.getCount, state = state)
@@ -130,7 +130,8 @@ object CrossAnalysisSourceRequest {
 
 }
 
-case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client, conditionSet: Seq[String], include: Seq[String], exclude: Seq[String])
+case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.elasticsearch.client.Client,
+                                conditionSet: Seq[String], include: Seq[String], exclude: Seq[String])
   extends PerRequest {
 
   import akka.pattern._
@@ -152,13 +153,19 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
         resp.getHits.foldLeft(Map.empty[String, Condition]){ (acc, h) => acc + (h.id() -> Condition(h))}
       }
 
-  fetchStoredQueries.flatMap { implicit queries =>
+  lazy val process = parameters('type.?) { typ => _ =>
+    fetchStoredQueries.flatMap { implicit queries =>
+      import es.indices.logs._
+      implicit val filter: BoolQueryBuilder = typ.asTypeQuery
       for {
         excluded <- Future.traverse(exclude) { c => conditionSet.exclude(c).count }
         included <- Future.traverse(include) { c => conditionSet.include(c).count }
         set <- conditionSet.all.count
       } yield (excluded ++ included).:+(set)
     } pipeTo self
+  }
+
+  process(ctx)
 
   def processResult: Receive = {
     case xs: Seq[_] =>
@@ -340,6 +347,7 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
              filters.getBuckets.foldLeft(zero){ (acc1, b1) =>
                JObject("label" -> JString(s"${b1.getKey}"), "y" -> JInt(b1.getDocCount), "x" -> JInt(acc1.size)) :: acc1
              }
+           case _ => zero
          }.getOrElse(zero).reverse
 
           acc0 :+ JObject(List("key" -> JString(s"${b0.getKey}"), "values" -> JArray(arr)))

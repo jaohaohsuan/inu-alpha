@@ -36,7 +36,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   var tags = StringMapHolder(Map.empty)
 
   val source = readJournal
-    .eventsByPersistenceId(NameOfAggregate.Root)
+    .eventsByPersistenceId(NameOfAggregate.root.name)
     .mapConcat(flatten)
 
   def flatten(envelope: EventEnvelope) = {

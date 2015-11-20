@@ -9,6 +9,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
   implicit private val executionContext = actorRefFactory.dispatcher
 
   lazy val `_filter/`: Route = {
+
     path("_filter") {
       post { implicit ctx =>
         actorRefFactory.actorOf(NewFilterRequest.props)

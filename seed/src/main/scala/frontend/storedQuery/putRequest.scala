@@ -14,7 +14,7 @@ object UpdateStoredQueryItemRequest {
 
 case class UpdateStoredQueryItemRequest(ctx: RequestContext, storedQueryId: String, title: String, tags: Option[String]) extends PerRequest {
 
-  context.actorSelection("/user/aggregateRootProxy") ! UpdateStoredQuery(storedQueryId, title, tags)
+  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! UpdateStoredQuery(storedQueryId, title, tags)
 
   def processResult = {
     case UpdatedAck =>

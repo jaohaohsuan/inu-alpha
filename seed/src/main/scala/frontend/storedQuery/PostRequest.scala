@@ -20,7 +20,7 @@ object NewTemplateRequest {
 }
 case class NewTemplateRequest(ctx: RequestContext, e: NewTemplate, referredId: Option[String] = None) extends PerRequest {
 
-  context.actorSelection("/user/aggregateRootProxy") ! CreateNewStoredQuery(e.title, referredId, e.tags)
+  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! CreateNewStoredQuery(e.title, referredId, e.tags)
 
   def processResult = {
     case ItemCreated(StoredQuery(id, title, _, _), _)  =>
@@ -70,7 +70,7 @@ object AddClauseRequest {
 
 case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: BoolClause) extends PerRequest {
 
-  context.actorSelection("/user/aggregateRootProxy") ! AddClause(storedQueryId, clause)
+  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! AddClause(storedQueryId, clause)
 
   def processResult = {
 

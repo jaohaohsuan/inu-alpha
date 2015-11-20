@@ -2,13 +2,8 @@ package frontend.external.river
 
 import java.io.{ByteArrayInputStream, InputStreamReader}
 
-import com.typesafe.config.ConfigFactory
 import frontend.ImplicitHttpServiceLogging
-import org.joda.time.DateTime
-import org.json4s.JsonAST.JValue
 import org.json4s._
-import org.json4s.native.JsonMethods._
-import river.ami.XmlStt
 import spray.http.HttpCharsets._
 import spray.http.MediaTypes._
 import spray.http.StatusCodes._
@@ -16,24 +11,15 @@ import spray.http.{ContentTypeRange, HttpEntity}
 import spray.httpx.Json4sSupport
 import spray.httpx.unmarshalling.Unmarshaller
 import spray.routing._
-import spray.routing.authentication.{BasicAuth, UserPass}
-import spray.util.LoggingContext
-import akka.pattern._
-import org.json4s.native.JsonMethods._
-import org.json4s._
+import spray.routing.authentication.BasicAuth
+
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{ Try, Success, Failure }
 import scala.xml._
 
-/**
- * Created by henry on 10/5/15.
- */
+
 trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
-
-  def extractUser(userPass: UserPass): String = userPass.user
-  val config = ConfigFactory.parseString("atlas = subaru")
 
   implicit val NodeSeqUnmarshaller =
     Unmarshaller[NodeSeq](ContentTypeRange(`application/xml`, `UTF-8`)) {
@@ -73,8 +59,8 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
         datetimeExtractorDirective(id) { getIndex =>
           put {
             respondWithMediaType(`application/json`) {
-              entity(as[NodeSeq]) { nodeSeq =>
-                authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName => implicit ctx =>
+              entity(as[NodeSeq]) { nodeSeq =>  implicit ctx =>
+                //authenticate(BasicAuth(realm = "river")) { userName =>
                   val node: Option[Seq[Elem]] = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
                     .map(_.child.collect { case e: Elem => e })
                   node match {
@@ -92,7 +78,7 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
                              |}
                      """.stripMargin)
                     }
-                  }
+                  //}
                 }
               }
           } ~
@@ -107,12 +93,12 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
       handleExceptions(handleAllExceptions){
         datetimeExtractorDirective(id) { getIndex =>
           put {
-            authenticate(BasicAuth(realm = "river", config, extractUser _)) { userName =>
+            //authenticate(BasicAuth(realm = "river")) { userName =>
               entity(as[JObject]) { obj => implicit ctx =>
                 //log.info(s"$obj")
                 ctx.complete(OK)
               }
-            }
+            //}
           }
         }
       }

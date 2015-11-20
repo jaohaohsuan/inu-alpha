@@ -19,19 +19,14 @@ object Main extends App {
     implicit val system = ActorSystem(c.clusterName, c.config)
     import system._
 
-    val nb: NodeBuilder = org.elasticsearch.node.NodeBuilder.nodeBuilder()
-
-    implicit val node = nb.settings(c.elasticsearch).node()
-
-    /*implicit val client = TransportClient.builder().build()
-      .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("127.0.0.1"), 9300))*/
+    implicit val node = org.elasticsearch.node.NodeBuilder.nodeBuilder().settings(c.elasticsearch).node()
+    implicit val client = node.client()
 
     log info s"Scopt: $c"
 
+    actorOf(Props(classOf[Configurator], client), Configurator.Name)
 
-    actorOf(Props(classOf[Configurator], node.client), Configurator.Name)
-
-    actorOf(es.Configurator.props(node.client)) ! IndexScan
+    actorOf(es.Configurator.props) ! IndexScan
 
     if(c.isEventsStore) {
       actorOf(Props[LeveldbJournalListener])

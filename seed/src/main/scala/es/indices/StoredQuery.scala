@@ -1,18 +1,16 @@
 package es.indices
 
 import elastic.ImplicitConversions._
-import org.elasticsearch.action.ListenableActionFuture
-import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequestBuilder, IndicesExistsResponse}
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequestBuilder
-import org.elasticsearch.action.get.{GetRequest, GetRequestBuilder}
-import org.elasticsearch.action.index.IndexResponse
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequestBuilder
+import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.{MatchQueryBuilder, BoolQueryBuilder, QueryBuilders}
-import scala.collection.JavaConversions._
+import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
+import org.json4s.JsonAST.JString
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.collection.JavaConversions._
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 object storedQuery {
 

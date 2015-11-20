@@ -4,6 +4,8 @@ case class StoredFilter(title: String = "",
                         id: String = "",
                         source: String = "", field: String = "")
 
-trait TermLevelQueries
+sealed trait TermLevelQueries
+
+object EmptyQuery extends TermLevelQueries
 
 case class RangeQuery(gte: String, gt: String, lte: String, lt: String) extends TermLevelQueries

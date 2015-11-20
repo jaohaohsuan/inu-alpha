@@ -3,15 +3,15 @@ package es.indices
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
+import org.elasticsearch.common.text.Text
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.common.text.Text
 import org.elasticsearch.search.aggregations.AggregationBuilders
+
 import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext
-
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object logs {
 
@@ -112,6 +112,13 @@ object logs {
     |          "gameType": { "type": "string", "index": "not_analyzed" },
     |          "recordRang": { "type": "long" },
     |          "recordTime": { "type": "date" }
+    |        },
+    |        "_meta" : {
+    |           "properties" : {
+    |             "agentTeamName" : {
+    |               "queries" : [ "term", "terms"]
+    |             }
+    |           }
     |        }
     |      }
   """.stripMargin
@@ -139,6 +146,7 @@ object logs {
   object VttField {
 
     import org.elasticsearch.action.get.GetResponse
+
     import scala.collection.JavaConversions._
 
     val NAME = "vtt"

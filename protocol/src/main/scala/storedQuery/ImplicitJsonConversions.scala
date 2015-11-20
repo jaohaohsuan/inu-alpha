@@ -4,7 +4,6 @@ import net.hamnaberg.json.collection.data.JavaReflectionData
 import org.json4s.JsonAST.JString
 import org.json4s._
 import scala.language.implicitConversions
-import org.json4s.JsonDSL._
 
 object ImplicitJsonConversions {
 

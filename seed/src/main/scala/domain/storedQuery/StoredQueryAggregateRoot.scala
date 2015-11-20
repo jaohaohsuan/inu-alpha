@@ -96,7 +96,7 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
 
   import StoredQueryAggregateRoot._
 
-  val persistenceId: String = NameOfAggregate.Root
+  val persistenceId: String = NameOfAggregate.root.name
 
   var state: StoredQueries = StoredQueries()
 

@@ -29,7 +29,7 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
           singletonProps = Props(classOf[StoredQueryAggregateRoot]),
           terminationMessage = PoisonPill,
           settings = ClusterSingletonManagerSettings(system)),
-          name = protocol.storedQuery.NameOfAggregate.Root)
+          name = s"${protocol.storedQuery.NameOfAggregate.root}")
 
         system.actorOf(ClusterSingletonManager.props(
           singletonProps = Props(classOf[StoredFilterAggregateRoot]),
@@ -52,9 +52,9 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
 
       if(m.hasRole("web")) {
         system.actorOf(ClusterSingletonProxy.props(
-          singletonManagerPath = s"/user/${protocol.storedQuery.NameOfAggregate.Root}",
+          singletonManagerPath = protocol.storedQuery.NameOfAggregate.root.manager,
           settings = ClusterSingletonProxySettings(system)
-        ), name = "aggregateRootProxy") ! StoredQueryAggregateRoot.Initial
+        ), name = protocol.storedQuery.NameOfAggregate.root.proxy) ! StoredQueryAggregateRoot.Initial
 
         system.actorOf(ClusterSingletonProxy.props(
           singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,

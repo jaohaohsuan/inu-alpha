@@ -13,7 +13,7 @@ object RemoveClauseRequest {
 
 case class RemoveClauseRequest(ctx: RequestContext, storedQueryId: String, clauseId: Int) extends PerRequest {
 
-  context.actorSelection("/user/aggregateRootProxy") ! RemoveClauses(storedQueryId, List(clauseId))
+  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! RemoveClauses(storedQueryId, List(clauseId))
 
   def processResult: Receive = {
     case ClausesRemovedAck =>
@@ -35,7 +35,7 @@ object ResetOccurrenceRequest {
 
 case class ResetOccurrenceRequest(ctx: RequestContext, storedQueryId: String, occurrence: String) extends PerRequest {
 
-  context.actorSelection("/user/aggregateRootProxy") ! ResetOccurrence(storedQueryId, occurrence)
+  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! ResetOccurrence(storedQueryId, occurrence)
 
   def processResult: Receive = {
     case ClausesRemovedAck =>

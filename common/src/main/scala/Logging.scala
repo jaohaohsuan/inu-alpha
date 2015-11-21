@@ -31,8 +31,8 @@ trait ImplicitLogging extends LazyLogging {
       logger.warn(f(a))
       a
     }
-    def logError(f: T ⇒ String = _.toString): T = {
-      logger.error(f(a))
+    def logError(f: T ⇒ String = _.toString)(e: Throwable): T = {
+      logger.error(f(a), e)
       a
     }
     def logDebug(f: T ⇒ String = _.toString): T = {

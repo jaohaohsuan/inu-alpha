@@ -80,7 +80,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
 
     val occurs = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List.empty[JField]){ (acc, e) =>
       val (occur, groupedClauses) = e
-      occur -> JArray(groupedClauses.map(boolClauseToJObject).toList) :: acc
+      occur -> JArray(groupedClauses.map(boolClauseCollectionItem).toList) :: acc
     }
 
     val body = pretty(render(percolatorDoc merge JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*)))))

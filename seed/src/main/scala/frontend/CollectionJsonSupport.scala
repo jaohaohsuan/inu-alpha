@@ -14,7 +14,7 @@ object CollectionJsonSupport {
   val `application/vnd.collection+json` = MediaTypes.register(MediaType.custom("application/vnd.collection+json"))
 }
 
-trait CollectionJsonSupport extends Json4sSupport with ImplicitLogging {
+trait CollectionJsonSupport extends Json4sSupport {
 
   import CollectionJsonSupport._
 

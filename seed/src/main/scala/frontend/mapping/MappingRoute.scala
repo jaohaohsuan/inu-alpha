@@ -29,15 +29,8 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
   def getTemplate: Future[ImmutableOpenMap[String, CompressedXContent]] =
       logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
 
-  val template: Directive1[ImmutableOpenMap[String, CompressedXContent]] = onSuccess(getTemplate)
+  def template = onSuccess(getTemplate)
   def mapping(typ: String): Directive1[JValue] = onSuccess(getTemplate.map { x => parse(s"${x.get(typ)}") \ typ })
-
-  val `collection+json`: Directive1[JObject] = requestUri.hmap {
-    case uri :: HNil => "collection" ->
-      ("version" -> "1.0") ~~
-        ("href" -> s"$uri") ~~
-        ("items" -> List()): JObject
-  }
 
   def termLevelQuerySyntax(dataType: String = "string")(query: String): List[JValue] = {
     val sampleValue: JValue = dataType match {
@@ -63,8 +56,8 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
       requestUri {  uri =>
         pathPrefix( "_mapping" ) {
           pathEnd {
-            template { mappings =>
-              `collection+json` { json =>
+            `collection+json` { json =>
+              template { mappings =>
                 complete(OK, json.mapField {
                   case ("items", _) => ("items" -> mappings.map( m =>
                     ("href" -> s"${uri}/${m.key}") ~~

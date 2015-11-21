@@ -1,14 +1,14 @@
 package frontend.storedFilter
 
-import frontend.{ImplicitHttpServiceLogging, CollectionJsonSupport}
+import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
 import spray.routing._
 
 trait StoredFilterRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
 
-  lazy val `_filter/`: Route = {
 
+  lazy val `_filter/`: Route = {
     path("_filter") {
       post { implicit ctx =>
         actorRefFactory.actorOf(NewFilterRequest.props)
@@ -19,7 +19,9 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
         }
       } ~
       get {
-        complete(spray.http.StatusCodes.OK)
+        `collection+json` { json =>
+          complete(spray.http.StatusCodes.OK, json)
+        }
       }
     }
   }

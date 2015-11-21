@@ -1,22 +1,28 @@
 package frontend.mapping
 
 import common.ImplicitLogging
-import frontend.{CollectionJsonSupport}
+import frontend.{ImplicitHttpServiceLogging, CollectionJsonSupport}
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData
 import org.elasticsearch.common.collect.ImmutableOpenMap
 import org.elasticsearch.common.compress.CompressedXContent
-import spray.routing.{Directive1, Route, HttpService}
+import org.json4s._
+import org.json4s.JsonAST.JValue
+import shapeless.HNil
+import spray.http.Uri
+import spray.routing.{Directive, Directive1, Route, HttpService}
 import spray.http.StatusCodes._
 import elastic.ImplicitConversions._
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Try, Success}
 import es.indices.logs
-import org.json4s._
+import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
+import shapeless._
+import spray.routing._
+import Directives._
 
-trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitLogging {
+trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
 
@@ -26,64 +32,77 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitL
   val template: Directive1[ImmutableOpenMap[String, CompressedXContent]] = onSuccess(getTemplate)
   def mapping(typ: String): Directive1[JValue] = onSuccess(getTemplate.map { x => parse(s"${x.get(typ)}") \ typ })
 
+  val `collection+json`: Directive1[JObject] = requestUri.hmap {
+    case uri :: HNil => "collection" ->
+      ("version" -> "1.0") ~~
+        ("href" -> s"$uri") ~~
+        ("items" -> List()): JObject
+  }
+
+  def termLevelQuerySyntax(dataType: String = "string")(query: String): List[JValue] = {
+    val sampleValue: JValue = dataType match {
+      case "int" => JInt(0)
+      case "long" => JInt(0)
+      case "date" => JString("2015-12-31")
+      case "string" => JString("word")
+      case _ => JNull
+    }
+
+    val values =  query match {
+      case "terms" => ("name" -> "value") ~~ ("array" -> List(sampleValue)) :: Nil
+      case "term" => ("name" -> "value") ~~ ("value" -> sampleValue) :: Nil
+      case "range" => ("name" -> "gte") ~~ ("value" -> sampleValue) :: ("name" -> "lte") ~~ ("value" -> sampleValue) :: Nil
+      case _ => Nil
+    }
+
+    ("name" -> "query") ~~ ("value" -> query) :: values
+  }
+
   lazy val `_mapping/`: Route =
     get {
       requestUri {  uri =>
         pathPrefix( "_mapping" ) {
           pathEnd {
-            template { mappings => ctx =>
-
-              val types = mappings.map(m =>
-                s"""{
-                   | "href" : "${uri}/${m.key}",
-                   | "data" : [
-                   |   { "name" : "type" , "value" : "${m.key}"}
-                   | ]
-                   |}""".stripMargin).mkString(",")
-
-              ctx.complete(OK, s"""
-                                  | {
-                                  |   "collection" : {
-                                  |     "version" : "1.0",
-                                  |     "href" : "$uri",
-                                  |     "items" : [ $types ]
-                                  |   }
-                                  | }
-                                  | """.stripMargin)
+            template { mappings =>
+              `collection+json` { json =>
+                complete(OK, json.mapField {
+                  case ("items", _) => ("items" -> mappings.map( m =>
+                    ("href" -> s"${uri}/${m.key}") ~~
+                      ("data" -> List(("name" -> "type") ~~ ("value" -> s"${m.key}")))))
+                  case x => x
+                })
+              }
             }
           } ~ pathPrefix( Segment ) { typ =>
                 mapping(typ) { mapping =>
-                    pathEnd { ctx =>
-                      val JsonAST.JObject(xs) = mapping \ "properties"
-                      val properties = xs.map {
-                        case (field, detail) =>
-                          s"""{
-                             | "href" : "$uri/$field",
-                             | "data" : [
-                             |   { "name" : "field", "value" : "$field" },
-                             |   { "name" : "type", "value" : "${(detail \\ "type").extract[String]}" }
-                             | ]
-                             |}""".stripMargin
-                      }.mkString(",")
-
-                      val content = s"""{
-                                       | "collection" : {
-                                       |   "version" : "1.0",
-                                       |   "href" : "${uri}",
-                                       |   "items" : [ $properties ]
-                                       | }
-                                       |}""".stripMargin
-
-                      ctx.complete(OK, content)
+                    pathEnd {
+                      `collection+json`{ json =>
+                        val JsonAST.JObject(properties) = mapping \ "properties"
+                        complete(OK, json.mapField {
+                          case ("items", _) => ("items" -> properties.map {
+                            case (field, detail) =>
+                              ("href" -> s"$uri/$field") ~~
+                                ("data" -> List(
+                                  ("name" -> "field") ~~ ("value" -> s"$field"),
+                                  ("name" -> "type") ~~ ("value" -> s"${(detail \\ "type").extract[String]}")
+                                ))
+                          })
+                          case x => x
+                        })
+                      }
                     } ~ pathPrefix( Segment ) { field =>
                           pathEnd {
-                            val links = mapping \ "_meta" \ "properties" \ field \ "queries" match {
-                              case JArray(xs) => xs.map{ case JString(s) =>
-                                s
-                              }.mkString(",")
-                              case JNothing => ""
+                            `collection+json` { json =>
+                              val syntaxFields = termLevelQuerySyntax((mapping \ "properties" \ field \ "type").extract[String])(_)
+                              val items = mapping \ "_meta" \ "properties" \ field \ "queries" match {
+                                case JArray(xs) => xs.collect { case JString(q) => ("data" -> syntaxFields(q)): JObject }
+                                case _ => Nil
+                              }
+                              complete(OK, json.mapField {
+                                case ("items", _) => ("items" -> items)
+                                case x => x
+                              })
                             }
-                            complete(OK, links)
                           } ~
                           path( Segment) { query =>
                             complete(OK,query)
@@ -94,8 +113,4 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitL
         }
       }
     }
-
 }
-
-
-//{ "rel" : "query", "name" : "$s", "render" : "option", "href": "$uri/$field/query/$s" }

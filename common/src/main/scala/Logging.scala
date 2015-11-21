@@ -1,6 +1,7 @@
 package common
 import akka.actor.{ Actor, ActorLogging }
-import com.typesafe.scalalogging.LazyLogging
+import akka.event.LoggingAdapter
+import com.typesafe.scalalogging.{Logger, LazyLogging}
 import scala.language.implicitConversions
 
 object ImplicitPrint {

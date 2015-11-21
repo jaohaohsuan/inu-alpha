@@ -339,9 +339,7 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
     case Some(agg: Filters) =>
       response {
         val json = agg.getBuckets.foldLeft(List.empty[JObject]) { (acc0, b0: Bucket) =>
-
           val zero = JObject("label" -> JString("*"), "y" -> JInt(b0.getDocCount.toInt), "x" -> JInt(0)) :: Nil
-
           val arr = Try({ b0.getAggregations.asMap().toMap.get("cross") }).map {
            case Some(filters: Filters) =>
              filters.getBuckets.foldLeft(zero){ (acc1, b1) =>

@@ -6,7 +6,6 @@ import spray.routing._
 trait StoredFilterRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
-  implicit private val executionContext = actorRefFactory.dispatcher
 
   lazy val `_filter/`: Route = {
 

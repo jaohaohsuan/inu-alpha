@@ -4,10 +4,12 @@ import spray.routing.HttpService
 import spray.util.LoggingContext
 import scala.language.implicitConversions
 
-trait ImplicitHttpServiceLogging {
+trait ImplicitHttpServiceLogging extends {
   this: HttpService =>
 
-  implicit private val log: AnyRef with LoggingContext = LoggingContext.fromActorRefFactory(actorRefFactory)
+  implicit val executionContext = actorRefFactory.dispatcher
+
+  private val log: AnyRef with LoggingContext = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   implicit def toLogging[T](a: T): WrappedLog[T] = WrappedLog[T](a)(log)
 

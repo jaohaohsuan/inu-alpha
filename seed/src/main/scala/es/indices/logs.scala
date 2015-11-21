@@ -82,6 +82,25 @@ object logs {
     |              "match_mapping_type": "string",
     |              "match": "customer*"
     |            }
+    |          },
+    |          {
+    |            "vtt": {
+    |              "mapping": {
+    |                "type": "string"
+    |              },
+    |              "match_mapping_type": "string",
+    |              "match": "vtt"
+    |            }
+    |          },
+    |          {
+    |            "dialogs": {
+    |              "mapping": {
+    |                "analyzer": "whitespace_stt_analyzer",
+    |                "type": "string"
+    |              },
+    |              "match_mapping_type": "string",
+    |              "match": "dialogs"
+    |            }
     |          }
     |        ],
     |        "dynamic_date_formats" : ["YYYY-MM-dd hh:mm:ss"],
@@ -93,15 +112,7 @@ object logs {
     |            "index": "not_analyzed",
     |            "type": "string"
     |          },
-    |          "vtt": {
-    |           "analyzer": "whitespace",
-    |            "type": "string"
-    |          },
     |          "parties": {
-    |            "type": "string"
-    |          },
-    |          "dialogs": {
-    |           "analyzer": "whitespace_stt_analyzer",
     |            "type": "string"
     |          },
     |          "agentTeamName": {
@@ -116,7 +127,16 @@ object logs {
     |        "_meta" : {
     |           "properties" : {
     |             "agentTeamName" : {
-    |               "queries" : [ "term", "terms"]
+    |               "queries" : [ "term", "terms" ]
+    |             },
+    |             "recordTime" : {
+    |               "queries" : [ "range", "term", "terms" ]
+    |             },
+    |             "recordRang" : {
+    |               "queries" : [ "range", "term", "terms" ]
+    |             },
+    |             "custGrade" : {
+    |               "queries" : [ "term", "terms" ]
     |             }
     |           }
     |        }

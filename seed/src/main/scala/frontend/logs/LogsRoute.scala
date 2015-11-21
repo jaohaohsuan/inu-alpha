@@ -2,20 +2,17 @@ package frontend.logs
 
 import elastic.ImplicitConversions._
 import es.indices.logs
-import frontend.WebvttSupport
+import frontend.{ImplicitHttpServiceLogging, WebvttSupport}
 import org.elasticsearch.action.percolate.PercolateResponse.Match
 import spray.http.StatusCodes._
 import spray.routing._
-import spray.util.LoggingContext
 import scala.collection.JavaConversions._
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
 
-trait LogsRoute extends HttpService with WebvttSupport{
+trait LogsRoute extends HttpService with WebvttSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
-  import scala.concurrent.ExecutionContext.Implicits.global
-  implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   implicit class Vtt(vtt: Map[String, String]) {
     import es.indices.logs.SearchHitHighlightFields._

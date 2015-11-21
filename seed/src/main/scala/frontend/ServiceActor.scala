@@ -2,8 +2,9 @@ package frontend
 
 import spray.routing.HttpServiceActor
 import spray.routing.authentication.BasicAuth
+import spray.util.LoggingContext
 
-class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends HttpServiceActor with ImplicitHttpServiceLogging
+class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends HttpServiceActor
   with CorsSupport
   with storedQuery.StoredQueryRoute
   with storedFilter.StoredFilterRoute
@@ -11,6 +12,10 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   with analysis.AnalysisRoute
   with external.river.ImportRoute
   with logs.LogsRoute {
+
+  implicit val executionContext = actorRefFactory.dispatcher
+
+  val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   def receive = runRoute(
     cors {

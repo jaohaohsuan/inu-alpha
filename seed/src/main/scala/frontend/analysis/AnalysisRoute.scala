@@ -1,21 +1,16 @@
 package frontend.analysis
 
-import frontend.CollectionJsonSupport
 import frontend.analysis.cross.GetLogsRequest
-import frontend.storedQuery.getRequest.{CollectionJsonBuilder, QueryStoredQueryRequest}
+import frontend.storedQuery.getRequest.CollectionJsonBuilder
+import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
 import org.elasticsearch.client.Client
 import org.json4s
 import spray.http.StatusCodes._
 import spray.routing._
-import spray.util._
-import scalaz._
-import Scalaz._
-
 import scala.language.implicitConversions
 
-trait AnalysisRoute extends HttpService with CollectionJsonSupport {
+trait AnalysisRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
-  implicit private val log = LoggingContext.fromActorRefFactory(actorRefFactory)
   implicit def client: Client
 
   lazy val `_analysis`: Route =

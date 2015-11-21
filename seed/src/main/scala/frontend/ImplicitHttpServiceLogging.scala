@@ -1,15 +1,14 @@
 package frontend
 
-import spray.routing.HttpService
 import spray.util.LoggingContext
+import scala.concurrent.ExecutionContextExecutor
 import scala.language.implicitConversions
 
 trait ImplicitHttpServiceLogging extends {
-  this: HttpService =>
 
-  implicit val executionContext = actorRefFactory.dispatcher
+  implicit def executionContext: ExecutionContextExecutor
 
-  private val log: AnyRef with LoggingContext = LoggingContext.fromActorRefFactory(actorRefFactory)
+  def log: AnyRef with LoggingContext
 
   implicit def toLogging[T](a: T): WrappedLog[T] = WrappedLog[T](a)(log)
 

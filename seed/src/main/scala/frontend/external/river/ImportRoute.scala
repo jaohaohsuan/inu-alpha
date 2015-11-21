@@ -11,9 +11,7 @@ import spray.http.{ContentTypeRange, HttpEntity}
 import spray.httpx.Json4sSupport
 import spray.httpx.unmarshalling.Unmarshaller
 import spray.routing._
-import spray.routing.authentication.BasicAuth
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.xml._
 
 
@@ -37,7 +35,7 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
                               |  {
                               |    "title" : "Invalid id format",
                               |    "code" : "400",
-                              |    "message" : "${ex.getMessage()}, please follow the pattern '[YYYYMMDDhhmmssSSS]['I'][RECType][CustomerID][SerialNumber] '"
+                              |    "message" : "${ex.getMessage}, please follow the pattern '[YYYYMMDDhhmmssSSS]['I'][RECType][CustomerID][SerialNumber] '"
                               |  }
                               |}
                      """.stripMargin)

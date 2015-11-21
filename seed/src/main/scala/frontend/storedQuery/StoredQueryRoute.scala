@@ -1,6 +1,6 @@
 package frontend.storedQuery
 
-import frontend.CollectionJsonSupport
+import frontend.{ImplicitHttpServiceLogging, CollectionJsonSupport}
 import frontend.storedQuery.deleteRequest.{RemoveClauseRequest, ResetOccurrenceRequest}
 import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
@@ -11,11 +11,9 @@ import protocol.storedQuery.Terminology._
 import spray.httpx.unmarshalling._
 import spray.routing._
 
-trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
-
+trait StoredQueryRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
-  implicit private val executionContext = actorRefFactory.dispatcher
 
   def clausePath[T: Monoid](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[T]): Route =
     path(name) {

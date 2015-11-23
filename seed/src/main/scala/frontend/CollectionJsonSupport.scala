@@ -1,26 +1,62 @@
 package frontend
 
 import common.ImplicitLogging
+import org.json4s.JsonAST.{JValue, JArray, JObject}
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
+import org.json4s.native.Serialization._
 import spray.http.{HttpEntity, MediaType, MediaTypes}
 import spray.httpx.Json4sSupport
 import spray.httpx.marshalling.Marshaller
 import spray.httpx.unmarshalling._
+import spray.routing._
 
 
 object CollectionJsonSupport {
   val `application/vnd.collection+json` = MediaTypes.register(MediaType.custom("application/vnd.collection+json"))
 }
 
-trait CollectionJsonSupport extends Json4sSupport {
+trait CollectionJsonSupport extends Json4sSupport with Directives{
 
   import CollectionJsonSupport._
 
   import scala.language.implicitConversions
 
-  implicit def json4sFormats: Formats = DefaultFormats
+  implicit class Template0[T <: AnyRef](value: T) {
+    def asTemplate: JObject =
+      "data" -> JArray(parse(write(value)) match {
+        case JObject(xs) =>
+          xs.map { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) }
+        case _ => Nil
+      })
+  }
+
+  def collection: Directive1[JObject] = requestUri.flatMap {
+    case uri => provide("collection" ->
+      ("version" -> "1.0") ~~
+        ("href" -> s"$uri") ~~
+        ("links" -> JNothing) ~~
+        ("queries" -> JNothing) ~~
+        ("items" -> JNothing) ~~
+        ("template" -> JNothing)
+    )
+  }
+
+  def item[T <: AnyRef](value: T): Directive1[JObject] = requestUri.flatMap {
+    case uri =>
+      val data: JObject = value.asTemplate
+      val json: JObject = "collection" ->
+        ("version" -> "1.0") ~~
+          ("href" -> s"$uri") ~~
+          ("links" -> JNothing) ~~
+          ("queries" -> JNothing) ~~
+          ("items" -> List(("href" -> s"$uri") ~~ data  ~~ ("links" -> List()))) ~~
+          ("template" -> data)
+      provide(json)
+  }
+
+  implicit def json4sFormats: Formats
 
   implicit def xUnmarshaller[T <: AnyRef : Manifest] =
     Unmarshaller[T](`application/vnd.collection+json`) {

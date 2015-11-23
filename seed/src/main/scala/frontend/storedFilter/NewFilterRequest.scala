@@ -3,9 +3,10 @@ package frontend.storedFilter
 import akka.actor.Props
 import frontend.{CollectionJsonSupport, PerRequest}
 import domain.storedFilter.StoredFilterAggregateRoot._
+import org.json4s.{DefaultFormats, Formats}
 import spray.routing.RequestContext
 
-case class NewFilter(title: String, tags: Option[String]) {
+case class NewFilter(title: String) {
   require( title.nonEmpty, "title field is required")
 }
 
@@ -15,8 +16,10 @@ object NewFilterRequest {
 
 case class NewFilterRequest(ctx: RequestContext) extends PerRequest with CollectionJsonSupport {
 
-  entity(as[NewFilter]) { case NewFilter(title, tags) => _ =>
-    context.actorSelection(protocol.storedFilter.NameOfAggregate.root.client) ! CreateNewStoredFilter(title, tags)
+  implicit def json4sFormats: Formats =  DefaultFormats
+
+  entity(as[NewFilter]) { case NewFilter(title) => _ =>
+    context.actorSelection(protocol.storedFilter.NameOfAggregate.root.client) ! CreateNewStoredFilter(title)
   } (ctx)
 
   import spray.http.StatusCodes._

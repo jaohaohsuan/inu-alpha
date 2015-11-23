@@ -9,7 +9,7 @@ import domain._
 object StoredFilterAggregateRoot {
 
   //commands
-  case class CreateNewStoredFilter(title: String, tags: Set[String]) extends Command
+  case class CreateNewStoredFilter(title: String) extends Command
   object NewStoredFilter {
     def unapply(x: CreateNewStoredFilter)= Some(StoredFilter(x.title))
   }

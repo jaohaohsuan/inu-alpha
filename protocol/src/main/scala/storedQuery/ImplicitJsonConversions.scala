@@ -1,6 +1,5 @@
 package protocol.storedQuery
 
-import org.json4s.JsonAST.JString
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._

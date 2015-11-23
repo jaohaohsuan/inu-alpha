@@ -56,7 +56,7 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
       requestUri {  uri =>
         pathPrefix( "_mapping" ) {
           pathEnd {
-            `collection+json` { json =>
+            collection { json =>
               template { mappings =>
                 complete(OK, json.mapField {
                   case ("items", _) => ("items" -> mappings.map( m =>
@@ -69,7 +69,7 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
           } ~ pathPrefix( Segment ) { typ =>
                 mapping(typ) { mapping =>
                     pathEnd {
-                      `collection+json`{ json =>
+                      collection{ json =>
                         val JsonAST.JObject(properties) = mapping \ "properties"
                         complete(OK, json.mapField {
                           case ("items", _) => ("items" -> properties.map {
@@ -85,7 +85,7 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
                       }
                     } ~ pathPrefix( Segment ) { field =>
                           pathEnd {
-                            `collection+json` { json =>
+                            collection { json =>
                               val syntaxFields = termLevelQuerySyntax((mapping \ "properties" \ field \ "type").extract[String])(_)
                               val items = mapping \ "_meta" \ "properties" \ field \ "queries" match {
                                 case JArray(xs) => xs.collect { case JString(q) => ("data" -> syntaxFields(q)): JObject }

@@ -32,7 +32,6 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with Impli
                 val prefix = uri.withQuery(Map.empty[String, String])
                 val items = itemsMap(hits).flatMap(_.map { case (id, data) => s"""{ "href" : "$prefix/$id", "data" : $data }""" }).mkString(",")
                 val links = pagination.+:(s"""{ "href" : "$prefix/temporary", "rel" : "edit" }""").filter(_.trim.nonEmpty).mkString(",")
-
                 s"""{
                    | "collection" : {
                    |   "version" : "1.0",

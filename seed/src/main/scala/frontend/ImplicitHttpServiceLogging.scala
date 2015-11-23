@@ -1,6 +1,9 @@
 package frontend
 
+import org.json4s.JsonAST.{JValue, JArray, JObject}
 import org.json4s._
+import org.json4s.native.JsonMethods._
+import org.json4s.native.Serialization._
 import shapeless.{HNil, ::}
 import spray.routing._
 import spray.util.LoggingContext
@@ -8,21 +11,13 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.language.implicitConversions
 import org.json4s.JsonDSL._
 
-trait ImplicitHttpServiceLogging extends {
+trait ImplicitHttpServiceLogging {
   this: HttpService =>
 
   implicit def executionContext: ExecutionContextExecutor
+  implicit def json4sFormats: Formats
 
   def log: AnyRef with LoggingContext
-
-
-  val `collection+json`: Directive1[JObject] = requestUri.flatMap {
-    case uri => provide("collection" ->
-      ("version" -> "1.0") ~~
-        ("href" -> s"$uri") ~~
-        ("items" -> JArray(List.empty)) ~~
-        ("template" -> JNothing))
-  }
 
   implicit def toLogging[T](a: T): WrappedLog[T] = WrappedLog[T](a)(log)
 

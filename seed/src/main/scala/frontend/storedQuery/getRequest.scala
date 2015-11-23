@@ -145,7 +145,7 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
     s"""{
        | "collection" : {
        |   "version" : "1.0",
-       |   "href" : "",
+       |   "href" : "${href}",
        |
        |   "items" : [
        |     {

@@ -5,10 +5,14 @@ import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern._
 import elastic.ImplicitConversions._
 import es.indices._
+import org.elasticsearch.action.ActionResponse
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse
 import org.elasticsearch.client.Client
+
+import scala.concurrent.Future
 
 case object IndexScan
 case class StoredQueryMappingResponse(responses: Seq[PutMappingResponse]) {
@@ -43,6 +47,14 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
       } pipeTo self
 
       logs.putIndexTemplate.asFuture pipeTo self
+
+      storedFilter.exists.execute().asFuture.flatMap {
+        case r: IndicesExistsResponse if r.isExists => Future { r }
+        case r: IndicesExistsResponse => storedFilter.create.asFuture
+      } pipeTo self
+
+    case r: IndicesExistsResponse if r.isExists =>
+      log.info(s"indices exists")
 
     case r: CreateIndexResponse if r.isAcknowledged =>
       log.info(s"index created")

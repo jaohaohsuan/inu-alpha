@@ -41,12 +41,17 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
 
       if(m.hasRole("sync")) {
 
-        import read.storedQuery._
         system.actorOf(ClusterSingletonManager.props(
-          singletonProps = StoredQueryAggregateRootView.props,
+          singletonProps = read.storedQuery.StoredQueryAggregateRootView.props,
           terminationMessage = PoisonPill,
           settings = ClusterSingletonManagerSettings(system)
         ), protocol.storedQuery.NameOfAggregate.view.name)
+
+        system.actorOf(ClusterSingletonManager.props(
+          singletonProps = read.storedFilter.StoredFilterAggregateRootView.props,
+          terminationMessage = PoisonPill,
+          settings = ClusterSingletonManagerSettings(system)
+        ), protocol.storedFilter.NameOfAggregate.view.name)
 
       }
 
@@ -65,6 +70,12 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
           singletonManagerPath = protocol.storedFilter.NameOfAggregate.root.manager,
           settings = ClusterSingletonProxySettings(system)
         ), name = protocol.storedFilter.NameOfAggregate.root.proxy)
+
+        /*system.actorOf(ClusterSingletonProxy.props(
+          singletonManagerPath = protocol.storedFilter.NameOfAggregate.view.manager,
+          settings = ClusterSingletonProxySettings(system)
+        ), name = protocol.storedFilter.NameOfAggregate.view.proxy)*/
+
 
         val service = system.actorOf(Props(classOf[ServiceActor], client), "service")
         IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)

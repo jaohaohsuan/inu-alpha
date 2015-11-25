@@ -3,22 +3,22 @@ package domain.storedFilter
 import akka.actor.ActorRef
 import akka.persistence.{SnapshotOffer, PersistentActor}
 import common.{ImplicitLogging, ImplicitActorLogging}
-import protocol.storedFilter.{StoredFilter, NameOfAggregate}
+import protocol.storedFilter.{NameOfAggregate}
 import domain._
 
 object StoredFilterAggregateRoot {
 
   //commands
-  case class CreateNewStoredFilter(title: String) extends Command
+  case class CreateNewStoredFilter(typ: String, title: String) extends Command
   object NewStoredFilter {
-    def unapply(x: CreateNewStoredFilter)= Some(StoredFilter(x.title))
+    def unapply(x: CreateNewStoredFilter)= Some(x.typ, x.title)
   }
 
 
   //events
-  case class ItemCreated(entity: StoredFilter) extends Event
+  case class ItemCreated(id: String, typ: String, title: String) extends Event
 
-  case class StoredFilters(items: Map[String, StoredFilter] = Map.empty) extends State with ImplicitLogging {
+  case class StoredFilters(items: Map[String, String] = Map.empty) extends State with ImplicitLogging {
 
     lazy val newItemId: String = {
       def generateNewItemId: String = {
@@ -28,13 +28,11 @@ object StoredFilterAggregateRoot {
       generateNewItemId
     }
 
-    def newItem(entity: StoredFilter) = entity.copy(id = newItemId)
-
     def update(event: Event): StoredFilters = {
       event match {
-        case ItemCreated(entity) =>
+        case ItemCreated(id, typ, title) =>
           s"Event $event of StoredFilterAggregateRoot has been updated".logInfo()
-          copy(items = items + (entity.id -> entity))
+          copy(items = items + (id -> title))
         case unknown =>
           s"Unknown event '$unknown' were found when updating ${this.getClass.getName} state.".logWarn()
           this
@@ -54,16 +52,16 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
 
   val receiveCommand: Receive = {
 
-    case NewStoredFilter(entity) =>
+    case NewStoredFilter(typ, title) =>
 
-      def doPersistence(entity: StoredFilter) = {
-        def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
+      def doPersistence(itemCreated: Event) = {
+        def afterPersisted(`sender`: ActorRef, evt: Event) = {
           state = state.update(evt)
           `sender` ! evt
         }
-        persist(ItemCreated(entity))(afterPersisted(sender(), _))
+        persist(itemCreated)(afterPersisted(sender(), _))
       }
-      doPersistence(state.newItem(entity))
+      doPersistence(ItemCreated(state.newItemId, typ, title))
   }
 
   val receiveRecover: Receive = {

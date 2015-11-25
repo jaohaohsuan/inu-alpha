@@ -21,7 +21,7 @@ object StoredQueryAggregateRootView {
 
   case class StoredQueryData(title: String, tags: Option[String])
 
-  def props(implicit client: Client) = Props(classOf[read.storedQuery.StoredQueryAggregateRootView], client)
+  def props(implicit client: Client) = Props(classOf[StoredQueryAggregateRootView], client)
 }
 
 class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {

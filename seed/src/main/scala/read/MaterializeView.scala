@@ -1,11 +1,12 @@
 package read
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor}
 import akka.persistence.query.PersistenceQuery
 import akka.persistence.query.journal.leveldb.scaladsl.LeveldbReadJournal
 import akka.stream.ActorMaterializer
+import common.ImplicitActorLogging
 
-trait MaterializeView extends Actor with ActorLogging {
+trait MaterializeView extends Actor with ImplicitActorLogging {
 
   import context.system
 

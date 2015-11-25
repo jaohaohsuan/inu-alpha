@@ -1,8 +1,8 @@
 package protocol.storedFilter
 
-case class StoredFilter(title: String = "",
+/*case class StoredFilter(title: String = "",
                         id: String = "",
-                        source: String = "", field: String = "")
+                        source: String = "")*/
 
 sealed trait TermLevelQueries
 

@@ -42,21 +42,19 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
           } ~
           pathPrefix(Segment){ typ =>
             pathEnd { implicit ctx =>
-              actorRefFactory.actorOf(QueryRequest.props(typ))
+              actorRefFactory.actorOf(QueryRequest.props)
             } ~
             pathPrefix(Segment) { id =>
-              item(NewFilter("temporary")) { json =>
-                complete(OK, json)
+              pathEnd { implicit ctx =>
+                actorRefFactory.actorOf(GetItemRequest.props(typ,id))
               }
             }
           }
       }
     } ~
     post {
-      pathPrefix("_filter") {
-        path(Segment) { s => implicit ctx =>
-          actorRefFactory.actorOf(NewFilterRequest.props)
-        }
+      pathPrefix("_filter") { implicit ctx =>
+        actorRefFactory.actorOf(NewFilterRequest.props)
       }
     }
 

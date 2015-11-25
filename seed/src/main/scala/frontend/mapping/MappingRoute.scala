@@ -66,7 +66,7 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
                 })
               }
             }
-          } ~ pathPrefix( Segment ) { typ =>
+          } ~ pathPrefix(Segment) { typ =>
                 mapping(typ) { mapping =>
                     pathEnd {
                       collection{ json =>

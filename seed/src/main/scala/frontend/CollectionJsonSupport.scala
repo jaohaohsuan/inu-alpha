@@ -51,7 +51,7 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
           ("href" -> s"$uri") ~~
           ("links" -> JNothing) ~~
           ("queries" -> JNothing) ~~
-          ("items" -> List(("href" -> s"$uri") ~~ data  ~~ ("links" -> List()))) ~~
+          ("items" -> List(("href" -> s"$uri") ~~ data ~~ ("links" -> JArray(List.empty)))) ~~
           ("template" -> data)
       provide(json)
   }

@@ -3,12 +3,19 @@ package frontend.storedFilter
 import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
+import org.elasticsearch.common.collect.ImmutableOpenMap
+import org.elasticsearch.common.compress.CompressedXContent
+import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
+import org.json4s.native.JsonMethods._
+import protocol.storedQuery.Terminology._
+import shapeless.HNil
 import spray.http.StatusCodes._
 import spray.routing._
 
 import scala.collection.JavaConversions._
+import scala.concurrent.Future
 import scalaz.OptionT._
 import scalaz.Scalaz._
 import scalaz._
@@ -16,6 +23,34 @@ import scalaz._
 trait StoredFilterRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
   implicit def client: org.elasticsearch.client.Client
+
+  def termLevelQuerySyntax(dataType: String)(query: String): List[JValue] = {
+    val sampleValue: JValue = dataType match {
+      case "int" => JInt(0)
+      case "long" => JInt(0)
+      case "date" => JString("2015-12-31")
+      case "string" => JString("word")
+      case _ => JNull
+    }
+
+    val values =  query match {
+      case "terms" => ("name" -> "value") ~~ ("array" -> List(sampleValue)) :: Nil
+      case "term" => ("name" -> "value") ~~ ("value" -> sampleValue) :: Nil
+      case "range" => ("name" -> "gte") ~~ ("value" -> sampleValue) :: ("name" -> "lte") ~~ ("value" -> sampleValue) :: Nil
+      case _ => Nil
+    }
+
+    ("name" -> "occurrence") ~~ ("value" -> "must") :: ("name" -> "query") ~~ ("value" -> query) :: values
+  }
+
+  def property(typ: String, field: String): Directive1[(JObject, List[JValue])] = onSuccess(
+    logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
+    .map { x =>
+      val mapping = parse(s"${x.get(typ)}") \ typ
+      val JArray(queries) = mapping \ "_meta" \ "properties" \ field \ "queries"
+
+      (("type" -> (mapping \ "properties" \ field \ "type").extract[String]) ~~ ("field" -> field), queries)
+    })
 
   def fetchTypes: Directive1[List[String]] = onSuccess((for {
     template <- optionT(logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption))
@@ -47,6 +82,33 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             pathPrefix(Segment) { id =>
               pathEnd { implicit ctx =>
                 actorRefFactory.actorOf(GetItemRequest.props(typ,id))
+              } ~
+              path(OccurrenceRegex) { occurrence =>
+                complete(OK, occurrence)
+              } ~
+              pathPrefix(Segment) { field =>
+                property(typ, field) { case (prop, queries) =>
+                  pathEnd {
+                    item(prop) { json =>
+                      requestUri { uri =>
+                        complete(OK, json.mapField {
+                          case ("links", JNothing) => "links" -> queries.collect { case JString(q) => ("rel" -> "option") ~~ ("href" -> s"${uri.withPath(uri.path / q)}") }
+                          case ("links", JArray(Nil)) => "links" -> JNothing
+                          case ("template", _) => "template" -> JNothing
+                          case x => x
+                        })
+                      }
+                    }
+                  } ~
+                  path(Segment) { query =>
+                    collection { json =>
+                      complete(OK, json.mapField {
+                        case ("template", _) => "template" -> ("data" -> termLevelQuerySyntax((prop \ "type").extract[String])(query))
+                        case x => x
+                      })
+                    }
+                  }
+                }
               }
             }
           }

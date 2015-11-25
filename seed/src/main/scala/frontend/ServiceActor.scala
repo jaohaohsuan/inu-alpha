@@ -9,7 +9,7 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   with CorsSupport
   with storedQuery.StoredQueryRoute
   with storedFilter.StoredFilterRoute
-  with mapping.MappingRoute
+ // with mapping.MappingRoute
   with analysis.AnalysisRoute
   with external.river.ImportRoute
   with logs.LogsRoute {
@@ -22,7 +22,7 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
     cors {
       `_query/template/` ~
         `_filter/` ~
-        `_mapping/` ~
+        //`_mapping/` ~
         `_analysis` ~
         `logs-*` ~
         authenticate(BasicAuth("river")) { username =>

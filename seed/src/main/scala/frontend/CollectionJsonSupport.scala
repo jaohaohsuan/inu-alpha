@@ -48,11 +48,11 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
       val data: JObject = value.asTemplate
       val json: JObject = "collection" ->
         ("version" -> "1.0") ~~
-          ("href" -> s"$uri") ~~
-          ("links" -> JNothing) ~~
-          ("queries" -> JNothing) ~~
-          ("items" -> List(("href" -> s"$uri") ~~ data ~~ ("links" -> JArray(List.empty)))) ~~
-          ("template" -> data)
+        ("href" -> s"$uri") ~~
+        ("links" -> JNothing) ~~
+        ("queries" -> JNothing) ~~
+        ("items" -> List(("href" -> s"$uri") ~~ data ~~ ("links" -> JNothing))) ~~
+        ("template" -> data)
       provide(json)
   }
 

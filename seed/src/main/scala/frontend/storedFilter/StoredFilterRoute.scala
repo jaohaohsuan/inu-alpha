@@ -3,22 +3,17 @@ package frontend.storedFilter
 import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
-import org.elasticsearch.common.collect.ImmutableOpenMap
-import org.elasticsearch.common.compress.CompressedXContent
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Terminology._
-import shapeless.HNil
 import spray.http.StatusCodes._
 import spray.routing._
 
 import scala.collection.JavaConversions._
-import scala.concurrent.Future
 import scalaz.OptionT._
 import scalaz.Scalaz._
-import scalaz._
 
 trait StoredFilterRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 
@@ -92,8 +87,8 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                     item(prop) { json =>
                       requestUri { uri =>
                         complete(OK, json.mapField {
+                          case ("items", JArray(x :: Nil)) => "item" -> JArray(x.transformField { case f @ ("links", _) => ("links", JNothing) } :: Nil)
                           case ("links", JNothing) => "links" -> queries.collect { case JString(q) => ("rel" -> "option") ~~ ("href" -> s"${uri.withPath(uri.path / q)}") }
-                          case ("links", JArray(Nil)) => "links" -> JNothing
                           case ("template", _) => "template" -> JNothing
                           case x => x
                         })

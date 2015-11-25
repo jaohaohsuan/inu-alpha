@@ -47,16 +47,16 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
   }(ctx)
 
   def processResult = {
-    case r: GetResponse =>
+    case r: GetResponse if r.isExists =>
       response {
         respondWithMediaType(`application/vnd.collection+json`) {
           requestUri { uri =>
             item(read[Map[String, Any]](r.getSourceAsString)) { json =>
               properties(typ) { properties =>
                 val JObject(fields) = properties
-                complete(OK, json.mapField {
+                complete(OK, json.transformField {
                   case ("items", JArray(x :: Nil)) =>
-                    val item = x.mapField {
+                    ("items", x.transformField {
                       case ("links", _) => "links" -> List(
                         ("rel" -> "section") ~~ ("name" -> "must") ~~ ("href" -> s"${uri.withPath(uri.path / "must")}"),
                         ("rel" -> "section") ~~ ("name" -> "must_not") ~~ ("href" -> s"${uri.withPath(uri.path / "must_not")}"),
@@ -64,15 +64,12 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
                       ).++(fields.map { case (field, detail) =>
                         ("rel" -> "option") ~~
                           ("href" -> s"$uri/$field") ~~ ("name" -> field)
-                          /*("data" -> List(
-                            ("name" -> "field") ~~ ("value" -> s"$field")
-                            //("name" -> "type") ~~ ("value" -> s"${(detail \ "type").extract[String]}")
-                          ))*/
+                        /*("data" -> List(
+                          ("name" -> "field") ~~ ("value" -> s"$field")
+                          //("name" -> "type") ~~ ("value" -> s"${(detail \ "type").extract[String]}")
+                        ))*/
                       })
-                      case y => y
-                    }
-                    ("items", JArray(item :: Nil))
-                  case x => x
+                    } :: Nil)
                 })
               }
             }

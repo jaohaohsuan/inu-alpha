@@ -35,7 +35,7 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
   def collection: Directive1[JObject] = requestUri.flatMap {
     case uri => provide("collection" ->
       ("version" -> "1.0") ~~
-        ("href" -> s"$uri") ~~
+        ("href" -> s"${uri}") ~~
         ("links" -> JNothing) ~~
         ("queries" -> JNothing) ~~
         ("items" -> JNothing) ~~
@@ -45,10 +45,14 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
 
   def item[T <: AnyRef](value: T): Directive1[JObject] = requestUri.flatMap {
     case uri =>
-      val data: JObject = value.asTemplate
+
+      val data: JObject = value match {
+        case x: JObject => x
+        case x => x.asTemplate
+      }
       val json: JObject = "collection" ->
         ("version" -> "1.0") ~~
-        ("href" -> s"$uri") ~~
+        ("href" -> s"${uri.withPath(uri.path.reverse.tail.tail.reverse)}") ~~
         ("links" -> JNothing) ~~
         ("queries" -> JNothing) ~~
         ("items" -> List(("href" -> s"$uri") ~~ data ~~ ("links" -> JNothing))) ~~

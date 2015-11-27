@@ -26,3 +26,22 @@ case class StringMapHolder(map: Map[String, Set[String]]) {
 
   lazy val text = map.values.flatten.toSet.mkString(" ").trim
 }
+
+
+object Key {
+  def gen(map: Map[String, _]): String = {
+    def generateNewItemId: String = {
+      val id = scala.math.abs(scala.util.Random.nextInt()).toString
+      if (map.keys.exists(_ == id)) generateNewItemId else id
+    }
+    generateNewItemId
+  }
+
+  implicit class Map0[A](map: Map[String, A]) {
+    def newKey = gen(map)
+    /*def add(f: String => A) = {
+      val newKey = gen(map)
+      map.+(newKey -> f(newKey))
+    }*/
+  }
+}

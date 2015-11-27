@@ -1,6 +1,6 @@
 package elastic
 
-import org.elasticsearch.action.{ActionListener, ListenableActionFuture}
+import org.elasticsearch.action.{ActionResponse, ActionRequestBuilder, ActionListener, ListenableActionFuture}
 
 import scala.concurrent.{Future, Promise}
 

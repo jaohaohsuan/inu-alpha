@@ -32,6 +32,9 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
 
   import context.dispatcher
 
+  def predicate(condition: Boolean)(fail: Exception): Future[Unit] =
+    if (condition) Future( () ) else Future.failed(fail)
+
   def receive = {
     case IndexScan =>
       storedQuery.exists.execute().asFuture.map(_.isExists).flatMap {
@@ -48,10 +51,12 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
 
       logs.putIndexTemplate.asFuture pipeTo self
 
-      storedFilter.exists.execute().asFuture.flatMap {
-        case r: IndicesExistsResponse if r.isExists => Future { r }
-        case r: IndicesExistsResponse => storedFilter.create.asFuture
-      } pipeTo self
+      (for {
+        existResp <- storedFilter.exists.execute().asFuture
+        _ <- predicate(existResp.isExists)(new Exception(s"${storedFilter.index} doesn't exist"))
+      } yield existResp).recoverWith { case _ => storedFilter.create.asFuture }
+
+
 
     case r: IndicesExistsResponse if r.isExists =>
       log.info(s"indices exists")

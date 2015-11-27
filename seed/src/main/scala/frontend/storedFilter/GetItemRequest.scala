@@ -40,18 +40,21 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
 
   requestUri { uri => _ =>
     import es.indices.storedFilter._
-      val getItem: Future[GetResponse] = prepareGet(typ, id)
-        .execute()
-        .asFuture
-     getItem pipeTo self
+    (for {
+        resp <- prepareGet(typ, id)
+          .setFetchSource("title", null)
+          .execute().asFuture
+      } yield {
+        if(resp.isExists) read[Map[String, Any]](resp.getSourceAsString).asTemplate else Map("title" -> "temporary").asTemplate
+      }) pipeTo self
   }(ctx)
 
   def processResult = {
-    case r: GetResponse if r.isExists =>
+    case source: JObject =>
       response {
         respondWithMediaType(`application/vnd.collection+json`) {
           requestUri { uri =>
-            item(read[Map[String, Any]](r.getSourceAsString)) { json =>
+            item(source) { json =>
               properties(typ) { properties =>
                 val JObject(fields) = properties
                 complete(OK, json.transformField {

@@ -35,7 +35,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
       case _ => Nil
     }
 
-    ("name" -> "occurrence") ~~ ("value" -> "must") :: ("name" -> "query") ~~ ("value" -> query) :: values
+    ("name" -> "occurrence") ~~ ("value" -> "must") :: values
   }
 
   def property(typ: String, field: String): Directive1[(JObject, List[JValue])] = onSuccess(
@@ -76,10 +76,10 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             } ~
             pathPrefix(Segment) { id =>
               pathEnd { implicit ctx =>
-                actorRefFactory.actorOf(GetItemRequest.props(typ,id))
+                actorRefFactory.actorOf(GetItemRequest.props(typ, id))
               } ~
-              path(OccurrenceRegex) { occurrence =>
-                complete(OK, occurrence)
+              path(OccurrenceRegex) { occurrence =>  implicit ctx =>
+                actorRefFactory.actorOf(GetItemClausesRequest.props(typ, id, occurrence))
               } ~
               pathPrefix(Segment) { field =>
                 property(typ, field) { case (prop, queries) =>
@@ -87,7 +87,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                     item(prop) { json =>
                       requestUri { uri =>
                         complete(OK, json.mapField {
-                          case ("items", JArray(x :: Nil)) => "item" -> JArray(x.transformField { case f @ ("links", _) => ("links", JNothing) } :: Nil)
+                          case ("items", JArray(x :: Nil)) => "items" -> JArray(x.transformField { case f @ ("links", _) => ("links", JNothing) } :: Nil)
                           case ("links", JNothing) => "links" -> queries.collect { case JString(q) => ("rel" -> "option") ~~ ("href" -> s"${uri.withPath(uri.path / q)}") }
                           case ("template", _) => "template" -> JNothing
                           case x => x
@@ -110,8 +110,15 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
       }
     } ~
     post {
-      pathPrefix("_filter") { implicit ctx =>
-        actorRefFactory.actorOf(NewFilterRequest.props)
+      pathPrefix("_filter") {
+        pathPrefix(Segment) { typ =>
+          pathEnd { implicit ctx =>
+            actorRefFactory.actorOf(NewFilterRequest.props(typ))
+          } ~
+          pathPrefix(Segment / Segment) { (filterId, field) => implicit ctx =>
+            actorRefFactory.actorOf(PostFieldQueryRequest.props(typ, filterId, field))
+          }
+        }
       }
     }
 

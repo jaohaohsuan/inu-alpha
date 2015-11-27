@@ -2,12 +2,14 @@ package es.indices
 
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequestBuilder
 import org.elasticsearch.action.get.GetRequestBuilder
+import org.elasticsearch.action.index.IndexResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.action.update.UpdateResponse
 import org.elasticsearch.client.Client
 import elastic.ImplicitConversions._
 import org.elasticsearch.index.query.{MatchQueryBuilder, BoolQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{Future, ExecutionContextExecutor}
 
 
 object storedFilter {
@@ -40,7 +42,11 @@ object storedFilter {
     client.prepareSearch(index).setTypes(typ)
   }
 
-  def save(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor) = {
+  def index(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[IndexResponse] = {
     client.prepareIndex(index, typ, id).setSource(json).execute().asFuture
   }
+
+  def update(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[UpdateResponse] =
+    client.prepareUpdate(index, typ, id).setDoc(json).execute().asFuture
+
 }

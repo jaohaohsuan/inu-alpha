@@ -42,9 +42,15 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
     .map { x =>
       val mapping = parse(s"${x.get(typ)}") \ typ
-      val JArray(queries) = mapping \ "_meta" \ "properties" \ field \ "queries"
 
-      (("type" -> (mapping \ "properties" \ field \ "type").extract[String]) ~~ ("field" -> field), queries)
+      mapping \ "_meta" \ "properties" \ field \ "queries" match {
+        case JArray(queries) =>
+          (mapping \ "properties" \ field \ "type") match {
+            case JString(str) => (("type" -> str) ~~ ("field" -> field), queries)
+            case _ => (JObject(), List.empty)
+          }
+        case _ => (JObject(), List.empty)
+      }
     })
 
   def fetchTypes: Directive1[List[String]] = onSuccess((for {

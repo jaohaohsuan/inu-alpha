@@ -57,7 +57,7 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
             item(source) { json =>
               properties(typ) { properties =>
                 val JObject(fields) = properties
-                complete(OK, json.transformField {
+                complete(OK, json.mapField {
                   case ("items", JArray(x :: Nil)) =>
                     ("items", x.transformField {
                       case ("links", _) => "links" -> List(
@@ -73,6 +73,7 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
                         ))*/
                       })
                     } :: Nil)
+                  case x => x
                 })
               }
             }

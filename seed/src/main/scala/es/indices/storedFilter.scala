@@ -43,10 +43,10 @@ object storedFilter {
   }
 
   def index(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[IndexResponse] = {
-    client.prepareIndex(index, typ, id).setSource(json).execute().asFuture
+    client.prepareIndex(index, typ, id).setSource(json).execute().future
   }
 
   def update(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[UpdateResponse] =
-    client.prepareUpdate(index, typ, id).setDoc(json).execute().asFuture
+    client.prepareUpdate(index, typ, id).setDoc(json).execute().future
 
 }

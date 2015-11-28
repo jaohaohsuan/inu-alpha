@@ -64,12 +64,12 @@ trait LogsRoute extends HttpService with WebvttSupport with ImplicitHttpServiceL
                                 .setFetchSource(Array("dialogs", "agent*", "customer*"), null)
 
       for {
-        response <- prepareGetLog.execute().asFuture
+        response <- prepareGetLog.execute().future
         logs.VttField(vtt) = response
         doc = response.getSourceAsString
         matches <- preparePercolate(typ)
                             //.setGetRequest(client.prepareGet(index,typ,id).request())
-                            .setSource(source.format(doc)).execute().asFuture.map(_.getMatches)
+                            .setSource(source.format(doc)).execute().future.map(_.getMatches)
       } yield vtt.append(matches)
     }
   }

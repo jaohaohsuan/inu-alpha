@@ -27,7 +27,7 @@ trait MappingRoute extends HttpService with CollectionJsonSupport with ImplicitH
   implicit def client: org.elasticsearch.client.Client
 
   def getTemplate: Future[ImmutableOpenMap[String, CompressedXContent]] =
-      logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
+      logs.getTemplate.future.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
 
   def template = onSuccess(getTemplate)
   def mapping(typ: String): Directive1[JValue] = onSuccess(getTemplate.map { x => parse(s"${x.get(typ)}") \ typ })

@@ -30,7 +30,7 @@ case class GetItemClausesRequest(ctx: RequestContext, private implicit val clien
   (for {
     res <- prepareGet(typ, id)
       .setFetchSource(occur, null)
-      .execute().asFuture
+      .execute().future
     if res.isExists
   } yield parse(res.getSourceAsString)) pipeTo self
 

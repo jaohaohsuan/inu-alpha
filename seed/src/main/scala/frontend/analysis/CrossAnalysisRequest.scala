@@ -46,7 +46,7 @@ case class Condition(storedQueryId: String, title: String, query: String, state:
     val qb = conditions.flatMap(queries.get).foldLeft(boolQuery()){ (acc, c) => acc.must(wrapperQuery(c.query)) }
     client.prepareCount("logs*")
       .setQuery(qb.filter(filter))
-      .execute().asFuture.map { resp =>
+      .execute().future.map { resp =>
       //set hits
       queries.getOrElse(storedQueryId, this).copy(hits = resp.getCount, state = state)
     }
@@ -148,7 +148,7 @@ case class CrossAnalysisRequest(ctx: RequestContext, implicit val client: org.el
     prepareSearch
       .setQuery(idsQuery(".percolator").addIds(conditionSet ++ include ++ exclude))
       .setFetchSource(Array("query", "title"), null)
-      .execute.asFuture
+      .execute.future
       .map { resp =>
         resp.getHits.foldLeft(Map.empty[String, Condition]){ (acc, h) => acc + (h.id() -> Condition(h))}
       }
@@ -250,7 +250,7 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
   implicit def json4sFormats: Formats = DefaultFormats
 
   def buildStoredQueryAgg(source: FiltersAggregationBuilder) =
-    prepareSearchStoredQueryQuery(conditionSet).execute.asFuture
+    prepareSearchStoredQueryQuery(conditionSet).execute.future
       .map(_.getHits.foldLeft(List.empty[(String, WrapperQueryBuilder)]){ (acc, h) =>
         StoredQueryQuery.unapply(h) match {
                 case StoredQueryQuery(title, q) if q.nonEmpty => (title, QueryBuilders.wrapperQuery(q)) :: acc
@@ -264,7 +264,7 @@ case class ConditionSetBarChartRequest(ctx: RequestContext, implicit val client:
         })
       }
 
-  def search(agg: FiltersAggregationBuilder) = logs.prepareSearch().addAggregation(agg).execute().asFuture
+  def search(agg: FiltersAggregationBuilder) = logs.prepareSearch().addAggregation(agg).execute().future
 
   (for {
     source <- logs.buildSourceAgg()
@@ -303,7 +303,7 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
   implicit class Ids0(ids: Seq[String]) {
     import QueryBuilders._
     def buildQuery =
-      prepareSearchStoredQueryQuery(ids).execute.asFuture
+      prepareSearchStoredQueryQuery(ids).execute.future
         .map(_.getHits.foldLeft(QueryBuilders.boolQuery()){ (acc, h) =>
           StoredQueryQuery.unapply(h) match {
             case StoredQueryQuery(title, q) if q.nonEmpty => acc.must(QueryBuilders.wrapperQuery(q))
@@ -311,7 +311,7 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
           }})
 
     def toAgg(source: FiltersAggregationBuilder, filter: QueryBuilder) =
-      prepareSearchStoredQueryQuery(ids).execute.asFuture
+      prepareSearchStoredQueryQuery(ids).execute.future
         .map(_.getHits.foldLeft(List.empty[(String, QueryBuilder)]){ (acc, h) =>
           StoredQueryQuery.unapply(h) match {
             case StoredQueryQuery(title, q) if q.nonEmpty => (title, boolQuery().filter(filter).must(wrapperQuery(q))) :: acc
@@ -330,7 +330,7 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
     source <- logs.buildSourceAgg()
     filter <- conditionSet.buildQuery
     cross <- includable.toAgg(source, filter)
-    result <- logs.prepareSearch().addAggregation(cross).execute().asFuture.map(_.getAggregations)
+    result <- logs.prepareSearch().addAggregation(cross).execute().future.map(_.getAggregations)
     agg = if(result == null) None else result.asMap().toMap.get("source")
   } yield agg) pipeTo self
 

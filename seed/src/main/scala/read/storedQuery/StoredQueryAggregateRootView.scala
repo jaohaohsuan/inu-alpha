@@ -101,7 +101,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
       source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.ignore)
 
     case b: IndicesExistsRequestBuilder =>
-      b.execute().asFuture pipeTo self
+      b.execute().future pipeTo self
 
     case StringMapHolder(xs) =>
       //log.info(s"wirte xs: $xs")

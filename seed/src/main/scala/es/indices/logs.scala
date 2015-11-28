@@ -8,9 +8,13 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.AggregationBuilders
-
+import elastic.ImplicitConversions._
+import org.json4s.JsonAST.{JString, JArray, JValue}
+import org.json4s._
+import org.json4s.native.JsonMethods._
+import spray.routing._
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContextExecutor, Future, ExecutionContext}
 import scala.util.Try
 
 object logs {
@@ -40,7 +44,7 @@ object logs {
 
   def buildSourceAgg(key: String = "source")(implicit client: Client, executionContext: ExecutionContext) = {
     import elastic.ImplicitConversions._
-    getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
+    getTemplate.future.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
       .map { resp =>
         resp.getMappings.foldLeft(AggregationBuilders.filters(key)) { (acc, m) =>
           acc.filter(m.key, QueryBuilders.typeQuery(m.key))
@@ -148,6 +152,20 @@ object logs {
       .indices()
       .prepareGetTemplates("template1")
       .execute()
+
+
+  def getProperties(`type`: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[List[String]] = {
+    for {
+      templates       <- logs.getTemplate.future
+      template1       <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
+      mapping         <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
+      json            <- (mapping \ `type`).toOption.future()
+      JObject(props0) <- (json \ "_meta" \ "properties").toOption.future()
+      JObject(props1) <- (json \ "properties").toOption.future()
+    } yield props0.map(_._1).intersect(props1.map(_._1))
+  }
+
+
 
   def prepareGet(r: GetRequest)(implicit client: Client) =
     client.prepareGet(r.index(), r.`type`(), r.id())

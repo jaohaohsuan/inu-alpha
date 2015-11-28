@@ -67,7 +67,7 @@ case class GetStoredQueryDetailRequest(ctx: RequestContext, implicit val client:
       .setFetchSource(Array(s"occurs.$occur"), null)
       .setTransformSource(true)
 
-  getItemDetail.execute().asFuture.map {
+  getItemDetail.execute().future.map {
     case r: GetResponse => r.getSourceAsString
   }.recover { case _ => """{ "error": { } }""" } pipeTo self
 
@@ -114,7 +114,7 @@ case class GetStoredQueryRequest(ctx: RequestContext, implicit val client: org.e
       .setTransformSource(true)
 
 
-  getItem.execute().asFuture.map {
+  getItem.execute().future.map {
     case r: GetResponse => r.getSourceAsString
   }.recover { case _ => """{ "error": { } }""" } pipeTo self
 
@@ -208,7 +208,7 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Cli
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)
       .execute()
-      .asFuture
+      .future
   } yield (searchResponse, tags)) pipeTo self
 
   def processResult: Receive = {
@@ -291,14 +291,14 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
     prepareGet(storedQueryId)
       .setFetchSource(Array("query"), null)
       .setTransformSource(true)
-      .execute().asFuture
+      .execute().future
       .map{ r => compact(render(parse(r.getSourceAsString) \ "query")) }
 
    def search(query: String) = logs.prepareSearch().setQuery(query).setSize(size).setFrom(from).logInfo()
 
   (for {
     query <- getQuery
-    hits <- search(query).setVttHighlighter.execute().asFuture
+    hits <- search(query).setVttHighlighter.execute().future
   } yield hits) pipeTo self
 
   def processResult: Receive = {
@@ -348,7 +348,7 @@ case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.cl
   def count(query: String) = {
     logs.prepareCount()
       .setQuery(QueryBuilders.wrapperQuery(query))
-      .execute().asFuture
+      .execute().future
   }
 
   (for {

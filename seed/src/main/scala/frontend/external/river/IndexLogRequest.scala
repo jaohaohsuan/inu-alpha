@@ -44,7 +44,7 @@ case class IndexLogRequest(ctx: RequestContext, implicit val client: Client, id:
           client.prepareIndex(s"logs-$index", "ami-l8k")
             .setId(id)
             .setSource(s"${compact(render(doc.body))}")
-            .execute().asFuture pipeTo self
+            .execute().future pipeTo self
 
         case Failure(ex) => response {
           requestUri { uri =>

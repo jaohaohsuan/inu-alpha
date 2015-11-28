@@ -42,9 +42,10 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
       import es.indices.storedFilter._
       val search: Future[SearchResponse] = prepareSearch(s"${uri.path.reverse.head}")
         .setQuery(buildQueryDefinition(q))
+        .setFetchSource("title", null)
         .setSize(size).setFrom(from)
         .execute()
-        .asFuture
+        .future
 
       search pipeTo self
     }
@@ -57,21 +58,19 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
           collection { json =>
             respondWithMediaType(`application/vnd.collection+json`) {
               val itemUri = uri.withQuery()
-              complete(OK, json.mapField {
-                case ("template", _) => "template" -> NewFilter("untitled").asTemplate
-                case ("queries", _) => "queries" -> List(
+              complete(OK, json.transformField {
+                case (k@"href", _) => k -> s"${uri.withQuery()}"
+                case (k@"template", _) => k -> NewFilter("untitled").asTemplate
+                case q@("queries", _) => q.copy(_2 =
                   ("href" -> s"${uri.withQuery()}") ~~
                     ("rel" -> "search") ~~
-                    ("data" -> List(("name" -> "q") ~~ ("prompt" -> "search title or field")))
-                )
-                case ("items", _) => "items" -> hits.map { item => item.mapField {
-                  case ("id", JString(id)) => "href" -> s"${itemUri.withPath(itemUri.path / id).withQuery()}"
-                  case ("data", JObject(xs)) => "data" -> xs.map { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) }
-                  case x => x
-                }
+                    ("data" -> ("name" -> "q") ~~ ("prompt" -> "search title or field") :: Nil) :: Nil)
+                case (k@"items", _) => k -> hits.map { _.transformField {
+                    case ("id", JString(id)) => "href" -> s"${itemUri.withPath(itemUri.path / id).withQuery()}"
+                    case ("data", JObject(xs)) => "data" -> xs.map { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) }
+                  }
                 }
                 case ("links", _) => "links" -> List(("rel" -> "edit") ~~ ("href" -> s"${itemUri.withPath(itemUri.path / "temporary")}"))
-                case x => x
               })
             }
           }

@@ -34,16 +34,16 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
   implicit def json4sFormats: Formats =  DefaultFormats
 
   def getTemplate =
-    logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
+    logs.getTemplate.future.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
 
-  def properties(typ: String): Directive1[JValue] = onSuccess(getTemplate.map { x => parse(s"${x.get(typ)}") \ typ \ "properties" })
+  def properties: Directive1[List[String]] = onSuccess(logs.getProperties(typ))
 
   requestUri { uri => _ =>
     import es.indices.storedFilter._
     (for {
         resp <- prepareGet(typ, id)
           .setFetchSource("title", null)
-          .execute().asFuture
+          .execute().future
       } yield {
         if(resp.isExists) read[Map[String, Any]](resp.getSourceAsString).asTemplate else Map("title" -> "temporary").asTemplate
       }) pipeTo self
@@ -55,8 +55,8 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
         respondWithMediaType(`application/vnd.collection+json`) {
           requestUri { uri =>
             item(source) { json =>
-              properties(typ) { properties =>
-                val JObject(fields) = properties
+              properties { properties =>
+
                 complete(OK, json.mapField {
                   case ("items", JArray(x :: Nil)) =>
                     ("items", x.transformField {
@@ -64,7 +64,7 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
                         ("rel" -> "section") ~~ ("name" -> "must") ~~ ("href" -> s"${uri.withPath(uri.path / "must")}"),
                         ("rel" -> "section") ~~ ("name" -> "must_not") ~~ ("href" -> s"${uri.withPath(uri.path / "must_not")}"),
                         ("rel" -> "section") ~~ ("name" -> "should") ~~ ("href" -> s"${uri.withPath(uri.path / "should")}")
-                      ).++(fields.map { case (field, detail) =>
+                      ).++(properties.map { field =>
                         ("rel" -> "option") ~~
                           ("href" -> s"$uri/$field") ~~ ("name" -> field)
                         /*("data" -> List(

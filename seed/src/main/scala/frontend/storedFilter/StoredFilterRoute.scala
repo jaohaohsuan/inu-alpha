@@ -3,6 +3,7 @@ package frontend.storedFilter
 import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
+import org.json4s
 import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -12,6 +13,7 @@ import spray.http.StatusCodes._
 import spray.routing._
 
 import scala.collection.JavaConversions._
+import scala.concurrent.Future
 import scalaz.OptionT._
 import scalaz.Scalaz._
 
@@ -38,23 +40,17 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     ("name" -> "occurrence") ~~ ("value" -> "must") :: values
   }
 
-  def property(typ: String, field: String): Directive1[(JObject, List[JValue])] = onSuccess(
-    logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get.mappings())
-    .map { x =>
-      val mapping = parse(s"${x.get(typ)}") \ typ
-
-      mapping \ "_meta" \ "properties" \ field \ "queries" match {
-        case JArray(queries) =>
-          (mapping \ "properties" \ field \ "type") match {
-            case JString(str) => (("type" -> str) ~~ ("field" -> field), queries)
-            case _ => (JObject(), List.empty)
-          }
-        case _ => (JObject(), List.empty)
-      }
-    })
+ def fieldQueries(`type`: String, field: String): Directive1[(JObject, List[JValue])] =onSuccess( (for {
+    templates       <- logs.getTemplate.future
+    template1       <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
+    mapping         <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
+    json            <- (mapping \ `type`).toOption.future()
+    JArray(queries) <- (json \ "_meta" \ "properties" \ field \ "queries").toOption.future()
+    JString(dt)     <- (json \ "properties" \ field \ "type").toOption.future()
+  } yield (("type" -> dt) ~~ ("field" -> field), queries)))
 
   def fetchTypes: Directive1[List[String]] = onSuccess((for {
-    template <- optionT(logs.getTemplate.asFuture.map(_.getIndexTemplates.headOption))
+    template <- optionT(logs.getTemplate.future.map(_.getIndexTemplates.headOption))
   } yield template.mappings.map(_.key).toList).run).flatMap {
     case Some(types) => provide(types)
     case _ => reject()
@@ -88,7 +84,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                 actorRefFactory.actorOf(GetItemClausesRequest.props(typ, id, occurrence))
               } ~
               pathPrefix(Segment) { field =>
-                property(typ, field) { case (prop, queries) =>
+                fieldQueries(typ, field) { case (prop, queries) =>
                   pathEnd {
                     item(prop) { json =>
                       requestUri { uri =>

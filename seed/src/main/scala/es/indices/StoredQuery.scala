@@ -62,12 +62,12 @@ object storedQuery {
     prepareGet(id)
     .setFetchSource(Array(field), null)
       .setTransformSource(true)
-      .execute().asFuture
+      .execute().future
       .map{ r => compact(render(parse(r.getSourceAsString) \ field)) }
   }
 
   def save(storedQueryId: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor) = {
-    client.prepareIndex(index, ".percolator", storedQueryId).setSource(json).execute().asFuture
+    client.prepareIndex(index, ".percolator", storedQueryId).setSource(json).execute().future
   }
 
   def putSourceMapping(`type`: String)(implicit client: Client) = {

@@ -37,24 +37,24 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
 
   def receive = {
     case IndexScan =>
-      storedQuery.exists.execute().asFuture.map(_.isExists).flatMap {
-        case false => storedQuery.create.asFuture
+      storedQuery.exists.execute().future.map(_.isExists).flatMap {
+        case false => storedQuery.create.future
         case true =>
           log.info(s"${storedQuery.index} exists")
           for {
-            r1 <- storedQuery.mapping.asFuture
-            r2 <- storedQuery.putSourceMapping("ytx").asFuture
-            r3 <- storedQuery.putSourceMapping("ami-l8k").asFuture
+            r1 <- storedQuery.mapping.future
+            r2 <- storedQuery.putSourceMapping("ytx").future
+            r3 <- storedQuery.putSourceMapping("ami-l8k").future
           } yield StoredQueryMappingResponse(Seq(r1, r2, r3))
 
       } pipeTo self
 
-      logs.putIndexTemplate.asFuture pipeTo self
+      logs.putIndexTemplate.future pipeTo self
 
       (for {
-        existResp <- storedFilter.exists.execute().asFuture
+        existResp <- storedFilter.exists.execute().future
         _ <- predicate(existResp.isExists)(new Exception(s"${storedFilter.index} doesn't exist"))
-      } yield existResp).recoverWith { case _ => storedFilter.create.asFuture }
+      } yield existResp).recoverWith { case _ => storedFilter.create.future }
 
 
 

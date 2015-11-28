@@ -28,7 +28,7 @@ case class GetLogsRequest(ctx: RequestContext, implicit val client: Client) exte
 
   implicit def toSeq(p: Option[String]): Seq[String] = p.map(_.split("""(,|\s|\+)+""").toSeq).getOrElse(Seq.empty).filter(_.trim.nonEmpty)
 
-  def getQuery(conditionSet: Seq[String], zero: BoolQueryBuilder) = prepareSearchStoredQueryQuery(conditionSet).execute.asFuture
+  def getQuery(conditionSet: Seq[String], zero: BoolQueryBuilder) = prepareSearchStoredQueryQuery(conditionSet).execute.future
     .map(_.getHits.foldLeft(zero) { (acc, h) =>
       StoredQueryQuery.unapply(h) match {
         case StoredQueryQuery(title, q) if q.nonEmpty => acc.must(QueryBuilders.wrapperQuery(q))
@@ -43,7 +43,7 @@ case class GetLogsRequest(ctx: RequestContext, implicit val client: Client) exte
       import es.indices.logs._
       for {
         query <- getQuery(conditionSet, typ.asTypeQuery)
-        searchResponse <- logs.prepareSearch().setQuery(query).setSize(size).setFrom(from).setVttHighlighter.execute().asFuture
+        searchResponse <- logs.prepareSearch().setQuery(query).setSize(size).setFrom(from).setVttHighlighter.execute().future
       } yield (searchResponse, size, from, conditionSet.getOrElse(""))
   }
 

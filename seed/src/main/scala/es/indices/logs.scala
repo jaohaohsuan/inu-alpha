@@ -165,8 +165,6 @@ object logs {
     } yield props0.map(_._1).intersect(props1.map(_._1))
   }
 
-
-
   def prepareGet(r: GetRequest)(implicit client: Client) =
     client.prepareGet(r.index(), r.`type`(), r.id())
       .setFields("vtt")

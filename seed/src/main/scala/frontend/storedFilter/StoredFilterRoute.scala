@@ -11,7 +11,7 @@ import org.json4s.native.JsonMethods._
 import protocol.storedQuery.Terminology._
 import spray.http.StatusCodes._
 import spray.routing._
-
+import protocol.elastics.boolQuery.OccurrenceRegex
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 import scalaz.OptionT._
@@ -40,7 +40,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     ("name" -> "occurrence") ~~ ("value" -> "must") :: values
   }
 
- def fieldQueries(`type`: String, field: String): Directive1[(JObject, List[JValue])] =onSuccess( for {
+ def fieldQueries(`type`: String, field: String): Directive1[(JObject, List[JValue])] = onSuccess( for {
    templates <- logs.getTemplate.future
    template1 <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
    mapping <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
@@ -124,8 +124,15 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
       }
     } ~
     put {
-      pathPrefix("_filter" / Segment / Segment ) { (typ, filterId) =>
-        complete(OK)
+      pathPrefix("_filter" / Segment / Segment ) { (typ, filterId) => implicit ctx =>
+        actorRefFactory.actorOf(RenameRequest.props(filterId))
+      }
+    } ~
+    delete {
+      pathPrefix("_filter") {
+        pathPrefix(Segment / Segment) { (typ, filterId) => implicit ctx =>
+          actorRefFactory.actorOf(DeleteClauseRequest.props(typ, filterId))
+        }
       }
     }
 

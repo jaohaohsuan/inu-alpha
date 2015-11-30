@@ -34,6 +34,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Success, Failure}
 import scala.collection.JavaConversions._
+import protocol.storedQuery.Terminology._
+import protocol.elastics.boolQuery._
 
 trait CollectionJsonBuilder {
   def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String

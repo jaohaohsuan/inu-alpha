@@ -5,7 +5,7 @@ import akka.persistence._
 import common.ImplicitActorLogging
 import protocol.storedQuery._
 import domain.algorithm.TopologicalSort
-import protocol.storedQuery.Terminology._
+import protocol.elastics.boolQuery.OccurrenceRegex
 import domain._
 
 import scala.util.{Failure, Success, Try}

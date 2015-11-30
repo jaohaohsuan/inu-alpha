@@ -1,6 +1,6 @@
 package protocol.storedQuery
 
-import Terminology._
+import protocol.elastics.boolQuery.OccurrenceRegex
 
 /**
  * Created by henry on 9/18/15.

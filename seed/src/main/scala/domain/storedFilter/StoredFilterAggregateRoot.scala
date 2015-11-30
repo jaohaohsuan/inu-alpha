@@ -3,6 +3,7 @@ package domain.storedFilter
 import akka.actor.ActorRef
 import akka.persistence.{SnapshotOffer, PersistentActor}
 import common.{ImplicitLogging, ImplicitActorLogging}
+import org.apache.lucene.search.BooleanClause
 import org.json4s.JsonAST.JObject
 import protocol.storedFilter._
 
@@ -12,16 +13,19 @@ object StoredFilterAggregateRoot {
 
   // acks
   case class ClauseAddedAck(clauseId: String)
-  /*case object UpdatedAck
   case object ClausesRemovedAck
-  case object ClausesEmptyAck*/
+  case object ClausesEmptyAck
+  case object UpdatedAck
 
   //commands
   case class CreateNewStoredFilter(typ: String, title: String) extends Command
   object NewStoredFilter {
     def unapply(x: CreateNewStoredFilter)= Some(x.typ, x.title)
   }
+  case class Rename(filter: String, name: String) extends Command
 
+  case class RemoveClause(filterId: String, typ: String, clauseId: String) extends Command
+  case class EmptyClauses(filterId: String, typ: String, occur: String) extends Command
   case class AddClause[T <: BoolClause](filterId: String, typ: String, value: T) extends Command
 
   //case class FilterUpdated extends Event
@@ -84,14 +88,49 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
           `sender` ! ack
         }
         persist(evt)(afterPersisted(sender(), _))
-        ack
       }
-      val result = for {
+      for {
         s@StoredFilter(source, _, _) <- state.items.get(filterId)
         if source == typ
-      } yield doPersistence(ItemUpdated(filterId, typ, s.addClauses(clause)), ClauseAddedAck(s.newClauseKey))
+      } yield doPersistence(ItemUpdated(filterId, typ, s.add(clause)), ClauseAddedAck(s.newClauseKey))
 
-      result.logInfo()
+    case RemoveClause(filterId, typ, clauseId) =>
+      def doPersistence(evt: Event) = {
+        def afterPersisted(`sender`: ActorRef, evt: Event) = {
+          state = state.update(evt)
+          `sender` ! ClausesRemovedAck
+        }
+        persist(evt)(afterPersisted(sender(), _))
+      }
+      for {
+        s@StoredFilter(source, _, _) <- state.items.get(filterId)
+        if source == typ && s.clauses.contains(clauseId)
+      } yield doPersistence(ItemUpdated(filterId, typ, s.remove(clauseId)))
+
+    case EmptyClauses(filterId, typ, occur) =>
+      def doPersistence(evt: Event) = {
+        def afterPersisted(`sender`: ActorRef, evt: Event) = {
+          state = state.update(evt)
+          `sender` ! ClausesEmptyAck
+        }
+        persist(evt)(afterPersisted(sender(), _))
+      }
+      for {
+        s@StoredFilter(source, _, _) <- state.items.get(filterId)
+        if source == typ && s.clauses.exists { case (k, v) => v.occurrence == occur }
+      } yield doPersistence(ItemUpdated(filterId, typ, s.copy(clauses = s.clauses.filter { case (k,v) => v.occurrence != occur })))
+
+    case Rename(filterId, name) =>
+      def doPersistence(evt: Event) = {
+        def afterPersisted(`sender`: ActorRef, evt: Event) = {
+          state = state.update(evt)
+          `sender` ! UpdatedAck
+        }
+        persist(evt)(afterPersisted(sender(), _))
+      }
+      for {
+        s@StoredFilter(source, _, _) <- state.items.get(filterId)
+      } yield doPersistence(ItemUpdated(filterId, source, s.copy(title = name)))
   }
 
   val receiveRecover: Receive = {

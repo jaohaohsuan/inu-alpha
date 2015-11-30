@@ -12,7 +12,8 @@ case class StoredFilter(typ: String, title: String, clauses: Map[String, BoolCla
   import common.Key._
   lazy val newClauseKey = clauses.newKey
 
-  def addClauses(clause: BoolClause): StoredFilter = copy(clauses = clauses.+(newClauseKey -> clause))
+  def add(clause: BoolClause): StoredFilter = copy(clauses = clauses.+(newClauseKey -> clause))
+  def remove(clauseId: String): StoredFilter = copy(clauses = clauses.-(clauseId))
 }
 
 final case class TermQuery(occurrence: String, field: String, value: JValue) extends BoolClause

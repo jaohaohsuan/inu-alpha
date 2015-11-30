@@ -10,6 +10,7 @@ import protocol.storedQuery.Exchange._
 import protocol.storedQuery.Terminology._
 import spray.httpx.unmarshalling._
 import spray.routing._
+import protocol.elastics.boolQuery._
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport with ImplicitHttpServiceLogging {
 

@@ -48,7 +48,10 @@ case class GetItemClausesRequest(ctx: RequestContext, private implicit val clien
                       case ("href", JString(path)) =>
                         val href = path.split("/").foldLeft(uri.withPath(uri.path.reverse.tail.tail.reverse)){ (acc, e) => acc.withPath( acc.path / e )}
                         "href" -> JString(s"$href")
-                      case ("data", JObject(ys)) => "data" -> JArray(ys.collect { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) })
+                      case ("data", JObject(ys)) => "data" -> JArray(ys.collect {
+                        case (f: String, v: JArray) => ("name" -> f) ~~ ("array" -> v)
+                        case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v)
+                      })
                       case x => x
                     }}
                     case _ => Nil

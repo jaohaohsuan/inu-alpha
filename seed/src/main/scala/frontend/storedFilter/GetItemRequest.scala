@@ -45,7 +45,6 @@ case class GetItemRequest(ctx: RequestContext, private implicit val client: Clie
           requestUri { uri =>
             item(source) { json =>
               mappingProperties { properties =>
-
                 val sections = occurs map { occur => ("rel" -> "section") ~~ ("name" -> occur) ~~ ("href" -> s"${uri.withPath(uri.path / occur)}") }
                 val options = properties map { field => ("rel" -> "option") ~~ ("href" -> s"$uri/$field") ~~ ("name" -> field)}
 

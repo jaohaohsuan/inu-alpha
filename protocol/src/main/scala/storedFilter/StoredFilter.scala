@@ -1,10 +1,11 @@
 package protocol.storedFilter
 
-import org.json4s.JsonAST.JValue
+import org.json4s.JsonAST.{JArray, JValue}
 
 
 sealed trait BoolClause {
   val occurrence: String
+  val field: String
 }
 
 case class StoredFilter(typ: String, title: String, clauses: Map[String, BoolClause] = Map.empty) {
@@ -14,10 +15,7 @@ case class StoredFilter(typ: String, title: String, clauses: Map[String, BoolCla
   def addClauses(clause: BoolClause): StoredFilter = copy(clauses = clauses.+(newClauseKey -> clause))
 }
 
-final case class TermQuery(filterId: String ,occurrence: String, typ: String ,field: String, value: JValue) extends BoolClause
+final case class TermQuery(occurrence: String, field: String, value: JValue) extends BoolClause
+final case class TermsQuery(occurrence: String, field: String, value: JArray) extends BoolClause
+final case class RangeQuery(occurrence: String, field: String, gte: JValue, lte: JValue) extends BoolClause
 
-sealed trait TermLevelQueries
-
-object EmptyQuery extends TermLevelQueries
-
-case class RangeQuery(gte: String, gt: String, lte: String, lt: String) extends TermLevelQueries

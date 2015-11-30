@@ -1,7 +1,5 @@
 package frontend
 
-import common.ImplicitLogging
-import org.json4s.JsonAST.{JValue, JArray, JObject}
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -27,7 +25,10 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
     def asTemplate: JObject =
       "data" -> JArray(parse(write(value)) match {
         case JObject(xs) =>
-          xs.map { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) }
+          xs.map {
+            case (f: String, v: JArray) => ("name" -> f) ~~ ("array" -> v)
+            case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v)
+          }
         case _ => Nil
       })
   }
@@ -66,7 +67,12 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
     Unmarshaller[T](`application/vnd.collection+json`) {
     case HttpEntity.NonEmpty(contentType, data) =>
       (parse(data.asString) \ "template" \ "data" match {
-        case JArray(xs) => xs.foldLeft(JObject()){ (acc, o) =>  acc ~ ((o \ "name").extract[String], o \ "value" )}
+        case JArray(xs) => xs.foldLeft(JObject()){ (acc, o) =>
+          ((o \ "value").toOption :: (o \ "array").toOption :: Nil).find(_.isDefined) match {
+            case Some(value) => acc ~ ((o \ "name").extract[String], value)
+            case None => acc
+          }
+         }
         case _ => JObject()
       }).extract
     }

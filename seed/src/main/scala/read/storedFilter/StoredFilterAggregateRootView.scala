@@ -3,17 +3,14 @@ package read.storedFilter
 import akka.actor.Props
 import akka.persistence.query.EventEnvelope
 import org.elasticsearch.client.Client
-import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders}
-import org.json4s.JValue
+import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.{QueryBuilder, BoolQueryBuilder, QueryBuilders}
 import org.json4s.JValue
 import org.json4s.JsonAST._
-import protocol.storedFilter.{BoolClause, TermQuery}
-import read.MaterializeView
-import elastic.ImplicitConversions._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
-
-import scala.concurrent.Future
+import protocol.storedFilter.{BoolClause, RangeQuery, TermQuery, TermsQuery}
+import read.MaterializeView
 
 object StoredFilterAggregateRootView {
   def props(implicit client: Client) = Props(classOf[StoredFilterAggregateRootView], client)
@@ -23,7 +20,6 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
 
   import akka.stream.scaladsl.Sink
   import context.dispatcher
-
   import domain.storedFilter.StoredFilterAggregateRoot._
   import protocol.storedFilter.NameOfAggregate
 
@@ -49,53 +45,57 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
 
     case ItemUpdated(id, typ, entity) =>
       import QueryBuilders._
-      val zero: (BoolQueryBuilder, JValue) = (boolQuery(), ("query" -> JObject()) ~ ("must" -> JArray(Nil)) ~ ("should" -> JArray(Nil)) ~ ("must_not" -> JArray(Nil)))
-      val (filter, json) =  entity.clauses.foldLeft(zero){ (acc, e) => e.add(acc) }
-      //json.logInfo(j => pretty(render(j)))
-      es.indices.storedFilter.update(id, typ, pretty(render(json)))
+      val zero: (JValue, JValue) =(
+        ("must" -> JArray(Nil)) ~
+        ("should" -> JArray(Nil)) ~
+        ("must_not" -> JArray(Nil)), ("query" ->
+        ("bool" ->
+          ("must" -> JArray(Nil)) ~
+            ("must_not" -> JArray(Nil)) ~
+            ("should" -> JArray(Nil)))))
+      val (source, query) = entity.clauses.foldLeft(zero){ (acc, e) => e.add(acc) }
+      es.indices.storedFilter.update(id, typ, pretty(render(source merge query)))
 
   } }.runWith(Sink.ignore)
 
   implicit class Clause0(kv: (String, BoolClause)) {
+    val (id, clause) = kv
 
-    val (id,clause) = kv
+    def add(acc: (JValue,  JValue)): (JValue, JValue)= {
 
-    import QueryBuilders._
-
-    def add(acc: (BoolQueryBuilder, JValue)): (BoolQueryBuilder, JValue) = {
-
-      val (bool, json) = acc
-
-      val qb =  clause match {
-        case TermQuery(_, occur, typ, field, value) => build(termQuery(field, _), value)
+      val qb = clause match {
+        case TermQuery(_, field, value) => "term" -> (field -> value)
+        case TermsQuery(_, field, array) => "terms" -> (field -> array)
+        case RangeQuery(_, field, gte, lte) => "range" -> (field -> ("gte" -> gte) ~ ("lte" -> lte))
       }
 
-     lazy val elem: JObject = clause match {
-        case TermQuery(_, occur, typ, field, value) =>
-          ("href" -> s"$field/term/$id") ~
-          ("data" -> ("value" -> value) ~ ("occurrence" -> occur))
+      lazy val elem: JObject = {
+        val data = ("field" -> clause.field)
+        clause match {
+          case TermQuery(occur, field, value) =>
+            ("href" -> s"$field/term/$id") ~
+              ("data" -> data ~ ("value" -> value) ~ ("query" -> "term"))
+          case TermsQuery(occur, field, value) =>
+            ("href" -> s"$field/terms/$id") ~
+              ("data" -> data ~ ("value" -> value) ~ ("query" -> "terms"))
+          case RangeQuery(occur, field, gte, lte) =>
+            ("href" -> s"$field/range/$id") ~
+              ("data" -> data ~ ("gte" -> gte) ~ ("lte" -> lte) ~("query" -> "range"))
+        }
       }
 
-      val filter = clause.occurrence match {
-        case "must" => bool.must(qb)
-        case "should" => bool.should(qb)
-        case "must_not" => bool.mustNot(qb)
-      }
+      val (source, query) = acc
 
-      (filter, json.transformField {
+      (source.transformField {
         case (clause.occurrence, JArray(xs)) => clause.occurrence -> JArray(elem :: xs)
-        case ("query", _) => "query" -> parse(s"$filter")
+      },
+       query.transformField {
+         case ("bool", bool: JObject) => "bool" -> bool.transformField {
+           case (clause.occurrence, JArray(xs)) => (clause.occurrence, JArray(qb :: xs))
+         }
       })
     }
-
-    private def build(f: Any => QueryBuilder, value: JValue) =
-      value match {
-        case JString(str) => f(str)
-        case JLong(long) => f(long)
-        case JDouble(double) => f(double)
-        case JBool(bool) => f(bool)
-      }
-    }
+  }
 
   def receive: Receive = {
     case _ =>

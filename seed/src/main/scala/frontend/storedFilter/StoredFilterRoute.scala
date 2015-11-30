@@ -40,14 +40,14 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     ("name" -> "occurrence") ~~ ("value" -> "must") :: values
   }
 
- def fieldQueries(`type`: String, field: String): Directive1[(JObject, List[JValue])] =onSuccess( (for {
-    templates       <- logs.getTemplate.future
-    template1       <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
-    mapping         <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
-    json            <- (mapping \ `type`).toOption.future()
-    JArray(queries) <- (json \ "_meta" \ "properties" \ field \ "queries").toOption.future()
-    JString(dt)     <- (json \ "properties" \ field \ "type").toOption.future()
-  } yield (("type" -> dt) ~~ ("field" -> field), queries)))
+ def fieldQueries(`type`: String, field: String): Directive1[(JObject, List[JValue])] =onSuccess( for {
+   templates <- logs.getTemplate.future
+   template1 <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
+   mapping <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
+   json <- (mapping \ `type`).toOption.future()
+   JArray(queries) <- (json \ "_meta" \ "properties" \ field \ "queries").toOption.future()
+   JString(dt) <- (json \ "properties" \ field \ "type").toOption.future()
+ } yield (("type" -> dt) ~~ ("field" -> field), queries))
 
   def fetchTypes: Directive1[List[String]] = onSuccess((for {
     template <- optionT(logs.getTemplate.future.map(_.getIndexTemplates.headOption))
@@ -121,6 +121,11 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             actorRefFactory.actorOf(PostFieldQueryRequest.props(typ, filterId, field))
           }
         }
+      }
+    } ~
+    put {
+      pathPrefix("_filter" / Segment / Segment ) { (typ, filterId) =>
+        complete(OK)
       }
     }
 

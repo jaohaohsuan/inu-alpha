@@ -22,7 +22,7 @@ object StoredFilterAggregateRoot {
     def unapply(x: CreateNewStoredFilter)= Some(x.typ, x.title)
   }
 
-  case class AddClause[T](value: T) extends Command
+  case class AddClause[T <: BoolClause](filterId: String, typ: String, value: T) extends Command
 
   //case class FilterUpdated extends Event
 
@@ -77,7 +77,7 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
 
       doPersistence(ItemCreated(state.newItemId, typ, title))
 
-    case AddClause(c@TermQuery(filterId, occur, typ, field, value)) =>
+    case AddClause(filterId, typ, clause) =>
       def doPersistence(evt: Event, ack: ClauseAddedAck) = {
         def afterPersisted(`sender`: ActorRef, evt: Event) = {
           state = state.update(evt)
@@ -89,7 +89,7 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
       val result = for {
         s@StoredFilter(source, _, _) <- state.items.get(filterId)
         if source == typ
-      } yield doPersistence(ItemUpdated(filterId, typ, s.addClauses(c)), ClauseAddedAck(s.newClauseKey))
+      } yield doPersistence(ItemUpdated(filterId, typ, s.addClauses(clause)), ClauseAddedAck(s.newClauseKey))
 
       result.logInfo()
   }

@@ -3,17 +3,14 @@ package frontend.storedFilter
 import elastic.ImplicitConversions._
 import es.indices.logs
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
-import org.json4s
-import org.json4s.JsonAST.JValue
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.Terminology._
+import protocol.elastics.boolQuery.OccurrenceRegex
 import spray.http.StatusCodes._
 import spray.routing._
-import protocol.elastics.boolQuery.OccurrenceRegex
+
 import scala.collection.JavaConversions._
-import scala.concurrent.Future
 import scalaz.OptionT._
 import scalaz.Scalaz._
 
@@ -31,9 +28,9 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     }
 
     val values =  query match {
-      case "terms" => ("name" -> "value") ~~ ("array" -> List(sampleValue)) :: Nil
-      case "term" => ("name" -> "value") ~~ ("value" -> sampleValue) :: Nil
-      case "range" => ("name" -> "gte") ~~ ("value" -> sampleValue) :: ("name" -> "lte") ~~ ("value" -> sampleValue) :: Nil
+      case "terms" => ("render" -> "field") ~~ ("name" -> "value") ~~ ("array" -> List(sampleValue)) :: Nil
+      case "term" => ("render" -> "field") ~~ ("name" -> "value") ~~ ("value" -> sampleValue) :: Nil
+      case "range" => ("render" -> "field") ~~ ("name" -> "gte") ~~ ("value" -> sampleValue) :: ("render" -> "field") ~~ ("name" -> "lte") ~~ ("value" -> sampleValue) :: Nil
       case _ => Nil
     }
 
@@ -90,7 +87,9 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                       requestUri { uri =>
                         complete(OK, json.mapField {
                           case ("items", JArray(x :: Nil)) => "items" -> JArray(x.transformField { case f @ ("links", _) => ("links", JNothing) } :: Nil)
-                          case ("links", JNothing) => "links" -> queries.collect { case JString(q) => ("rel" -> "option") ~~ ("href" -> s"${uri.withPath(uri.path / q)}") }
+                          case ("links", JNothing) => "links" -> queries.collect {
+                            case JString(q) => ("rel" -> "option") ~~ ("href" -> s"${uri.withPath(uri.path / q)}") ~~ ("name" -> q)
+                          }
                           case ("template", _) => "template" -> JNothing
                           case x => x
                         })
@@ -99,10 +98,13 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                   } ~
                   path(Segment) { query =>
                     collection { json =>
-                      complete(OK, json.mapField {
-                        case ("template", _) => "template" -> ("data" -> termLevelQuerySyntax((prop \ "type").extract[String])(query))
-                        case x => x
-                      })
+                      requestUri { uri =>
+                        complete(OK, json.mapField {
+                          case ("template", _) => "template" -> ("data" -> termLevelQuerySyntax((prop \ "type").extract[String])(query))
+                          //case ("queries", _) => "queries" -> JArray(("href" -> s"${uri.withPath(uri.path / "preview" )}") :: Nil)
+                          case x => x
+                        })
+                      }
                     }
                   }
                 }

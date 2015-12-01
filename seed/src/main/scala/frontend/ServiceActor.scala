@@ -21,13 +21,12 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   def receive = runRoute(
     cors {
       `_query/template/` ~
-        `_filter/` ~
+        newRoute ~
+        //`_filter/` ~
         //`_mapping/` ~
         `_analysis` ~
         `logs-*` ~
-        authenticate(BasicAuth("river")) { username =>
-          `_import`
-        }
+        `_import`
     }
   )
 }

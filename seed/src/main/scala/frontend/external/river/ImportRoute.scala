@@ -11,6 +11,7 @@ import spray.http.{ContentTypeRange, HttpEntity}
 import spray.httpx.Json4sSupport
 import spray.httpx.unmarshalling.Unmarshaller
 import spray.routing._
+import spray.routing.authentication.BasicAuth
 
 import scala.xml._
 
@@ -53,12 +54,13 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
 
   lazy val `_import`: Route = {
     path("_river" / "stt" / "ami" / Segment ) { id =>
-      handleExceptions(handleAllExceptions){
-        datetimeExtractorDirective(id) { getIndex =>
-          put {
-            respondWithMediaType(`application/json`) {
-              entity(as[NodeSeq]) { nodeSeq =>  implicit ctx =>
-                //authenticate(BasicAuth(realm = "river")) { userName =>
+      authenticate(BasicAuth("river")) { username =>
+        handleExceptions(handleAllExceptions) {
+          datetimeExtractorDirective(id) { getIndex =>
+            put {
+              respondWithMediaType(`application/json`) {
+                entity(as[NodeSeq]) { nodeSeq => implicit ctx =>
+                  //authenticate(BasicAuth(realm = "river")) { userName =>
                   val node: Option[Seq[Elem]] = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
                     .map(_.child.collect { case e: Elem => e })
                   node match {
@@ -73,30 +75,33 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
                              |    "code" : "400",
                              |    "message" : "unexpected path found"
                              |  }
-                             |}
-                     """.stripMargin)
+                             |}""".stripMargin)
                     }
                   //}
                 }
               }
           } ~
           delete {
-              //onComplete(client.prepareDelete().setIndex(s"logs-$"))
-            complete(NoContent)
+            //onComplete(client.prepareDelete().setIndex(s"logs-$"))
+            complete(
+              NoContent)
           }
         }
       }
+      }
     } ~
     path("_river" / "dim" / "LOG8000" / Segment ) { id =>
-      handleExceptions(handleAllExceptions){
-        datetimeExtractorDirective(id) { getIndex =>
-          put {
-            //authenticate(BasicAuth(realm = "river")) { userName =>
+      authenticate(BasicAuth("river")) { username =>
+        handleExceptions(handleAllExceptions) {
+          datetimeExtractorDirective(id) { getIndex =>
+            put {
+              //authenticate(BasicAuth(realm = "river")) { userName =>
               entity(as[JObject]) { obj => implicit ctx =>
                 //log.info(s"$obj")
                 ctx.complete(OK)
               }
-            //}
+              //}
+            }
           }
         }
       }

@@ -1,5 +1,6 @@
 package es.indices
 
+import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.client.Client
@@ -9,10 +10,9 @@ import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import elastic.ImplicitConversions._
-import org.json4s.JsonAST.{JString, JArray, JValue}
+import org.elasticsearch.search.aggregations.bucket.filters.FiltersAggregationBuilder
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import spray.routing._
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContextExecutor, Future, ExecutionContext}
 import scala.util.Try
@@ -42,9 +42,8 @@ object logs {
     }
   }
 
-  def buildSourceAgg(key: String = "source")(implicit client: Client, executionContext: ExecutionContext) = {
-    import elastic.ImplicitConversions._
-    getTemplate.future.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
+  def buildSourceAgg(key: String = "source")(implicit client: Client, executionContext: ExecutionContext): Future[FiltersAggregationBuilder] = {
+    getTemplate.map(_.getIndexTemplates.headOption).filter(_.isDefined).map(_.get)
       .map { resp =>
         resp.getMappings.foldLeft(AggregationBuilders.filters(key)) { (acc, m) =>
           acc.filter(m.key, QueryBuilders.typeQuery(m.key))
@@ -131,35 +130,38 @@ object logs {
     |        "_meta" : {
     |           "properties" : {
     |             "agentTeamName" : {
-    |               "queries" : [ "term", "terms" ]
+    |               "queries" : {
+    |                             "term"  : { "value" : "rd1" },
+    |                             "terms" : { "value" : [ "rd1", "rd2" ]}
+    |                           }
     |             },
     |             "recordTime" : {
-    |               "queries" : [ "range", "term", "terms" ]
-    |             },
-    |             "recordRang" : {
-    |               "queries" : [ "range", "term", "terms" ]
+    |               "queries" : {
+    |                             "range" : { "gte" : "2015-05-29T07:01:51+08:00", "lte" : "2015-12-05T07:01:51+08:00" },
+    |                             "term"  : { "value" : "2015-05-29T07:01:51+08:00" },
+    |                             "terms" : { "value" : [ "2015-05-29T07:01:51+08:00", "2015-05-30T07:01:51+08:00"] }
+    |                           }
     |             },
     |             "custGrade" : {
-    |               "queries" : [ "term", "terms" ]
+    |               "queries" : { "term" : { "value" : 1 }, "terms" : { "value" : [ 1, 2 ] } }
     |             }
     |           }
     |        }
     |      }
   """.stripMargin
 
-  def getTemplate(implicit client: Client) =
+  def getTemplate(implicit client: Client): Future[GetIndexTemplatesResponse] =
     client.admin()
       .indices()
       .prepareGetTemplates("template1")
-      .execute()
+      .execute().future
 
 
   def getProperties(`type`: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[List[String]] = {
     for {
-      templates       <- logs.getTemplate.future
+      templates       <- logs.getTemplate
       template1       <- templates.getIndexTemplates.headOption.future(new Exception("template1 doesn't exist"))
-      mapping         <- (if (template1.mappings.containsKey(`type`)) Some(parse(template1.mappings.get(`type`).string())) else None).future()
-      json            <- (mapping \ `type`).toOption.future()
+      json            <- template1.mappings.find { _.key == `type` }.flatMap { x => (parse(x.value.string()) \ `type`).toOption }.future()
       JObject(props0) <- (json \ "_meta" \ "properties").toOption.future()
       JObject(props1) <- (json \ "properties").toOption.future()
     } yield props0.map(_._1).intersect(props1.map(_._1))

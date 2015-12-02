@@ -58,7 +58,7 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
           collection { json =>
             respondWithMediaType(`application/vnd.collection+json`) {
               parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (size, from) =>
-                val paginationLinks = Pagination(size, from, totals).links.map { l => parse(l)}.toList
+                val paginationLinks = Pagination(size, from, totals).links.map { l => parse(l)}
                 val itemUri = uri.withQuery()
                 complete(OK, json.transformField {
                   case (k@"href", _) => k -> s"${uri.withQuery()}"
@@ -73,8 +73,7 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
                       case ("data", JObject(xs)) => "data" -> xs.map { case (f: String, v: JValue) => ("name" -> f) ~~ ("value" -> v) }
                     }
                   }
-                  case ("links", _) =>
-                    "links" ->  List(("rel" -> "edit") ~~ ("href" -> s"${itemUri.withPath(itemUri.path / "temporary")}")).++(paginationLinks)
+                  case ("links", _) => "links" -> paginationLinks
                 })
               }
             }

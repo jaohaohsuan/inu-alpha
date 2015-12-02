@@ -1,11 +1,8 @@
 package frontend.storedFilter
 
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
-import org.elasticsearch.common.collect.ImmutableOpenMap
-import org.elasticsearch.common.compress.CompressedXContent
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.native.JsonMethods._
 import protocol.elastics.boolQuery.OccurrenceRegex
 import spray.http.StatusCodes._
 import spray.routing._
@@ -57,7 +54,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             } ~
             path(OccurrenceRegex) { occur =>
               get { implicit ctx => //_filter/ami-l8k/371005001/must
-                  actorRefFactory.actorOf(GetItemClausesRequest.props(source, id, occur))
+                actorRefFactory.actorOf(GetItemClausesRequest.props(source, id, occur))
               }
             } ~
             properties(source)(sources) { case (propertiesRegex, props) =>
@@ -68,7 +65,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                 get {
                   queries(props \ prop) { case (queriesRegex, jQueries@JObject(xs)) =>
                     pathEnd {
-                      propertyQueries(xs)
+                      propertyQueries(xs, (props \ prop \ "type").extract[String])
                     } ~
                     path(queriesRegex) { query =>
                       queryTemplate(jQueries \ query) //_filter/ami-l8k/371005001/recordTime/terms
@@ -84,9 +81,10 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
   }
 
 
-  def propertyQueries(xs: List[JField]): Route =
-      collection { json =>
+  def propertyQueries(xs: List[JField], dataType: String): Route =
+      item(Map("type" -> dataType)) { json =>
         requestUri { uri =>
+          dataType.logInfo()
           complete(OK, json.mapField {
             case ("items", JArray(x :: Nil)) => "items" -> JArray(x.transformField { case ("links", _) => ("links", JNothing) } :: Nil)
             case ("links", JNothing) => "links" -> xs.map { case JField(q, _) =>
@@ -116,5 +114,4 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
           case x => x
         })
       }
-
 }

@@ -30,7 +30,7 @@ trait TemplateExtractor extends Directives {
       json <- parse(sources.get(source).string()).toOption
       mapping <- (json \ source).toOption
       meta@JObject(props0) <- (mapping \ "_meta" \ "properties").toOption
-      JObject(props1)      <- (mapping \ "properties").toOption
+      mp@JObject(props1)   <- (mapping \ "properties").toOption
       xs = props0.map(_._1).intersect(props1.map(_._1))
     } yield (xs.r(identity), meta)
 

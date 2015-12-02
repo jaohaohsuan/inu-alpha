@@ -133,17 +133,20 @@ object logs {
     |               "queries" : {
     |                             "term"  : { "value" : "rd1" },
     |                             "terms" : { "value" : [ "rd1", "rd2" ]}
-    |                           }
+    |                           },
+    |               "type" : "string"
     |             },
     |             "recordTime" : {
     |               "queries" : {
     |                             "range" : { "gte" : "2015-05-29T07:01:51+08:00", "lte" : "2015-12-05T07:01:51+08:00" },
     |                             "term"  : { "value" : "2015-05-29T07:01:51+08:00" },
     |                             "terms" : { "value" : [ "2015-05-29T07:01:51+08:00", "2015-05-30T07:01:51+08:00"] }
-    |                           }
+    |                           },
+    |               "type" : "date"
     |             },
     |             "custGrade" : {
-    |               "queries" : { "term" : { "value" : 1 }, "terms" : { "value" : [ 1, 2 ] } }
+    |               "queries" : { "term" : { "value" : 1 }, "terms" : { "value" : [ 1, 2 ] } },
+    |               "type" : "number"
     |             }
     |           }
     |        }

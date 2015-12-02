@@ -16,12 +16,11 @@ object StoredFilterAggregateRoot {
   case object ClausesRemovedAck
   case object ClausesEmptyAck
   case object UpdatedAck
+  case class ItemCreatedAck(filterId: String)
 
   //commands
-  case class CreateNewStoredFilter(typ: String, title: String) extends Command
-  object NewStoredFilter {
-    def unapply(x: CreateNewStoredFilter)= Some(x.typ, x.title)
-  }
+  case class CreateNewStoredFilter(typ: String, title: String, referredId: Option[String] = None) extends Command
+
   case class Rename(filter: String, name: String) extends Command
 
   case class RemoveClause(filterId: String, typ: String, clauseId: String) extends Command
@@ -31,7 +30,7 @@ object StoredFilterAggregateRoot {
   //case class FilterUpdated extends Event
 
   //events
-  case class ItemCreated(id: String, typ: String, title: String) extends Event
+  case class ItemCreated(id: String, typ: String, entity: StoredFilter) extends Event
   case class ItemUpdated(id: String, typ: String, entity: StoredFilter) extends Event
 
   case class StoredFilters(items: Map[String, StoredFilter] = Map.empty) extends State with ImplicitLogging {
@@ -47,8 +46,8 @@ object StoredFilterAggregateRoot {
     def update(event: Event): StoredFilters = {
       //s"${event.getClass.getName.replaceAll("\\$", ".")} event has been updated".logInfo()
       event match {
-        case ItemCreated(id, typ, title) =>
-          copy(items = items + (id -> StoredFilter(typ, title)))
+        case ItemCreated(id, typ, entity) =>
+          copy(items = items + (id -> entity))
         case ItemUpdated(id, typ, entity) =>
           copy(items = items + (id -> entity))
         case unknown =>
@@ -70,16 +69,28 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
 
   val receiveCommand: Receive = {
 
-    case NewStoredFilter(typ, title) =>
-      def doPersistence[A <: Event](evt: Event) = {
-        def afterPersisted(`sender`: ActorRef, evt: Event) = {
+    case CreateNewStoredFilter(typ, title, None) =>
+      def doPersistence[A <: Event](evt: ItemCreated) = {
+        def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
           state = state.update(evt)
-          `sender` ! evt
+          `sender` ! ItemCreatedAck(evt.id)
         }
         persist(evt)(afterPersisted(sender(), _))
       }
+      doPersistence(ItemCreated(state.newItemId, typ, StoredFilter(typ, title)))
 
-      doPersistence(ItemCreated(state.newItemId, typ, title))
+    case CreateNewStoredFilter(typ, title, Some(referredId)) =>
+      def doPersistence[A <: Event](evt: ItemCreated) = {
+        def afterPersisted(`sender`: ActorRef, evt: ItemCreated) = {
+          state = state.update(evt)
+          `sender` ! ItemCreatedAck(evt.id)
+        }
+        persist(evt)(afterPersisted(sender(), _))
+      }
+      for {
+        s@StoredFilter(source, _, _) <- state.items.get(referredId)
+        if source == typ
+      } yield doPersistence(ItemCreated(state.newItemId, typ, s.copy(title = title)))
 
     case AddClause(filterId, typ, clause) =>
       def doPersistence(evt: Event, ack: ClauseAddedAck) = {

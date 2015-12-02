@@ -36,21 +36,15 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             get { implicit ctx =>
               actorRefFactory.actorOf(QueryRequest.props)
             } ~
-            post { implicit ctx =>
-              actorRefFactory.actorOf(NewFilterRequest.props(source))
-            }
+            post { implicit ctx => actorRefFactory.actorOf(NewFilterRequest.props(source)) }
           } ~
           pathPrefix(Segment) { id =>
             delete { implicit ctx =>
               actorRefFactory.actorOf(DeleteClauseRequest.props(source, id))
             } ~
             pathEnd { //_filter/ami-l8k/371005001
-              get { implicit ctx =>
-                actorRefFactory.actorOf(GetItemRequest.props(source, id))
-              } ~
-              post {
-                complete(Created)
-              }
+              get { implicit ctx => actorRefFactory.actorOf(GetItemRequest.props(source, id)) } ~
+              post { implicit ctx => actorRefFactory.actorOf(NewFilterRequest.props(source, Some(id)))}
             } ~
             path(OccurrenceRegex) { occur =>
               get { implicit ctx => //_filter/ami-l8k/371005001/must

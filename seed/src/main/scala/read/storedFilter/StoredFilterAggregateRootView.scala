@@ -6,8 +6,9 @@ import org.json4s.JValue
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
-import protocol.storedFilter.{BoolClause, RangeQuery, TermQuery, TermsQuery}
+import protocol.storedFilter._
 import read.MaterializeView
+import scala.language.implicitConversions
 
 object StoredFilterAggregateRootView {
   def props(implicit client: Client) = Props(classOf[StoredFilterAggregateRootView], client)
@@ -22,17 +23,20 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
 
   val source = readJournal.eventsByPersistenceId(NameOfAggregate.root.name)
 
+  implicit def toSource(entity: StoredFilter): String = {
+    val zero: (JValue, JValue) = (
+    ("title" -> entity.title) ~ ("must" -> JArray(Nil)) ~ ("should" -> JArray(Nil)) ~ ("must_not" -> JArray(Nil)),
+    "query" -> ("bool" -> ("must" -> JArray(Nil)) ~ ("must_not" -> JArray(Nil)) ~ ("should" -> JArray(Nil))))
+    val (source, query) = entity.clauses.foldLeft(zero){ (acc, e) => e.add(acc) }
+    compact(render(source merge query))
+  }
+
   source.mapAsync(1) { envelope => envelope.event match {
-    case ItemCreated(id, typ, title) =>
-      val json = compact(render("title" -> title: JObject))
-      es.indices.storedFilter.index(id, typ, json)
+    case ItemCreated(id, typ, entity) =>
+      es.indices.storedFilter.index(id, typ, entity)
 
     case ItemUpdated(id, typ, entity) =>
-      val zero: (JValue, JValue) = (
-        ("title" -> entity.title) ~ ("must" -> JArray(Nil)) ~ ("should" -> JArray(Nil)) ~ ("must_not" -> JArray(Nil)),
-        "query" -> ("bool" -> ("must" -> JArray(Nil)) ~ ("must_not" -> JArray(Nil)) ~ ("should" -> JArray(Nil))))
-      val (source, query) = entity.clauses.foldLeft(zero){ (acc, e) => e.add(acc) }
-      es.indices.storedFilter.update(id, typ, pretty(render(source merge query)))
+      es.indices.storedFilter.update(id, typ, entity)
 
   } }.runWith(Sink.ignore)
 

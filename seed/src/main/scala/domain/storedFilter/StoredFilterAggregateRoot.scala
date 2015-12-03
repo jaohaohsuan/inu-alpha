@@ -30,7 +30,7 @@ object StoredFilterAggregateRoot {
   //events
   case class ItemCreated(id: String, typ: String, entity: StoredFilter) extends Event
   case class ItemUpdated(id: String, typ: String, entity: StoredFilter) extends Event
-  case class ItemDeleted(id: String, typ: String) extends Event
+  case class ItemDeleted(id: String, typ: String, entity: StoredFilter) extends Event
 
   case class StoredFilters(items: Map[String, StoredFilter] = Map.empty) extends State with ImplicitLogging {
 
@@ -49,7 +49,7 @@ object StoredFilterAggregateRoot {
           copy(items = items + (id -> entity))
         case ItemUpdated(id, _, entity) =>
           copy(items = items + (id -> entity))
-        case ItemDeleted(id, _) =>
+        case ItemDeleted(id, _, _) =>
           copy(items = items.-(id))
         case unknown =>
           s"Unknown event '$unknown' were found when updating ${this.getClass.getName} state.".logWarn()
@@ -100,7 +100,7 @@ class StoredFilterAggregateRoot extends PersistentActor with ImplicitActorLoggin
       val maybe = for {
         s@StoredFilter(source, _, _) <- state.items.get(filterId)
         if source == typ
-      } yield ItemDeleted(filterId, typ)
+      } yield ItemDeleted(filterId, typ, s)
 
       maybe match {
         case Some(e) => e.persistWithAck { _ => ItemDeletedAck}

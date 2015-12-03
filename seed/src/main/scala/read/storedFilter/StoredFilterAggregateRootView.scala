@@ -37,7 +37,7 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
       es.indices.storedFilter.index(id, typ, entity)
     case ItemUpdated(id, typ, entity) =>
       es.indices.storedFilter.update(id, typ, entity)
-    case ItemDeleted(id, typ) =>
+    case ItemDeleted(id, typ, _) =>
       client.prepareDelete(es.indices.storedFilter.index, typ, id).execute().future
 
   } }.runWith(Sink.ignore)

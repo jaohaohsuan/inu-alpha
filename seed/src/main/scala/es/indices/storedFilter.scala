@@ -48,5 +48,4 @@ object storedFilter {
 
   def update(id: String, typ: String, json: String)(implicit client: Client, ctx: ExecutionContextExecutor): Future[UpdateResponse] =
     client.prepareUpdate(index, typ, id).setDoc(json).execute().future
-  
 }

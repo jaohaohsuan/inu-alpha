@@ -1,5 +1,7 @@
 package frontend.storedFilter
 
+import akka.actor.{Props}
+import domain.storedFilter.StoredFilterAggregateRoot.{DeleteItem, EmptyClauses, RemoveClause}
 import frontend.{CollectionJsonSupport, ImplicitHttpServiceLogging}
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -13,56 +15,63 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
 
   implicit def client: org.elasticsearch.client.Client
 
+  implicit class Sender0(props: Props) {
+    def send = actorRefFactory.actorOf(props)
+  }
+
   lazy val newRoute: Route = pathPrefix("_filter") {
     template { sources =>
         pathEnd {
-          collection { json =>
-            requestUri { uri =>
-              val body = json.transformField {
-                case ("collection", child: JObject) =>
-                  "collection" -> child.transformField {
-                    case ("links", _) =>
-                      "links" -> sources.map { x =>
-                        ("name" -> x.key) ~~ ("href" -> s"${uri.withPath(uri.path / x.key)}")
-                      }
-                  }
-              }
-              complete(OK, body)
-            }
-          }
+          entry(sources.keysIt())
         } ~
-        pathPrefix(sources.map(_.key.formatted("""^%s$""")).mkString("|").r) { source =>
+        pathPrefix(sources.keysIt().map(_.formatted("""^%s$""")).mkString("|").r) { source =>
           pathEnd { //_filter/ami-l8k
             get { implicit ctx =>
-              actorRefFactory.actorOf(QueryRequest.props)
+              QueryRequest.props.send
             } ~
-            post { implicit ctx => actorRefFactory.actorOf(NewFilterRequest.props(source)) }
+            post { implicit ctx => NewFilterRequest.props(source).send }
           } ~
-          pathPrefix(Segment) { id =>
-            delete { implicit ctx =>
-              actorRefFactory.actorOf(DeleteClauseRequest.props(source, id))
-            } ~
-            pathEnd { //_filter/ami-l8k/371005001
-              get { implicit ctx => actorRefFactory.actorOf(GetItemRequest.props(source, id)) } ~
-              post { implicit ctx => actorRefFactory.actorOf(NewFilterRequest.props(source, Some(id)))}
+          pathPrefix(Segment) { id => //_filter/ami-l8k/371005001
+            pathEnd {
+              get { implicit ctx =>
+                GetItemRequest.props(source, id).send
+              } ~
+              post { implicit ctx =>
+                NewFilterRequest.props(source, Some(id)).send
+              } ~
+              delete {  implicit ctx =>
+                DeleteRequest.props(DeleteItem(id, source)).send
+              }
             } ~
             path(OccurrenceRegex) { occur =>
               get { implicit ctx => //_filter/ami-l8k/371005001/must
-                actorRefFactory.actorOf(GetItemClausesRequest.props(source, id, occur))
+                GetItemClausesRequest.props(source, id, occur).send
+              } ~
+              delete { implicit ctx =>
+                DeleteRequest.props(EmptyClauses(id, source, occur)).send
               }
             } ~
             properties(source)(sources) { case (propertiesRegex, props) =>
               pathPrefix(propertiesRegex) { prop => //_filter/ami-l8k/371005001/recordTime
                 post { implicit ctx =>
-                  actorRefFactory.actorOf(PostFieldQueryRequest.props(source, id, prop))
+                  PostFieldQueryRequest.props(source, id, prop).send
                 } ~
-                get {
-                  queries(props \ prop) { case (queriesRegex, jQueries@JObject(xs)) =>
-                    pathEnd {
+                queries(props \ prop) { case (queriesRegex, jQueries@JObject(xs)) =>
+                  pathEnd {
+                    get {
                       propertyQueries(xs, (props \ prop \ "type").extract[String])
+                    }
+                  } ~
+                  pathPrefix(queriesRegex) { query =>
+                    pathEnd {
+                      get {
+                        queryTemplate(jQueries \ query) //_filter/ami-l8k/371005001/recordTime/terms
+                      }
                     } ~
-                    path(queriesRegex) { query =>
-                      queryTemplate(jQueries \ query) //_filter/ami-l8k/371005001/recordTime/terms
+                    path(Segment) { clauseId =>
+                      delete { implicit ctx =>
+                        DeleteRequest.props(RemoveClause(id, source, clauseId)).send
+                      }
                     }
                   }
                 }
@@ -70,15 +79,29 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             }
           }
         }
-
     }
   }
 
+  def entry(sources: Iterator[String]): Route = {
+    collection { json =>
+      requestUri { uri =>
+        val body = json.transformField {
+          case ("collection", child: JObject) =>
+            "collection" -> child.transformField {
+              case ("links", _) =>
+                "links" -> sources.map { x =>
+                  ("name" -> x) ~~ ("href" -> s"${uri.withPath(uri.path / x)}")
+                }.toList
+            }
+        }
+        complete(OK, body)
+      }
+    }
+  }
 
   def propertyQueries(xs: List[JField], dataType: String): Route =
       item(Map("type" -> dataType)) { json =>
         requestUri { uri =>
-          dataType.logInfo()
           complete(OK, json.mapField {
             case ("items", JArray(x :: Nil)) => "items" -> JArray(x.transformField { case ("links", _) => ("links", JNothing) } :: Nil)
             case ("links", JNothing) => "links" -> xs.map { case JField(q, _) =>

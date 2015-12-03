@@ -1,33 +1,28 @@
 package frontend.storedFilter
 
 import akka.actor.Props
+import domain.Command
 import frontend.{CollectionJsonSupport, PerRequest}
 import org.json4s.{DefaultFormats, Formats}
-import protocol.elastics.boolQuery.OccurrenceRegex
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
 
-
-object DeleteClauseRequest {
-  def props(typ: String, filterId: String)(implicit ctx: RequestContext) = Props(classOf[DeleteClauseRequest], ctx, typ, filterId)
+object DeleteRequest {
+  def props(command: Command)(implicit ctx: RequestContext) = Props(classOf[DeleteRequest], ctx, command)
 }
 
-case class DeleteClauseRequest(ctx: RequestContext, typ: String, filterId: String) extends PerRequest with CollectionJsonSupport {
+case class DeleteRequest(ctx: RequestContext, command: Command) extends PerRequest with CollectionJsonSupport {
 
   implicit def json4sFormats: Formats =  DefaultFormats
   import domain.storedFilter.StoredFilterAggregateRoot._
 
-  def process =
-    path(OccurrenceRegex) { occur => implicit ctx =>
-      context.actorSelection(protocol.storedFilter.NameOfAggregate.root.client) ! EmptyClauses(filterId, typ, occur)
-    } ~
-    path(Segment / Segment / Segment) { (field, query, clauseId) => implicit ctx =>
-      context.actorSelection(protocol.storedFilter.NameOfAggregate.root.client) ! RemoveClause(filterId, typ, clauseId)
-    }
-
-  process(ctx)
+  context.actorSelection(protocol.storedFilter.NameOfAggregate.root.client) ! command
 
   def processResult = {
+    case ItemDeletedAck =>
+      response {
+        complete(NoContent)
+      }
     case ClausesRemovedAck =>
       response {
         complete(NoContent)

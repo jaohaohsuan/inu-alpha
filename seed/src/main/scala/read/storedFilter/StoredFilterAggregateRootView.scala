@@ -9,6 +9,7 @@ import org.json4s.native.JsonMethods._
 import protocol.storedFilter._
 import read.MaterializeView
 import scala.language.implicitConversions
+import elastic.ImplicitConversions._
 
 object StoredFilterAggregateRootView {
   def props(implicit client: Client) = Props(classOf[StoredFilterAggregateRootView], client)
@@ -34,9 +35,10 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
   source.mapAsync(1) { envelope => envelope.event match {
     case ItemCreated(id, typ, entity) =>
       es.indices.storedFilter.index(id, typ, entity)
-
     case ItemUpdated(id, typ, entity) =>
       es.indices.storedFilter.update(id, typ, entity)
+    case ItemDeleted(id, typ) =>
+      client.prepareDelete(es.indices.storedFilter.index, typ, id).execute().future
 
   } }.runWith(Sink.ignore)
 

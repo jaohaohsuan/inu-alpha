@@ -26,6 +26,10 @@ case class NewFilterRequest(ctx: RequestContext, typ: String, referredId: Option
   import spray.http.StatusCodes._
 
   def processResult = {
+    case NoContentAck =>
+      response {
+        complete(NoContent)
+      }
     case ItemCreatedAck(id) =>
       response {
         requestUri { uri =>

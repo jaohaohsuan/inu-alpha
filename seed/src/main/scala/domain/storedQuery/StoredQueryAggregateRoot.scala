@@ -26,7 +26,7 @@ object StoredQueryAggregateRoot {
   case object ClausesEmptyAck
 
   //events
-  case class ItemCreated(entity: StoredQuery, dependencies: Map[(String, String), Int]) extends Event
+  case class ItemCreated(entity: StoredQuery, dependencies: ClauseDependencies) extends Event
   case class ItemsChanged(items: Seq[(String, StoredQuery)], changes: List[String], dp: ClauseDependencies) extends Event {
   }
   case class ChangesRegistered(records: Set[(String, Int)]) extends Event

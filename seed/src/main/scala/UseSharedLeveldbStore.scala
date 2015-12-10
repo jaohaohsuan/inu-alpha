@@ -5,7 +5,7 @@ import akka.persistence.journal.leveldb.SharedLeveldbJournal
 
 case class LeveldbStoreRegistration(m: akka.cluster.Member)
 
-trait SharedLeveldbStoreUsage extends Actor with ActorLogging {
+trait UseSharedLeveldbStore extends Actor with ActorLogging {
 
   var storeRefs = IndexedSeq.empty[ActorRef]
 

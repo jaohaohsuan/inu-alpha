@@ -14,9 +14,10 @@ import scala.language.implicitConversions
 
 object Configurator {
   val Name = "conf"
+  def props(roles: Seq[String])(implicit client: org.elasticsearch.client.Client) = Props(classOf[Configurator], roles)
 }
 
-class Configurator(private implicit val client: org.elasticsearch.client.Client) extends Actor with SharedLeveldbStoreUsage {
+class Configurator(private implicit val client: org.elasticsearch.client.Client) extends Actor with UseSharedLeveldbStore {
 
   import context.system
   implicit val timeout = Timeout(5.seconds)
@@ -80,7 +81,6 @@ class Configurator(private implicit val client: org.elasticsearch.client.Client)
         val service = system.actorOf(Props(classOf[ServiceActor], client), "service")
         IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)
       }
-    //ClusterClientReceptionist(system).registerService(storedQueryAggregateRoot)
 
     case unknown =>
       log.warning(s"$unknown")

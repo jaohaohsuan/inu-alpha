@@ -1,14 +1,8 @@
 package seed
 
-import java.net.InetAddress
-
 import akka.actor._
 import common._
 import es.IndexScan
-import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.node.NodeBuilder
 
 object Main extends App {
 

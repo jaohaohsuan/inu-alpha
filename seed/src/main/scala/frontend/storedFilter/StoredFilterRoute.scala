@@ -15,16 +15,16 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
 
   implicit def client: org.elasticsearch.client.Client
 
-  implicit class Sender0(props: Props) {
+  private implicit class Sender0(props: Props) {
     def send = actorRefFactory.actorOf(props)
   }
 
-  lazy val newRoute: Route = pathPrefix("_filter") {
+  lazy val `_filter`: Route = pathPrefix("_filter") {
     template { sources =>
         pathEnd {
-          entry(sources.keysIt())
+          entry(sources.keys)
         } ~
-        pathPrefix(sources.keysIt().map(_.formatted("""^%s$""")).mkString("|").r) { source =>
+        pathPrefix(sources.keys.map(_.formatted("""^%s$""")).mkString("|").r) { source =>
           pathEnd { //_filter/ami-l8k
             get { implicit ctx =>
               QueryRequest.props.send
@@ -51,7 +51,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
                 DeleteRequest.props(EmptyClauses(id, source, occur)).send
               }
             } ~
-            properties(source)(sources) { case (propertiesRegex, props) =>
+            properties(sources(source)) { case (propertiesRegex, props) =>
               pathPrefix(propertiesRegex) { prop => //_filter/ami-l8k/371005001/recordTime
                 post { implicit ctx =>
                   PostFieldQueryRequest.props(source, id, prop).send
@@ -82,7 +82,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
     }
   }
 
-  def entry(sources: Iterator[String]): Route = {
+  def entry(sources: Iterable[String]): Route = {
     collection { json =>
       requestUri { uri =>
         val body = json.transformField {

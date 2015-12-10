@@ -2,7 +2,6 @@ package common
 
 
 import java.net.{InetAddress}
-
 import scala.util.{Try, Success, Failure}
 
 object HostIP {

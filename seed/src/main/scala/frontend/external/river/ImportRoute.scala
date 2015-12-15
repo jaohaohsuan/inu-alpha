@@ -60,7 +60,7 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
             put {
               respondWithMediaType(`application/json`) {
                 entity(as[NodeSeq]) { nodeSeq => implicit ctx =>
-                  //authenticate(BasicAuth(realm = "river")) { userName =>
+
                   val node: Option[Seq[Elem]] = (nodeSeq \\ "Subject" find { n => (n \ "@Name").text == "RecognizeText" })
                     .map(_.child.collect { case e: Elem => e })
                   node match {
@@ -77,7 +77,6 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
                              |  }
                              |}""".stripMargin)
                     }
-                  //}
                 }
               }
           } ~
@@ -95,12 +94,9 @@ trait ImportRoute extends HttpService with Json4sSupport with ImplicitHttpServic
         handleExceptions(handleAllExceptions) {
           datetimeExtractorDirective(id) { getIndex =>
             put {
-              //authenticate(BasicAuth(realm = "river")) { userName =>
               entity(as[JObject]) { obj => implicit ctx =>
-                //log.info(s"$obj")
-                ctx.complete(OK)
+                actorRefFactory.actorOf(IndexLogRequest.props(id, s"${getIndex()}")) ! obj
               }
-              //}
             }
           }
         }

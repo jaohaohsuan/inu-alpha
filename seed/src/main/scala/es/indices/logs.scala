@@ -73,7 +73,8 @@ object logs {
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
-    |              "match": "agent*"
+    |              "match_pattern": "regex",
+    |              "match": "^agent\\\\d+$$"
     |            }
     |          },
     |          {
@@ -83,7 +84,8 @@ object logs {
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
-    |              "match": "customer*"
+    |              "match_pattern": "regex",
+    |              "match": "^customer\\\\d+$$"
     |            }
     |          },
     |          {
@@ -92,7 +94,8 @@ object logs {
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
-    |              "match": "vtt"
+    |              "match_pattern": "regex",
+    |              "match": "^vtt$$"
     |            }
     |          },
     |          {
@@ -102,34 +105,33 @@ object logs {
     |                "type": "string"
     |              },
     |              "match_mapping_type": "string",
-    |              "match": "dialogs"
+    |              "match_pattern": "regex",
+    |              "match": "^dialogs$$"
     |            }
     |          }
     |        ],
-    |        "dynamic_date_formats" : ["YYYY-MM-dd hh:mm:ss"],
+    |        "dynamic_date_formats" : ["YYYY-MM-dd hh:mm:ss", "strict_date_optional_time||epoch_millis"],
     |        "_all": {
     |          "enabled": false
     |        },
     |        "properties": {
-    |          "path": {
-    |            "index": "not_analyzed",
-    |            "type": "string"
-    |          },
     |          "parties": {
     |            "type": "string"
     |          },
-    |          "agentTeamName": {
-    |            "type": "string",
-    |            "index": "not_analyzed"
+    |          "recordTime": {
+    |            "type": "date",
+    |            "format": "strict_date_optional_time||epoch_millis"
     |          },
-    |          "custGrade": { "type": "string", "index": "not_analyzed" },
-    |          "gameType": { "type": "string", "index": "not_analyzed" },
-    |          "recordRang": { "type": "long" },
-    |          "recordTime": { "type": "date" }
+    |          "Length": {
+    |            "type": "long"
+    |          },
+    |          "customerName": {
+    |            "type": "string"
+    |          }
     |        },
     |        "_meta" : {
     |           "properties" : {
-    |             "agentTeamName" : {
+    |             "customerName" : {
     |               "queries" : {
     |                             "term"  : { "value" : "rd1" },
     |                             "terms" : { "value" : [ "rd1", "rd2" ]}
@@ -144,7 +146,7 @@ object logs {
     |                           },
     |               "type" : "date"
     |             },
-    |             "custGrade" : {
+    |             "Length" : {
     |               "queries" : { "term" : { "value" : 1 }, "terms" : { "value" : [ 1, 2 ] } },
     |               "type" : "number"
     |             }

@@ -120,7 +120,6 @@ object CrossAnalysisSourceRequest {
                                    queryTags: Option[String] = None,
                                    size: Int = 10, from: Int = 0)
                                    (implicit ctx: RequestContext, client: org.elasticsearch.client.Client) = {
-    s"CrossAnalysisSourceRequest.props $exclude".println()
     Props(classOf[QueryStoredQueryRequest],
       ctx, client,
       bodyBuilder,

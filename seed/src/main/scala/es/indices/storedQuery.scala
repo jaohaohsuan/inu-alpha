@@ -121,7 +121,6 @@ object storedQuery {
         | "properties" : { ${fields.mkString(",")} }
         |}""".stripMargin
 
-    println(mappingSource)
 
     client.admin().indices().preparePutMapping(index)
       .setType(`type`)

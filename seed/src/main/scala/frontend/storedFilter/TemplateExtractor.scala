@@ -26,8 +26,6 @@ trait TemplateExtractor extends Directives {
 
   def properties(mapping: JValue): Directive1[(Regex, JValue)] = {
 
-    println(pretty(render(mapping)))
-
     val result = for {
       meta@JObject(props0) <- (mapping \ "_meta" \ "properties").toOption
       mp@JObject(props1)   <- (mapping \ "properties").toOption

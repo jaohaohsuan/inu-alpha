@@ -1,5 +1,7 @@
 package es.indices
 
+import org.elasticsearch.action.ListenableActionFuture
+import org.elasticsearch.action.admin.indices.create.{CreateIndexRequestBuilder, CreateIndexResponse}
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequestBuilder
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.index.IndexResponse
@@ -17,7 +19,7 @@ object storedFilter {
 
   def exists(implicit client: Client): IndicesExistsRequestBuilder = client.admin().indices().prepareExists(index)
 
-  def create(implicit client: Client) =
+  def create(implicit client: Client): CreateIndexRequestBuilder =
     client.admin().indices()
       .prepareCreate(index).setSettings(
       """{
@@ -26,7 +28,6 @@ object storedFilter {
         |   "number_of_replicas" : 1
         | }
         |}""".stripMargin)
-      .execute()
 
   def buildQueryDefinition(queryString: Option[String] = None): BoolQueryBuilder = Seq(
     queryString.map { queryStringQuery(_).field("_all") }

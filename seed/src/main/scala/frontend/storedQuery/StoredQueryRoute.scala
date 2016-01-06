@@ -32,7 +32,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with Impli
               def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String = {
                 val prefix = uri.withQuery(Map.empty[String, String])
                 val items = itemsMap(hits).flatMap(_.map { case (id, data) => s"""{ "href" : "$prefix/$id", "data" : $data }""" }).mkString(",")
-                val links = pagination.+:(s"""{ "href" : "$prefix/temporary", "rel" : "edit" }""").filter(_.trim.nonEmpty).mkString(",")
+                val links = pagination.+:(s"""{ "href" : "${prefix.withPath(prefix.path / "temporary")}", "rel" : "edit" }""").filter(_.trim.nonEmpty).mkString(",")
                 s"""{
                    | "collection" : {
                    |   "version" : "1.0",

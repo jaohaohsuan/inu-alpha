@@ -312,7 +312,7 @@ case class Preview(ctx: RequestContext, implicit val client: org.elasticsearch.c
           def startTime(value: logs.VttHighlightFragment): Int =
             `HH:mm:ss.SSS`.parseDateTime(value.start).getMillisOfDay
 
-          val links = Pagination(size, from, r).links.+:(s"""{ "href" : "$uri/status", "rel" : "status" }""").filterNot(_.isEmpty).mkString(",")
+          val links = Pagination(size, from, r).links.+:(s"""{ "href" : "${uri.withPath(uri.path / "status")}", "rel" : "status" }""").filterNot(_.isEmpty).mkString(",")
 
           val items = r.getHits.map { case logs.SearchHitHighlightFields(location, fragments) =>
             s"""{

@@ -2,6 +2,7 @@ package frontend.storedFilter
 
 import elastic.ImplicitConversions._
 import es.indices.logs
+import org.elasticsearch.index.query.QueryBuilders
 import org.json4s.JsonAST.JObject
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -16,7 +17,6 @@ trait TemplateExtractor extends Directives {
 
   implicit def client: org.elasticsearch.client.Client
   implicit def executionContext: ExecutionContextExecutor
-
 
   implicit def jFieldToString(value: (String, JValue)): String = value._1
   implicit def stringToString(value: String): String = value
@@ -50,5 +50,22 @@ trait TemplateExtractor extends Directives {
     templates  <- logs.getTemplate
     mappings  <- templates.getIndexTemplates.headOption.map(_.mappings).future(new Exception("template1 doesn't exist"))
   } yield mappings.map { x => (x.key, parse(x.value.string()) \ x.key) }.toMap)
+
+  def dataSources(usr: String)(exists: Set[String]): Directive1[Set[String]] = onSuccess({
+    client.prepareSearch("internal")
+    .setTypes("authorized")
+    .setQuery(QueryBuilders.termQuery("user", usr))
+    .setFetchSource("dataSources", null).execute().future.map { r =>
+      r.getHits().foldLeft(Set.empty[String]){ (acc, e) =>
+        parse(e.getSourceAsString()) \ "dataSources" match {
+          case JArray(xs) => acc ++ xs.map {
+            case JString(str) => str
+            case other => ""
+          }.filterNot { _.isEmpty }
+          case _ => acc
+        }
+      }.intersect(exists)
+    }
+  })
 
 }

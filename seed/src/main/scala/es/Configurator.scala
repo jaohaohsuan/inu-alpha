@@ -6,8 +6,8 @@ import akka.pattern._
 import elastic.ImplicitConversions._
 import es.indices._
 import org.elasticsearch.action.ActionResponse
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
-import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse
+import org.elasticsearch.action.admin.indices.create.{CreateIndexResponse, CreateIndexRequestBuilder}
+import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequestBuilder, IndicesExistsResponse}
 import org.elasticsearch.action.admin.indices.mapping.put.PutMappingResponse
 import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse
 import org.elasticsearch.client.Client
@@ -23,17 +23,28 @@ object Configurator {
   def props(implicit client: Client) = Props(classOf[es.Configurator], client)
 }
 
-/* node.client().admin().cluster().prepareClusterStats().execute().asFuture.onComplete {
-       case Success(x) => system.log.info(s"data-node status: ${x.getStatus}")
-       case Failure(e) => system.log.error(e, s"Unable to run elasticsearch data-node")
-     }*/
-
 class Configurator(implicit val client: Client) extends Actor with ActorLogging {
 
   import context.dispatcher
 
   def predicate(condition: Boolean)(fail: Exception): Future[Unit] =
     if (condition) Future( () ) else Future.failed(fail)
+
+  def createIndex(index: String) =
+    (for {
+      r <- client.admin().indices().prepareExists(index).execute().future
+      _ <- predicate(r.isExists)(new Exception(s"$index doesn't exist"))
+    } yield r).recoverWith {
+      case _ => client.admin().indices()
+                    .prepareCreate(index).setSettings(
+                      """{
+                        | "index" : {
+                        |   "number_of_shards" : 1,
+                        |   "number_of_replicas" : 1
+                        | }
+                        |}""".stripMargin).execute().future
+    }.map { r => (index, r) }
+
 
   def receive = {
     case IndexScan =>
@@ -49,14 +60,16 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
 
       } pipeTo self
 
-      logs.putIndexTemplate.future pipeTo self
+      logs.putIndexTemplate.future.map { r => ("template1", r) } pipeTo self
 
-      (for {
-        existResp <- storedFilter.exists.execute().future
-        _ <- predicate(existResp.isExists)(new Exception(s"${storedFilter.index} doesn't exist"))
-      } yield existResp).recoverWith { case _ => storedFilter.create.future }
+      createIndex(storedFilter.index) pipeTo self
+      createIndex("internal") pipeTo self
 
+    case (index: String, r: CreateIndexResponse)=>
+      log.info(s"index:$index created:${r.isAcknowledged}")
 
+    case (index: String,r: IndicesExistsResponse) =>
+      log.info(s"index:$index exists:${r.isExists}")
 
     case r: IndicesExistsResponse if r.isExists =>
       log.info(s"indices exists")
@@ -71,11 +84,12 @@ class Configurator(implicit val client: Client) extends Actor with ActorLogging 
     case r: PutMappingResponse if r.isAcknowledged =>
       log.info(s"mapping updated")
 
-    case r: PutIndexTemplateResponse if r.isAcknowledged =>
-      log.info(s"indexTemplate updated")
+    case (template: String ,r: PutIndexTemplateResponse) if r.isAcknowledged =>
+      log.info(s"indexTemplate:$template updated")
       
     case Failure(ex) =>
       log.error(ex ,s"elasticsearch checkup error")
+
     case unknown =>
       log.warning(unknown.getClass.getName)
 

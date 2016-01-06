@@ -1,25 +1,29 @@
-package frontend.storedFilter
+package frontend.view
 
 import akka.actor.Props
 import frontend.CollectionJsonSupport._
+import frontend.storedFilter.NewFilter
 import frontend.{Pagination, CollectionJsonSupport, PerRequest}
 import org.elasticsearch.action.search.SearchResponse
-import org.json4s.JsonAST.{JString, JValue, JObject}
+import org.elasticsearch.client.Client
+import org.elasticsearch.index.query.QueryBuilders
+import org.json4s.JsonAST.{JValue, JObject, JString}
 import org.json4s.native.JsonMethods._
 import org.json4s.{DefaultFormats, Formats}
-import spray.routing.RequestContext
 import spray.http.StatusCodes._
-import org.json4s.JsonDSL._
-import org.elasticsearch.client.Client
-import akka.pattern._
+import spray.routing.RequestContext
 import elastic.ImplicitConversions._
+import akka.pattern._
 import scala.collection.JavaConversions._
+import org.json4s.JsonDSL._
+
 
 
 import scala.concurrent.Future
 
-object QueryRequest {
-  def props(implicit ctx: RequestContext, client: Client) = Props(classOf[QueryRequest], ctx, client)
+
+object QueryFilterRequest {
+  def props(implicit ctx: RequestContext, client: Client) = Props(classOf[QueryFilterRequest], ctx, client)
 }
 
 object SearchResponseHits {
@@ -31,7 +35,7 @@ object SearchResponseHits {
   }
 }
 
-case class QueryRequest(ctx: RequestContext, private implicit val client: Client) extends PerRequest with CollectionJsonSupport {
+case class QueryFilterRequest(ctx: RequestContext, private implicit val client: Client) extends PerRequest with CollectionJsonSupport {
 
   import context.dispatcher
 
@@ -40,12 +44,13 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
   requestUri { uri =>
     parameter('q.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, size, from) =>  _ =>
       import es.indices.storedFilter._
+      //QueryBuilders.idsQuery("")
       val search: Future[SearchResponse] = prepareSearch(s"${uri.path.reverse.head}")
-        .setQuery(buildQueryDefinition(q))
-        .setFetchSource("title", null)
-        .setSize(size).setFrom(from)
-        .execute()
-        .future
+      .setQuery(buildQueryDefinition(q))
+      .setFetchSource("title", null)
+      .setSize(size).setFrom(from)
+      .execute()
+      .future
 
       search pipeTo self
     }
@@ -67,11 +72,10 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
                 val itemUri = uri.withQuery()
                 complete(OK, json.transformField {
                   case ("href", _) => "href" -> s"${uri}"
-                  case (k@"template", _) => k -> NewFilter("untitled").asTemplate
                   case q@("queries", _) => q.copy(_2 =
-                    ("href" -> s"$queryUri") ~~
-                      ("rel" -> "search") ~~
-                      ("data" -> ("name" -> "q") ~~ ("prompt" -> "search title or field") :: Nil) :: Nil)
+                  ("href" -> s"$queryUri") ~~
+                  ("rel" -> "search") ~~
+                  ("data" -> ("name" -> "q") ~~ ("prompt" -> "search title or field") :: Nil) :: Nil)
                   case (k@"items", _) => k -> hits.map {
                     _.transformField {
                       case ("id", JString(id)) => "href" -> s"${itemUri.withPath(itemUri.path / id).withQuery()}"
@@ -86,6 +90,4 @@ case class QueryRequest(ctx: RequestContext, private implicit val client: Client
         }
       }
   }
-
 }
-

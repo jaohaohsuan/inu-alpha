@@ -18,7 +18,7 @@ dependencies:
   cache_directories:
     - "~/.ivy2"
     - "~/.sbt"
-    
+
   override:
     - docker info
 

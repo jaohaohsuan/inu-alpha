@@ -8,6 +8,7 @@ import org.json4s._
 import protocol.elastics.boolQuery.OccurrenceRegex
 import spray.http.StatusCodes._
 import spray.routing._
+import spray.routing.authentication.BasicAuth
 
 import scala.collection.JavaConversions._
 
@@ -20,57 +21,61 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
   }
 
   lazy val `_filter`: Route = pathPrefix("_filter") {
-    template { sources =>
-        pathEnd {
-          entry(sources.keys)
-        } ~
-        pathPrefix(sources.keys.map(_.formatted("""^%s$""")).mkString("|").r) { source =>
-          pathEnd { //_filter/ami-l8k
-            get { implicit ctx =>
-              QueryRequest.props.send
-            } ~
-            post { implicit ctx => NewFilterRequest.props(source).send }
+    authenticate(BasicAuth("logs")) { usrCtx =>
+      template { sources =>
+        dataSources(usrCtx.username)(sources.keySet) { authorizedDs =>
+          pathEnd {
+            entry(authorizedDs)
           } ~
-          pathPrefix(Segment) { id => //_filter/ami-l8k/371005001
+          pathPrefix(authorizedDs.map(_.formatted( """^%s$""")).mkString("|").r) { source =>
             pathEnd {
+              //_filter/ami-l8k
               get { implicit ctx =>
-                GetItemRequest.props(source, id).send
+                QueryRequest.props.send
               } ~
-              post { implicit ctx =>
-                NewFilterRequest.props(source, Some(id)).send
-              } ~
-              delete {  implicit ctx =>
-                DeleteRequest.props(DeleteItem(id, source)).send
-              }
+              post { implicit ctx => NewFilterRequest.props(source).send }
             } ~
-            path(OccurrenceRegex) { occur =>
-              get { implicit ctx => //_filter/ami-l8k/371005001/must
-                GetItemClausesRequest.props(source, id, occur).send
-              } ~
-              delete { implicit ctx =>
-                DeleteRequest.props(EmptyClauses(id, source, occur)).send
-              }
-            } ~
-            properties(sources(source)) { case (propertiesRegex, props) =>
-              pathPrefix(propertiesRegex) { prop => //_filter/ami-l8k/371005001/recordTime
-                post { implicit ctx =>
-                  PostFieldQueryRequest.props(source, id, prop).send
+            pathPrefix(Segment) { id => //_filter/ami-l8k/371005001
+              pathEnd {
+                get { implicit ctx =>
+                  GetItemRequest.props(source, id).send
                 } ~
-                queries(props \ prop) { case (queriesRegex, jQueries@JObject(xs)) =>
-                  pathEnd {
-                    get {
-                      propertyQueries(xs, (props \ prop \ "type").extract[String])
-                    }
+                post { implicit ctx =>
+                  NewFilterRequest.props(source, Some(id)).send
+                } ~
+                delete { implicit ctx =>
+                  DeleteRequest.props(DeleteItem(id, source)).send
+                }
+              } ~
+              path(OccurrenceRegex) { occur =>
+                get { implicit ctx => //_filter/ami-l8k/371005001/must
+                  GetItemClausesRequest.props(source, id, occur).send
+                } ~
+                delete { implicit ctx =>
+                  DeleteRequest.props(EmptyClauses(id, source, occur)).send
+                }
+              } ~
+              properties(sources(source)) { case (propertiesRegex, props) =>
+                pathPrefix(propertiesRegex) { prop => //_filter/ami-l8k/371005001/recordTime
+                  post { implicit ctx =>
+                    PostFieldQueryRequest.props(source, id, prop).send
                   } ~
-                  pathPrefix(queriesRegex) { query =>
+                  queries(props \ prop) { case (queriesRegex, jQueries@JObject(xs)) =>
                     pathEnd {
                       get {
-                        queryTemplate(jQueries \ query) //_filter/ami-l8k/371005001/recordTime/terms
+                        propertyQueries(xs, (props \ prop \ "type").extract[String])
                       }
                     } ~
-                    path(Segment) { clauseId =>
-                      delete { implicit ctx =>
-                        DeleteRequest.props(RemoveClause(id, source, clauseId)).send
+                    pathPrefix(queriesRegex) { query =>
+                      pathEnd {
+                        get {
+                          queryTemplate(jQueries \ query) //_filter/ami-l8k/371005001/recordTime/terms
+                        }
+                      } ~
+                      path(Segment) { clauseId =>
+                        delete { implicit ctx =>
+                          DeleteRequest.props(RemoveClause(id, source, clauseId)).send
+                        }
                       }
                     }
                   }
@@ -79,6 +84,7 @@ trait StoredFilterRoute extends HttpService with CollectionJsonSupport with Impl
             }
           }
         }
+      }
     }
   }
 

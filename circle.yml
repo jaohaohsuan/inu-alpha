@@ -14,6 +14,7 @@ dependencies:
     - wget --output-document=$HOME/bin/sbt-launch.jar https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/"$SBT_VERSION"/sbt-launch.jar
     - echo "java $SBT_OPTS -jar \`dirname \$0\`/sbt-launch.jar \"\$@\"" > $HOME/bin/sbt
     - chmod u+x $HOME/bin/sbt
+    - mkdir -p ~/{.ivy2,.sbt}
     - which sbt
   cache_directories:
     - "~/.ivy2"

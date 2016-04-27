@@ -1,33 +1,105 @@
 package seed
 
+import java.net.InetAddress
+
 import akka.actor._
-import common._
-import es.IndexScan
+import com.typesafe.config.{Config, ConfigFactory}
+import PersistenceConfigurator._
+import NodeConfigurator._
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
+import akka.io.IO
+import domain.storedQuery.StoredQueryAggregateRoot
+import frontend.ServiceActor
+import org.elasticsearch.client.transport.TransportClient
+import org.elasticsearch.common.transport.InetSocketTransportAddress
+import spray.can.Http
+import akka.pattern.ask
+import akka.util.Timeout
+import scala.concurrent.duration._
+
+
+import scala.collection.JavaConversions._
 
 object Main extends App {
 
-  val nodeConfig = NodeConfig parse args
+  val config: Config = ConfigFactory.load().register().enableCassandraPlugin()
 
-  nodeConfig foreach { c =>
+  implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
 
-    implicit val system = ActorSystem(c.clusterName, c.config)
-    import system._
+  system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
+  system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
-    implicit val node = org.elasticsearch.node.NodeBuilder.nodeBuilder().settings(c.elasticsearch).node()
-    implicit val client = node.client()
+  implicit val client = TransportClient.builder().build().addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300))
+  val clusterAdminClient = client.admin().cluster()
 
-    log info s"Scopt: $c"
+  val healths = client.admin().cluster().prepareHealth().get()
+  val clusterName = healths.getClusterName()
+  val numberOfDataNodes = healths.getNumberOfDataNodes()
+  val numberOfNodes = healths.getNumberOfNodes()
 
-    actorOf(Props(classOf[Configurator], client), Configurator.Name)
+  system.actorOf(ClusterSingletonManager.props(
+    singletonProps = Props(classOf[StoredQueryAggregateRoot]),
+    terminationMessage = PoisonPill,
+    settings = ClusterSingletonManagerSettings(system)),
+    name = s"${protocol.storedQuery.NameOfAggregate.root}")
 
-    actorOf(es.Configurator.props) ! IndexScan
+  system.actorOf(ClusterSingletonManager.props(
+    singletonProps = read.storedQuery.StoredQueryAggregateRootView.props,
+    terminationMessage = PoisonPill,
+    settings = ClusterSingletonManagerSettings(system)
+  ), protocol.storedQuery.NameOfAggregate.view.name)
 
-    if(c.isEventsStore) {
-      actorOf(Props[LeveldbJournalListener])
-    }
+  system.actorOf(ClusterSingletonProxy.props(
+    singletonManagerPath = protocol.storedQuery.NameOfAggregate.root.manager,
+    settings = ClusterSingletonProxySettings(system)
+  ), name = protocol.storedQuery.NameOfAggregate.root.proxy) ! StoredQueryAggregateRoot.Initial
 
-    log info s"ActorSystem $name started successfully"
+  system.actorOf(ClusterSingletonProxy.props(
+    singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,
+    settings = ClusterSingletonProxySettings(system)
+  ), protocol.storedQuery.NameOfAggregate.view.proxy)
 
-    sys.addShutdownHook(system.terminate())
+  implicit val timeout = Timeout(5.seconds)
+
+  val service = system.actorOf(Props(classOf[ServiceActor], client), "service")
+  IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)
+
+  sys.addShutdownHook {
+    system.terminate()
   }
 }
+
+/*
+if(m.hasRole("compute")){
+        system.actorOf(ClusterSingletonManager.props(
+          singletonProps = Props(classOf[StoredQueryAggregateRoot]),
+          terminationMessage = PoisonPill,
+          settings = ClusterSingletonManagerSettings(system)),
+          name = s"${protocol.storedQuery.NameOfAggregate.root}")
+      }
+
+      if(m.hasRole("sync")) {
+
+        system.actorOf(ClusterSingletonManager.props(
+          singletonProps = read.storedQuery.StoredQueryAggregateRootView.props,
+          terminationMessage = PoisonPill,
+          settings = ClusterSingletonManagerSettings(system)
+        ), protocol.storedQuery.NameOfAggregate.view.name)
+
+      }
+
+      if(m.hasRole("web")) {
+        system.actorOf(ClusterSingletonProxy.props(
+          singletonManagerPath = protocol.storedQuery.NameOfAggregate.root.manager,
+          settings = ClusterSingletonProxySettings(system)
+        ), name = protocol.storedQuery.NameOfAggregate.root.proxy) ! StoredQueryAggregateRoot.Initial
+
+        system.actorOf(ClusterSingletonProxy.props(
+          singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,
+          settings = ClusterSingletonProxySettings(system)
+        ), protocol.storedQuery.NameOfAggregate.view.proxy)
+
+        val service = system.actorOf(Props(classOf[ServiceActor], client), "service")
+        IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)
+      }
+ */

@@ -4,9 +4,9 @@ object Common {
   
   val settings =
     List(
-      name := "inu-alpha",
-      version := "1.1.0",
-      organization := "jaohaohsuan",
+      name := "storedq",
+      version := "0.0.1",
+      organization := "inu",
       scalaVersion := Version.scala
     )
 }

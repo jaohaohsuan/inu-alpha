@@ -22,7 +22,7 @@ class StoredFilterAggregateRootView(private implicit val client: Client) extends
   import domain.storedFilter.StoredFilterAggregateRoot._
   import protocol.storedFilter.NameOfAggregate
 
-  val source = readJournal.eventsByPersistenceId(NameOfAggregate.root.name)
+  val source = readJournal.eventsByPersistenceId(NameOfAggregate.root.name, 0, Long.MaxValue)
 
   implicit def toSource(entity: StoredFilter): String = {
     val zero: (JValue, JValue) = (

@@ -1,8 +1,8 @@
 package read
 
-import akka.actor.{Actor}
+import akka.actor.Actor
+import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.PersistenceQuery
-import akka.persistence.query.journal.leveldb.scaladsl.LeveldbReadJournal
 import akka.stream.ActorMaterializer
 import common.ImplicitActorLogging
 
@@ -12,6 +12,6 @@ trait MaterializeView extends Actor with ImplicitActorLogging {
 
   implicit val mat = ActorMaterializer()(context)
 
-  val readJournal = PersistenceQuery(system).readJournalFor[LeveldbReadJournal](LeveldbReadJournal.Identifier)
+  val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
 }

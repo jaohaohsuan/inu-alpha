@@ -59,7 +59,6 @@ project/boot/
 .history
 .cache
 data/
-leveldb/
 
 
 ### Vim template

@@ -38,10 +38,10 @@ lazy val seed = create("seed")
     packageName in Docker := "storedq",
     dockerCommands := Seq(
       Cmd("FROM", "java:latest"),
-      Cmd("ENV", "REFRESHED_AT", "2016-04-08"),
+      Cmd("ENV", "REFRESHED_AT 2016-04-08"),
       Cmd("RUN", "apt-get update && apt-get install -y apt-utils dnsutils && apt-get clean && rm -rf /var/lib/apt/lists/*"),
       Cmd("WORKDIR", "/opt/docker"),
-      Cmd("ADD", "opt", "/opt"),
+      Cmd("ADD", "opt /opt"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),

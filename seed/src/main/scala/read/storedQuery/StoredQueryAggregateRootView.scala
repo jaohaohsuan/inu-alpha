@@ -36,7 +36,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   var tags = StringMapHolder(Map.empty)
 
   val source = readJournal
-    .eventsByPersistenceId(NameOfAggregate.root.name)
+    .eventsByPersistenceId(NameOfAggregate.root.name, 0, Long.MaxValue)
     .mapConcat(flatten)
 
   def flatten(envelope: EventEnvelope) = {
@@ -98,7 +98,7 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
                 //.runForeach(f => println(f))
                 .runWith(Sink.ignore)
       implicit val timeout = Timeout(5 seconds)
-      source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.ignore)
+      source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.foreach(println))
 
     case b: IndicesExistsRequestBuilder =>
       b.execute().future pipeTo self

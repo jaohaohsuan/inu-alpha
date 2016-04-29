@@ -32,7 +32,6 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
   import es.indices.storedQuery
   import StoredQueryAggregateRootView._
 
-
   var tags = StringMapHolder(Map.empty)
 
   val source = readJournal
@@ -78,12 +77,12 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
     val id = JField("id", JString(storedQueryId))
     val data = JField("data", StoredQueryData(title, tags: Option[String]))
 
-    val occurs = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List.empty[JField]){ (acc, e) =>
+    val occurs: List[(String, JValue)] = clauses.groupBy{ case (_, c) => c.occurrence }.foldLeft(List.empty[JField]){ (acc, e) =>
       val (occur, groupedClauses) = e
       occur -> JArray(groupedClauses.map(boolClauseCollectionItem).toList) :: acc
     }
 
-    val body = pretty(render(percolatorDoc merge JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*)))))
+    val body = compact(render(percolatorDoc merge JObject(("item", JObject(id, data)), ("occurs", JObject(occurs:_*)))))
 
     storedQueryId -> body
   }
@@ -98,18 +97,15 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
                 //.runForeach(f => println(f))
                 .runWith(Sink.ignore)
       implicit val timeout = Timeout(5 seconds)
-      source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.foreach(println))
+      source.mapAsync(1){ s => self ? StringMapHolder(Map((s.id, s.tags))) }.runWith(Sink.ignore)
 
-    case b: IndicesExistsRequestBuilder =>
-      b.execute().future pipeTo self
+    case builder: IndicesExistsRequestBuilder =>
+      builder.execute().future pipeTo self
 
     case StringMapHolder(xs) =>
-      //log.info(s"wirte xs: $xs")
       tags = tags.append(xs)
-      //log.info(s"wirte tags: $tags")
       sender ! "ack"
     case protocol.storedQuery.Exchange.SearchTags =>
-      //log.info(s"get tags: $tags")
       sender() ! tags
     case unknown =>
       log.warning(s"unexpected message catch $unknown")

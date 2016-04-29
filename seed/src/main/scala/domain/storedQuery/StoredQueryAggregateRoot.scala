@@ -214,16 +214,6 @@ class StoredQueryAggregateRoot extends PersistentActor with ImplicitActorLogging
       }
   }
 
-  /*private def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =
-    item.clauses.foldLeft(item) { (acc, e) =>
-      e match {
-        case (clauseId, n: NamedBoolClause) =>
-          val innerItem = items(n.storedQueryId)
-          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = retrieveDependencies(innerItem,items).clauses)))
-        case _ => acc
-      }
-    }*/
-
   private def cascadingUpdate(from: String, items: StoredQueryMap, dp: ClauseDependencies): ItemsChanged = {
     val zero = (items, List(from))
     val (updatedItems, changesList) = TopologicalSort.collectPaths(from)(TopologicalSort.toPredecessor(dp.keys)).flatten.foldLeft(zero) { case (acc, (provider: String, consumer: String)) =>

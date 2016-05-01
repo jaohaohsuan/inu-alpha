@@ -27,7 +27,6 @@ object StoredQueryAggregateRootView {
 class StoredQueryAggregateRootView(private implicit val client: org.elasticsearch.client.Client) extends MaterializeView {
 
   import akka.stream.scaladsl.Sink
-  import context.dispatcher
   import elastic.ImplicitConversions._
   import es.indices.storedQuery
   import StoredQueryAggregateRootView._

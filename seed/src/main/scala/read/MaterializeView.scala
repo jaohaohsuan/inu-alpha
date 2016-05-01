@@ -14,4 +14,6 @@ trait MaterializeView extends Actor with ImplicitActorLogging {
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
+  implicit val executor = system.dispatcher
+
 }

@@ -32,7 +32,8 @@ lazy val seed = create("seed")
       akkaClusterMetrics,
       elasticsearch,
       nscalaTime,
-      kryo
+      kryo,
+      scalatest
     ),
     dockerRepository := Some("127.0.0.1:5000/inu"),
     packageName in Docker := "storedq",

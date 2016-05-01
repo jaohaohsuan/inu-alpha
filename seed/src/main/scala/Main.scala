@@ -6,6 +6,7 @@ import akka.actor._
 import com.typesafe.config.{Config, ConfigFactory}
 import PersistenceConfigurator._
 import NodeConfigurator._
+import akka.cluster.Cluster
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.io.IO
 import domain.storedQuery.StoredQueryAggregateRoot
@@ -15,9 +16,8 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import akka.pattern.ask
 import akka.util.Timeout
+
 import scala.concurrent.duration._
-
-
 import scala.collection.JavaConversions._
 
 object Main extends App {
@@ -36,6 +36,7 @@ object Main extends App {
   val clusterName = healths.getClusterName()
   val numberOfDataNodes = healths.getNumberOfDataNodes()
   val numberOfNodes = healths.getNumberOfNodes()
+
 
   system.actorOf(ClusterSingletonManager.props(
     singletonProps = Props(classOf[StoredQueryAggregateRoot]),

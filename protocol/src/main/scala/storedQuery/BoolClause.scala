@@ -4,6 +4,12 @@ sealed trait BoolClause {
   val occurrence: String
 }
 
+object BoolClause {
+
+  def unapply(arg: BoolClause): Option[String] = Some(arg.occurrence)
+
+}
+
 sealed trait Unallied extends BoolClause
 
 final case class MatchBoolClause(query: String, field: String, operator: String, occurrence: String) extends Unallied

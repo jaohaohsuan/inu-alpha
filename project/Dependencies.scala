@@ -32,6 +32,8 @@ object Library {
   val shapeless                  = "com.chuusai"                %% "shapeless"                  % "2.2.5"
   val scalazCore                 = "org.scalaz"                 %% "scalaz-core"                % "7.1.4"
   val kryo                       = "com.github.romix.akka"      %% "akka-kryo-serialization"    % "0.4.1"
+
+  val scalatest = "org.scalatest" %% "scalatest" % "2.2.6" % "test"
 }
 
 object Dependencies {

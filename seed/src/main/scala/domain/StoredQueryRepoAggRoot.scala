@@ -9,7 +9,7 @@ import scala.language.implicitConversions
   */
 
 case class StoredQueryRepo(items: Map[String, StoredQuery])
-case class StoredQueryPaths(paths: Map[(String, String), Int])
+//case class StoredQueryPaths(paths: Map[(String, String), Int])
 case class CascadingUpdateGuide(guides: List[(String, String)])
 
 object StoredQueryRepoAggRoot {
@@ -73,9 +73,9 @@ object StoredQueryRepoAggRoot {
       }
     }
 
-    def unapply(arg: Any): Option[(List[(String,String)], Map[(String, String), Int])] = {
+    def unapply(arg: Any): Option[(List[(String,String)], StoredQueries2)] = {
       arg match {
-        case (StoredQuery(id, _, clauses, _), StoredQueryPaths(paths)) =>
+        case (StoredQuery(id, _, clauses, _), state@StoredQueries2(_, paths)) =>
           val newDep = clauses.flatMap {
             case (k, ref: NamedBoolClause) => Some((id, ref.storedQueryId) -> k)
             case _ => None
@@ -83,7 +83,7 @@ object StoredQueryRepoAggRoot {
           val consumerPaths = paths.filterKeys({ case (consumer, _) => consumer == id }).keys
           acyclicProofing(paths -- consumerPaths ++ newDep).map { p =>
              val guides = collectPaths[String](id)(toPredecessor(p.keys)).flatten.toList
-            (guides, p)
+            (guides, state.copy(paths = p))
           }
         case _ => None
       }
@@ -126,9 +126,9 @@ object StoredQueryRepoAggRoot {
 
       def proc(arg: Any): StoredQueries2 = {
         arg match {
-          case CreateStoredQuery(Right(entity))      => copy(items = items.updated(entity.id, entity), paths = proc((entity, StoredQueryPaths(paths))).paths)
-          case UpdateClauses(Right(entity))          => copy(items = items.updated(entity.id, entity), paths = proc((entity, StoredQueryPaths(paths))).paths)
-          case BuildDependencies(list, updatedPaths) => proc((CascadingUpdateGuide(list), copy(paths = updatedPaths)))
+          case CreateStoredQuery(Right(entity))      => proc((entity, copy(items = items.updated(entity.id, entity))))
+          case UpdateClauses(Right(entity))          => proc((entity, copy(items = items.updated(entity.id, entity))))
+          case BuildDependencies(list, state) => proc((CascadingUpdateGuide(list), state))
           case CascadingUpdate(Nil, state)           => state
           case CascadingUpdate(list, state)          => proc((CascadingUpdateGuide(list), state))
           case _ => this

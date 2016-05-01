@@ -9,7 +9,6 @@ import scala.language.implicitConversions
   */
 
 case class StoredQueryRepo(items: Map[String, StoredQuery])
-//case class StoredQueryPaths(paths: Map[(String, String), Int])
 case class CascadingUpdateGuide(guides: List[(String, String)])
 
 object StoredQueryRepoAggRoot {
@@ -75,7 +74,7 @@ object StoredQueryRepoAggRoot {
 
     def unapply(arg: Any): Option[(List[(String,String)], StoredQueries2)] = {
       arg match {
-        case (StoredQuery(id, _, clauses, _), state@StoredQueries2(_, paths)) =>
+        case (StoredQuery(id, _, clauses, _), state@StoredQueries2(_, paths, _)) =>
           val newDep = clauses.flatMap {
             case (k, ref: NamedBoolClause) => Some((id, ref.storedQueryId) -> k)
             case _ => None
@@ -94,7 +93,7 @@ object StoredQueryRepoAggRoot {
     def unapply(arg: Any): Option[(List[(String, String)], StoredQueries2)] = {
       arg match {
         case (CascadingUpdateGuide(Nil), state: StoredQueries2) => Some((Nil, state))
-        case (CascadingUpdateGuide((providerId, consumerId) :: xs), state@StoredQueries2(repo, dep)) =>
+        case (CascadingUpdateGuide((providerId, consumerId) :: xs), state@StoredQueries2(repo, dep, y :: yx)) =>
           for {
             provider <- repo.get(providerId)
             consumer <- repo.get(consumerId)
@@ -105,14 +104,16 @@ object StoredQueryRepoAggRoot {
               case _ => consumer.clauses
             }
             updatedConsumer = consumerId -> consumer.copy(clauses = consumerClauses)
-          } yield (xs, state.copy(items = state.items + updatedConsumer))
+          } yield (xs, state.copy(items = state.items + updatedConsumer, changes = (consumerId :: y) :: yx))
         case _ => None
       }
     }
 
   }
 
-  case class StoredQueries2(items: Map[String, StoredQuery] = Map.empty, paths: Map[(String, String), Int] = Map.empty ) {
+  case class StoredQueries2(items: Map[String, StoredQuery] = Map.empty,
+    paths: Map[(String, String), Int] = Map.empty,
+    changes: List[List[String]] = Nil) {
 
     lazy val newItemId = {
       def generateNewItemId: String = {
@@ -123,15 +124,15 @@ object StoredQueryRepoAggRoot {
     }
 
     def update(evt: Any): StoredQueries2 = {
-
+      val x :: xs = Nil :: changes
       def proc(arg: Any): StoredQueries2 = {
         arg match {
-          case CreateStoredQuery(Right(entity))      => proc((entity, copy(items = items.updated(entity.id, entity))))
-          case UpdateClauses(Right(entity))          => proc((entity, copy(items = items.updated(entity.id, entity))))
-          case BuildDependencies(list, state) => proc((CascadingUpdateGuide(list), state))
-          case CascadingUpdate(Nil, state)           => state
-          case CascadingUpdate(list, state)          => proc((CascadingUpdateGuide(list), state))
-          case _ => this
+          case CreateStoredQuery(Right(entity)) => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
+          case UpdateClauses(Right(entity))     => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
+          case BuildDependencies(list, state)   => proc((CascadingUpdateGuide(list), state))
+          case CascadingUpdate(Nil, state)      => state
+          case CascadingUpdate(list, state)     => proc((CascadingUpdateGuide(list), state))
+          case _ => throw new Exception("error")
         }
       }
 

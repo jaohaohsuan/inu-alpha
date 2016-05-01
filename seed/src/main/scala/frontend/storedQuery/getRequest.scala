@@ -359,7 +359,7 @@ case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.cl
   } yield hits) pipeTo self
 
   def processResult: Receive = {
-    case r: CountResponse =>
+    case r: SearchResponse =>
       response {
         requestUri { uri =>
           complete(OK, s"""{
@@ -370,7 +370,7 @@ case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.cl
                           |     "items" : [ {
                           |       "href" : "$uri",
                           |       "data" : [
-                          |         { "name": "count", "value" : ${r.getCount} }
+                          |         { "name": "count", "value" : ${r.getHits.getTotalHits} }
                           |       ]
                           |     } ]
                           |   }

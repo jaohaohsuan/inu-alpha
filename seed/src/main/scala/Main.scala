@@ -6,17 +6,17 @@ import akka.actor._
 import com.typesafe.config.{Config, ConfigFactory}
 import PersistenceConfigurator._
 import NodeConfigurator._
-import akka.cluster.Cluster
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.io.IO
-import domain.storedQuery.StoredQueryAggregateRoot
+import domain.StoredQueryRepoAggRoot
 import frontend.ServiceActor
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import akka.pattern.ask
 import akka.util.Timeout
-
+import domain.{Initial2}
+import read.storedQuery.StoredQueriesView
 import scala.concurrent.duration._
 import scala.collection.JavaConversions._
 
@@ -37,28 +37,26 @@ object Main extends App {
   val numberOfDataNodes = healths.getNumberOfDataNodes()
   val numberOfNodes = healths.getNumberOfNodes()
 
+  implicit class clustering(props: Props) {
 
-  system.actorOf(ClusterSingletonManager.props(
-    singletonProps = Props(classOf[StoredQueryAggregateRoot]),
-    terminationMessage = PoisonPill,
-    settings = ClusterSingletonManagerSettings(system)),
-    name = s"${protocol.storedQuery.NameOfAggregate.root}")
+    def singleton()(implicit system: ActorSystem) = ClusterSingletonManager.props(
+      singletonProps = props,
+      terminationMessage = PoisonPill,
+      settings = ClusterSingletonManagerSettings(system))
+  }
 
-  system.actorOf(ClusterSingletonManager.props(
-    singletonProps = read.storedQuery.StoredQueryAggregateRootView.props,
-    terminationMessage = PoisonPill,
-    settings = ClusterSingletonManagerSettings(system)
-  ), protocol.storedQuery.NameOfAggregate.view.name)
+  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "storedq-agg") ! Initial2
+  system.actorOf(StoredQueriesView.props.singleton(), "storedq-view")
 
   system.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = protocol.storedQuery.NameOfAggregate.root.manager,
+    singletonManagerPath = s"/user/storedq-agg",
     settings = ClusterSingletonProxySettings(system)
-  ), name = protocol.storedQuery.NameOfAggregate.root.proxy) ! StoredQueryAggregateRoot.Initial
-
-  system.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,
-    settings = ClusterSingletonProxySettings(system)
-  ), protocol.storedQuery.NameOfAggregate.view.proxy)
+  ), name = "storedq-agg-proxy") ! Initial2
+//
+//  system.actorOf(ClusterSingletonProxy.props(
+//    singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,
+//    settings = ClusterSingletonProxySettings(system)
+//  ), protocol.storedQuery.NameOfAggregate.view.proxy)
 
   implicit val timeout = Timeout(5.seconds)
 

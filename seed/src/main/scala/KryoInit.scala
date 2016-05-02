@@ -6,8 +6,11 @@ import com.esotericsoftware.kryo.Kryo
   */
 class KryoInit {
   def customize(kryo: Kryo): Unit  = {
-    kryo.register(classOf[domain.storedQuery.StoredQueryAggregateRoot.ItemCreated])
-    kryo.register(classOf[domain.storedQuery.StoredQueryAggregateRoot.ItemsChanged])
+    kryo.register(classOf[domain.ItemCreated2])
+    kryo.register(classOf[domain.ClauseAdded])
+    kryo.register(classOf[domain.ClauseRemoved])
+    kryo.register(scala.None.getClass)
+    kryo.register(scala.collection.immutable.Nil.getClass)
     kryo.register(classOf[protocol.storedQuery.StoredQuery])
     kryo.register(classOf[protocol.storedQuery.BoolClause])
     kryo.register(classOf[protocol.storedQuery.NamedBoolClause])

@@ -1,7 +1,7 @@
 package frontend.storedQuery.putRequest
 
 import akka.actor.Props
-import domain.storedQuery.StoredQueryAggregateRoot.{UpdatedAck, UpdateStoredQuery}
+import domain.storedQuery.StoredQueryAggregateRoot.{UpdatedAck}
 import frontend.PerRequest
 import protocol.storedQuery.Exchange.StoredQueryItem
 import spray.http.StatusCodes._
@@ -14,7 +14,8 @@ object UpdateStoredQueryItemRequest {
 
 case class UpdateStoredQueryItemRequest(ctx: RequestContext, storedQueryId: String, title: String, tags: Option[String]) extends PerRequest {
 
-  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! UpdateStoredQuery(storedQueryId, title, tags)
+  // TODO: ADD UpdateStoredQuery COMMAND AND UNCOMMENT BELOWS
+  //context.actorSelection("/user/storedq-agg-proxy") ! UpdateStoredQuery(storedQueryId, title, tags)
 
   def processResult = {
     case UpdatedAck =>

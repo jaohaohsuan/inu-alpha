@@ -3,8 +3,6 @@ package inu.storedq.test
 import domain.StoredQueryRepoAggRoot.StoredQueries2
 import domain.{ClauseAdded, ClauseRemoved, ItemCreated2}
 import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.Matchers._
-import org.scalatest._
 import protocol.storedQuery.{MatchBoolClause, NamedBoolClause, StoredQuery}
 
 /**

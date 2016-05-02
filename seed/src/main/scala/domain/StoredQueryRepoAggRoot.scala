@@ -1,5 +1,7 @@
 package domain
 
+import akka.actor.{ActorSystem, PoisonPill, Props}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.persistence.{PersistentActor, SnapshotOffer}
 import protocol.storedQuery._
 
@@ -13,13 +15,13 @@ case class CascadingUpdateGuide(guides: List[(String, String)])
 
 object StoredQueryRepoAggRoot {
 
+  def props = Props(classOf[StoredQueryRepoAggRoot])
+
   implicit class idValidator(id: String) {
     def exist()(implicit state: StoredQueries2) = state.items.get(id).nonEmpty
   }
 
   implicit def getEntity(id: String)(implicit state: StoredQueries2): StoredQuery = state.items(id)
-
-  val persistenceId: String = "storedqRepoAggRoot"
 
   object CreateStoredQuery {
     def unapply(arg: Any): Option[Either[String, StoredQuery]] = {
@@ -146,7 +148,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
   import StoredQueryRepoAggRoot._
   import storedQuery.StoredQueryAggregateRoot._
 
-  val persistenceId: String = StoredQueryRepoAggRoot.persistenceId
+  val persistenceId: String = "storedq-agg"
 
   implicit var state = StoredQueries2()
 

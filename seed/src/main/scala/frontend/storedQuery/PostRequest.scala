@@ -20,10 +20,10 @@ object NewTemplateRequest {
 }
 case class NewTemplateRequest(ctx: RequestContext, e: NewTemplate, referredId: Option[String] = None) extends PerRequest {
 
-  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! CreateNewStoredQuery(e.title, referredId, e.tags)
+  context.actorSelection("/user/storedq-agg-proxy") ! domain.CreateNewStoredQuery(e.title, referredId, e.tags)
 
   def processResult = {
-    case ItemCreated(StoredQuery(id, title, _, _), _)  =>
+    case domain.ItemCreated2(id, _, _, _)  =>
       response {
         URI { href =>
           respondWithHeader(RawHeader("Location", s"$href/$id".replaceAll("""/(\d|temporary)+(?=/\d)""", ""))){
@@ -70,7 +70,7 @@ object AddClauseRequest {
 
 case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: BoolClause) extends PerRequest {
 
-  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! AddClause(storedQueryId, clause)
+  context.actorSelection("/user/storedq-agg-proxy") ! domain.AddClause(storedQueryId, clause)
 
   def processResult = {
 

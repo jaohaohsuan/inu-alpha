@@ -1,7 +1,7 @@
 package frontend.storedQuery.deleteRequest
 
 import akka.actor.Props
-import domain.storedQuery.StoredQueryAggregateRoot.{ClausesEmptyAck, ClausesRemovedAck, RemoveClauses, ResetOccurrence}
+import domain.storedQuery.StoredQueryAggregateRoot.{ClausesEmptyAck, ClausesRemovedAck}
 import frontend.PerRequest
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
@@ -13,7 +13,7 @@ object RemoveClauseRequest {
 
 case class RemoveClauseRequest(ctx: RequestContext, storedQueryId: String, clauseId: Int) extends PerRequest {
 
-  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! RemoveClauses(storedQueryId, List(clauseId))
+  context.actorSelection("/user/storedq-agg-proxy") ! domain.RemoveClauses(storedQueryId, List(clauseId))
 
   def processResult: Receive = {
     case ClausesRemovedAck =>
@@ -35,7 +35,7 @@ object ResetOccurrenceRequest {
 
 case class ResetOccurrenceRequest(ctx: RequestContext, storedQueryId: String, occurrence: String) extends PerRequest {
 
-  context.actorSelection(protocol.storedQuery.NameOfAggregate.root.client) ! ResetOccurrence(storedQueryId, occurrence)
+  context.actorSelection("/user/storedq-agg-proxy") ! domain.ResetOccurrence(storedQueryId, occurrence)
 
   def processResult: Receive = {
     case ClausesRemovedAck =>

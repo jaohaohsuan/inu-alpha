@@ -44,11 +44,11 @@ case class Condition(storedQueryId: String, title: String, query: String, state:
   def count(implicit queries: Map[String, Condition], filter: QueryBuilder, client: Client) = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val qb = conditions.flatMap(queries.get).foldLeft(boolQuery()){ (acc, c) => acc.must(wrapperQuery(c.query)) }
-    client.prepareCount("logs*")
+    client.prepareSearch("logs*").setSize(0)
       .setQuery(qb.filter(filter))
       .execute().future.map { resp =>
       //set hits
-      queries.getOrElse(storedQueryId, this).copy(hits = resp.getCount, state = state)
+      queries.getOrElse(storedQueryId, this).copy(hits = resp.getHits.getTotalHits, state = state)
     }
   }
 }

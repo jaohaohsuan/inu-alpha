@@ -1,3 +1,4 @@
+/*
 package read.storedQuery
 
 import akka.actor.Props
@@ -110,3 +111,4 @@ class StoredQueryAggregateRootView(private implicit val client: org.elasticsearc
       log.warning(s"unexpected message catch $unknown")
   }
 }
+*/

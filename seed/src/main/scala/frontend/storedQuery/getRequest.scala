@@ -1,6 +1,6 @@
 package frontend.storedQuery.getRequest
 
-import akka.actor.{ActorLogging, Actor, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern._
 import akka.util.Timeout
 import es.indices.logs.VttField
@@ -13,7 +13,7 @@ import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.common.xcontent.XContentFactory
-import org.elasticsearch.index.query.{QueryBuilder, BoolQueryBuilder, QueryBuilders, MatchQueryBuilder}
+import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilder, QueryBuilders}
 import protocol.storedQuery.Terminology._
 import org.json4s
 import org.json4s.JsonAST.JValue
@@ -26,16 +26,21 @@ import storedQuery._
 import spray.http.StatusCodes._
 import spray.routing._
 import elastic.ImplicitConversions._
+
 import scala.language.implicitConversions
 import text.ImplicitConversions._
-import scalaz._, Scalaz._
+
+import scalaz._
+import Scalaz._
 import scala.language.reflectiveCalls
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 import scala.collection.JavaConversions._
 import protocol.storedQuery.Terminology._
 import protocol.elastics.boolQuery._
+
+import scala.concurrent.Future
 
 trait CollectionJsonBuilder {
   def body(hits: Iterable[json4s.JValue], tags: String, pagination: Seq[String]): String
@@ -195,16 +200,18 @@ case class QueryStoredQueryRequest(ctx: RequestContext, implicit val client: Cli
 
   implicit val timeout = Timeout(5 seconds)
 
-  val getTags = (context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags)
+  // TODO: redesign tags
+  /*val getTags = (context.actorSelection(protocol.storedQuery.NameOfAggregate.view.client) ? protocol.storedQuery.Exchange.SearchTags)
     .map {
       case r: common.StringMapHolder => r.text
       case unexpected =>
         log.warning(s"SearchTags error with an unexpected Tags: $unexpected")
         ""
-    }
+    }*/
+
 
   (for {
-    tags <- getTags
+    tags <- Future { "for demo only" }
     searchResponse <- prepareSearch
       .setQuery(qb)
       .setFetchSource(Array("item"), null)
@@ -359,7 +366,7 @@ case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.cl
   } yield hits) pipeTo self
 
   def processResult: Receive = {
-    case r: CountResponse =>
+    case r: SearchResponse =>
       response {
         requestUri { uri =>
           complete(OK, s"""{
@@ -370,7 +377,7 @@ case class Status(ctx: RequestContext, implicit val client: org.elasticsearch.cl
                           |     "items" : [ {
                           |       "href" : "$uri",
                           |       "data" : [
-                          |         { "name": "count", "value" : ${r.getCount} }
+                          |         { "name": "count", "value" : ${r.getHits.getTotalHits} }
                           |       ]
                           |     } ]
                           |   }

@@ -29,11 +29,6 @@ object StoredQueryBackend {
     val config = ConfigFactory.load().register().enableCassandraPlugin()
 
     val system = ActorSystem(config.getString("storedq.cluster-name"), config)
-
-    system.actorOf(ClusterSingletonManager.props(
-      singletonProps = Props(classOf[StoredQueryAggregateRoot]),
-      terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(system)),
-      name = s"${protocol.storedQuery.NameOfAggregate.root}")
+    
   }
 }

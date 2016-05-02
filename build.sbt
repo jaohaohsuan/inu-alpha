@@ -29,6 +29,7 @@ lazy val seed = create("seed")
       spray, sprayRouting,
       akkaCluster, akkaClusterTools,
       akkaPersistenceQuery, akkaPersistenceCassandra,
+      akkaHttpCore, akkaHttpExperimental,
       akkaClusterMetrics,
       elasticsearch,
       nscalaTime,

@@ -16,6 +16,9 @@ object Library {
   val akkaClusterTools         = "com.typesafe.akka" %% "akka-cluster-tools"                  % Version.akka
   val akkaCluster              = "com.typesafe.akka" %% "akka-cluster"                        % Version.akka
   val akkaClusterMetrics       = "com.typesafe.akka" %% "akka-cluster-metrics"                % Version.akka
+  val akkaHttpExperimental     = "com.typesafe.akka" %% "akka-http-experimental"              % Version.akka
+  val akkaHttpCore             = "com.typesafe.akka" %% "akka-http-core"                      % Version.akka
+
   val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.11"
 
   //val slf4j                    = "org.slf4j"                  %  "slf4j-api"                  % "1.7.12"

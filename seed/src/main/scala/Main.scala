@@ -45,13 +45,20 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system))
   }
 
-  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "storedq-agg") ! Initial2
+  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "storedq-agg")
   system.actorOf(StoredQueriesView.props.singleton(), "storedq-view")
 
   system.actorOf(ClusterSingletonProxy.props(
     singletonManagerPath = s"/user/storedq-agg",
     settings = ClusterSingletonProxySettings(system)
   ), name = "storedq-agg-proxy") ! Initial2
+
+
+  system.actorOf(ClusterSingletonProxy.props(
+    singletonManagerPath = s"/user/storedq-view",
+    settings = ClusterSingletonProxySettings(system)
+  ), name = "storedq-view-proxy") ! "go"
+
 //
 //  system.actorOf(ClusterSingletonProxy.props(
 //    singletonManagerPath = protocol.storedQuery.NameOfAggregate.view.manager,

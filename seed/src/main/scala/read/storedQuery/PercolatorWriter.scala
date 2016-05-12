@@ -28,5 +28,4 @@ trait PercolatorWriter {
     case QueryTerms(id,terms) => "keywords" -> terms
   }
 
-  
 }

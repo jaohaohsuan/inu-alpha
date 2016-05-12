@@ -61,14 +61,34 @@ object BoolQuery {
   }
 }
 
+object Occurs {
+  def unapply(arg: Map[Int, BoolClause]): Option[JValue] = {
+        val result = arg.map({ case (id, el) =>
+          el.occurrence -> Set(
+            ("data" -> JArray(Nil)) ~~
+            ("href" -> s"#{uri}/${el.shortName}/$id")
+          ): JObject
+        }).foldLeft(JObject(Nil)){ (acc, j) => acc.merge(j)}
+        Some(result)
+    }
+}
+
 object Percolator {
   def unapply(arg: StoredQuery): Option[(String,JObject)] = {
     val StoredQuery(id, title, clauses, tags) = arg
     val BoolQuery(query) = clauses.values
+    val item =
+      ("id"   -> id) ~~
+      ("data" -> Set(
+        ("name" -> "title") ~~ ("value" -> title),
+        ("name" -> "tags") ~~ ("value" -> tags.mkString(" "))
+      ))
+
     val doc =
       ("title" -> title) ~~
       ("tags" -> tags) ~~
-      ("query" -> query)
+      ("query" -> query) ~~
+      ("item" -> item)
     Some((id, doc))
   }
 }

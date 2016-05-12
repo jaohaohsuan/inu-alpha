@@ -20,13 +20,7 @@ object ImplicitJsonConversions {
 
   def boolClauseCollectionItem(c: (Int, BoolClause)): JObject = {
     val (clauseId, boolClause) = c
-    import protocol.storedQuery.Exchange._
-    val (data, id) =  boolClause match {
-      case NamedBoolClause(id, title, occur, _) => (NamedClause(id, title, occur), s"#{uri}/named/$clauseId")
-      case MatchBoolClause(query, field, op, occur) => (MatchClause(query,field, op, occur), s"#{uri}/match/$clauseId")
-      case SpanNearBoolClause(terms, field, slop, inOrder, occur) => (SpanNearClause(terms.mkString(" "), field, slop, inOrder, occur), s"#{uri}/near/$clauseId")
-    }
-    ("data" -> data) ~ ("href" -> id)
+    ("data" -> boolClause) ~ ("href" -> s"#{uri}/${boolClause.shortName}/$clauseId")
   }
 
 }

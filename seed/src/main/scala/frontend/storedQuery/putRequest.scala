@@ -3,7 +3,7 @@ package frontend.storedQuery.putRequest
 import akka.actor.Props
 import domain.storedQuery.StoredQueryAggregateRoot.{UpdatedAck}
 import frontend.PerRequest
-import protocol.storedQuery.Exchange.StoredQueryItem
+import protocol.storedQuery.StoredQueryItem
 import spray.http.StatusCodes._
 import spray.routing.RequestContext
 

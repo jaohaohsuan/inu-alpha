@@ -6,7 +6,7 @@ import frontend.storedQuery.getRequest._
 import frontend.storedQuery.postRequest._
 import frontend.storedQuery.putRequest.UpdateStoredQueryItemRequest
 import org.json4s
-import protocol.storedQuery.Exchange._
+import protocol.storedQuery._
 import protocol.storedQuery.Terminology._
 import spray.httpx.unmarshalling._
 import spray.routing._

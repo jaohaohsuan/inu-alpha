@@ -19,7 +19,7 @@ object Library {
   val akkaHttpExperimental     = "com.typesafe.akka" %% "akka-http-experimental"              % Version.akka
   val akkaHttpCore             = "com.typesafe.akka" %% "akka-http-core"                      % Version.akka
 
-  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.11"
+  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.11"
 
   //val slf4j                    = "org.slf4j"                  %  "slf4j-api"                  % "1.7.12"
   val spray                      = "io.spray"                   %% "spray-can"                  % Version.spray
@@ -32,7 +32,6 @@ object Library {
   //val log4j                    = "log4j"                      %  "log4j"                      % "1.2.17"
   val nscalaTime                 = "com.github.nscala-time"     %% "nscala-time"                % "2.6.0"
   val scopt                      = "com.github.scopt"           %% "scopt"                      % "3.3.0"
-  val shapeless                  = "com.chuusai"                %% "shapeless"                  % "2.2.5"
   val scalazCore                 = "org.scalaz"                 %% "scalaz-core"                % "7.1.4"
   val kryo                       = "com.github.romix.akka"      %% "akka-kryo-serialization"    % "0.4.1"
 
@@ -43,6 +42,7 @@ object Dependencies {
 
   val resolvers = Seq(
     Resolver.sonatypeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots"),
     "Spray Repository"    at "http://repo.spray.io/",
     "Akka Snapshot Repository" at "http://repo.akka.io/snapshots/",
     "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"

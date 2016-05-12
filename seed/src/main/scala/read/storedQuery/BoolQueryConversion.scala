@@ -1,4 +1,4 @@
-package read.storedQuery
+/*package read.storedQuery
 
 import org.elasticsearch.index.query.{MatchQueryBuilder, QueryBuilder, BoolQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
@@ -21,12 +21,12 @@ object BoolQueryConversion {
     val (clausesTitle, keywords, bool, qd) = {
       val (clausesTitle, keywords, bool) = acc
       clause match {
-        case MatchBoolClause(query, field, operator, _) =>
+        case MatchClause(query, field, operator, _) =>
           (clausesTitle, keywords ++ query.split("""\s+"""), bool,
             multiMatchQuery(query, field.replaceAll("""\s+""", "")).operator(MatchQueryBuilder.Operator.valueOf(operator)))
               //.matchType("best_fields")
 
-        case SpanNearBoolClause(terms, field, slop, inOrder, _) =>
+        case SpanNearClause(terms, field, slop, inOrder, _) =>
           val fields = """(agent|customer)""".r.findFirstIn(field).map { m => (0 to 2).map { n => s"$m$n" } }.getOrElse(Seq("dialogs"))
 
           val queries = fields.foldLeft(boolQuery()) { (acc, field) => {
@@ -36,7 +36,7 @@ object BoolQueryConversion {
           }}
           (clausesTitle, keywords ++ terms , bool, queries)
 
-        case NamedBoolClause(_, title, _, clauses) =>
+        case NamedClause(_, title, _, clauses) =>
           val (accClausesTitle, accKeywords, innerBool) = clauses.values.foldLeft((title :: clausesTitle, keywords, boolQuery()))(assemble)
           (accClausesTitle, accKeywords , bool, innerBool)
       }
@@ -69,3 +69,4 @@ object BoolQueryConversion {
     case ex: Exception => None
   }
 }
+*/

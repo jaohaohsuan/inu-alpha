@@ -4,8 +4,11 @@ import protocol.storedQuery._
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
+import org.json4s.native.Serialization.{read, write}
+import org.json4s.native.Serialization
 
 import scala.language.implicitConversions
+import shapeless._
 /**
   * Created by henry on 4/30/16.
   */
@@ -19,17 +22,17 @@ object MultiSpanNearQuery {
         ("collect_payloads" -> false) ~~
         ("slop"             -> slop)
 
-  def unapply(arg: SpanNearBoolClause): Option[JValue] = {
-    val SpanNearBoolClause(terms, _, slop, inOrder, occur) = arg
-    val spanNear = spanNearQuery(inOrder, slop, terms)(_)
+  def unapply(arg: SpanNearClause): Option[JValue] = {
+    val SpanNearClause(terms, _, slop, inOrder, occur) = arg
+    val spanNear = spanNearQuery(inOrder, slop, terms.split("""\s+""").toList)(_)
     val clause = "bool" -> ("should" -> arg.fields.map(spanNear).toSet)
     Some("bool" -> (occur -> Set(clause)))
   }
 }
 
 object MultiMatchQuery {
-  def unapply(arg: MatchBoolClause): Option[JValue] = {
-    val MatchBoolClause(q,f,o,occur) = arg
+  def unapply(arg: MatchClause): Option[JValue] = {
+    val MatchClause(q,f,o,occur) = arg
     Some("bool" ->
       (occur -> Set(
         "multi_match" ->
@@ -51,7 +54,7 @@ object BoolQuery {
         val query: JValue = clause match {
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
-          case NamedBoolClause(_, _, occur, innerClauses) => "bool" -> (occur -> Set(build(innerClauses.values)))
+          case NamedClause(_, _, occur, innerClauses) => "bool" -> (occur -> Set(build(innerClauses.values)))
         }
         acc merge query
       }
@@ -62,10 +65,19 @@ object BoolQuery {
 }
 
 object Occurs {
+
+  implicit val formats = DefaultFormats +
+    FieldSerializer[NamedClause](FieldSerializer.ignore("clauses")) +
+    FieldSerializer[NamedClause](FieldSerializer.ignore("shortName"))
+
   def unapply(arg: Map[Int, BoolClause]): Option[JValue] = {
         val result = arg.map({ case (id, el) =>
+
+          val JObject(xs) = parse(write(el))
+          val data = JArray(xs.map { case JField(f,v) => ("name" -> f) ~~ ("value" -> v) })
+
           el.occurrence -> Set(
-            ("data" -> JArray(Nil)) ~~
+            ("data" -> data) ~~
             ("href" -> s"#{uri}/${el.shortName}/$id")
           ): JObject
         }).foldLeft(JObject(Nil)){ (acc, j) => acc.merge(j)}

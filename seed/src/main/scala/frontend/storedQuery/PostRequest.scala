@@ -40,22 +40,18 @@ trait Monoid[A] {
 
 object Monoid {
 
-  import protocol.storedQuery.Exchange._
   import protocol.storedQuery._
 
   implicit val NamedClauseMonoid = new Monoid[NamedClause] {
-    def as(c: NamedClause): BoolClause =
-      NamedBoolClause(c.storedQueryId, c.storedQueryTitle, c.occurrence)
+    def as(c: NamedClause): BoolClause = c
   }
 
   implicit val MatchClauseMonoid = new Monoid[MatchClause] {
-    def as(c: MatchClause): BoolClause =
-      MatchBoolClause(c.query, c.field, c.operator, c.occurrence)
+    def as(c: MatchClause): BoolClause = c
   }
 
   implicit val SpanNearClauseMonoid = new Monoid[SpanNearClause] {
-    def as(c: SpanNearClause): BoolClause =
-      SpanNearBoolClause(c.query.split("""\s+""").toList, c.field, c.slop, c.inOrder, c.occurrence)
+    def as(c: SpanNearClause): BoolClause = c
   }
 }
 
@@ -67,6 +63,7 @@ object AddClauseRequest {
     Props(classOf[AddClauseRequest], ctx, storedQueryId, m.as(entity))
   }
 }
+
 
 case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: BoolClause) extends PerRequest {
 

@@ -78,7 +78,7 @@ object StoredQueryRepoAggRoot {
       arg match {
         case (StoredQuery(id, _, clauses, _), state@StoredQueries2(_, paths, _)) =>
           val newDep = clauses.flatMap {
-            case (k, ref: NamedBoolClause) => Some((id, ref.storedQueryId) -> k)
+            case (k, ref: NamedClause) => Some((id, ref.storedQueryId) -> k)
             case _ => None
           }
           val consumerPaths = paths.filterKeys({ case (consumer, _) => consumer == id }).keys
@@ -102,7 +102,7 @@ object StoredQueryRepoAggRoot {
             clauseId <- dep.get((consumerId, providerId))
             clause <- consumer.clauses.get(clauseId)
             consumerClauses = clause match {
-              case n: NamedBoolClause => consumer.clauses + (clauseId -> n.copy(clauses = provider.clauses))
+              case n: NamedClause => consumer.clauses + (clauseId -> n.copy(clauses = provider.clauses))
               case _ => consumer.clauses
             }
             updatedConsumer = consumerId -> consumer.copy(clauses = consumerClauses)

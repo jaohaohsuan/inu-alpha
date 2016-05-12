@@ -19,7 +19,7 @@ import org.json4s
 import org.json4s.JsonAST.JValue
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import protocol.storedQuery.Exchange.{MatchClause, NamedClause, SpanNearClause}
+import protocol.storedQuery.{MatchClause, NamedClause, SpanNearClause}
 import spray.http.Uri
 import spray.http.Uri.Path
 import storedQuery._

@@ -12,11 +12,11 @@ class KryoInit {
     kryo.register(scala.None.getClass)
     kryo.register(scala.collection.immutable.Nil.getClass)
     kryo.register(classOf[protocol.storedQuery.StoredQuery])
-    kryo.register(classOf[protocol.storedQuery.BoolClause])
+/*  kryo.register(classOf[protocol.storedQuery.BoolClause])
     kryo.register(classOf[protocol.storedQuery.NamedBoolClause])
     kryo.register(classOf[protocol.storedQuery.SpanNearBoolClause])
     kryo.register(classOf[protocol.storedQuery.MatchBoolClause])
-
+*/
     kryo.register(classOf[scala.collection.Map[_,_]])
     kryo.register(classOf[scala.collection.Set[_]])
     kryo.register(scala.collection.immutable.::.getClass)

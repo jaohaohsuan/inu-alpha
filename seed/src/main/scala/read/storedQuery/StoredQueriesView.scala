@@ -7,9 +7,11 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.persistence.query.EventEnvelope
 import akka.stream.ClosedShape
+import akka.stream.javadsl.RunnableGraph
 import akka.stream.scaladsl._
 import domain.StoredQueryRepoAggRoot
 import domain.StoredQueryRepoAggRoot.StoredQueries2
+import org.json4s.JValue
 import protocol.storedQuery._
 
 import scala.concurrent.Future
@@ -20,7 +22,7 @@ object StoredQueriesView {
   def props = Props[StoredQueriesView]
 }
 
-class StoredQueriesView extends read.MaterializeView {
+class StoredQueriesView extends read.MaterializeView with PercolatorWriter {
 
   val source:  Source[EventEnvelope, NotUsed]  = readJournal.eventsByPersistenceId("storedq-agg", 0, Long.MaxValue)
 
@@ -29,37 +31,32 @@ class StoredQueriesView extends read.MaterializeView {
     case _ => true
   })
   val changes = Flow[StoredQueries2].mapConcat { case StoredQueries2(items, _, x :: xs) => x.flatMap(items.get) }
-  val percolators = Flow[StoredQuery].map { case Percolator(id, body) =>
-    import akka.http.scaladsl.model.HttpMethods._
-    import akka.http.scaladsl.model.MediaTypes._
-    import org.json4s.native.JsonMethods._
-    HttpRequest(method = PUT, uri = s"/stored-query/.percolator/$id", entity = HttpEntity(`application/json`, compact(render(body))))
-  }
 
-  val connectionFlow: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]] = Http().outgoingConnection("127.0.0.1", 9200)
+  val connectionFlow: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]] = Http().outgoingConnection("elasticsearch", 9200)
 
-/*  val docs: Sink[StoredQuery, Unit] = ???
-
-  val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
+  val g = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
     import GraphDSL.Implicits._
-    val bcast = b.add(Broadcast[StoredQuery](2))
 
-    changes ~> bcast.in
-    bcast.out(0) ~> Flow[StoredQuery] ~> percolator
-    bcast.out(1) ~> Flow[StoredQuery] ~> docs
+    val out = Sink.ignore
+
+    val bcast = builder.add(Broadcast[StoredQuery](2))
+    val merge = builder.add(Merge[JValue](2))
+
+    source ~> states ~> changes ~> bcast ~> query ~> merge ~> out
+                                   bcast ~> keywords
+
     ClosedShape
   })
-  */
 
   def receive: Receive = {
     case _ =>
      // source.via(states).via(changes).via(percolators).runWith(Sink.foreach(println))
-     source.via(states)
-            .via(changes)
-            .via(percolators)
-            .via(connectionFlow)
-            .runForeach{ r => println(s"$r") }
-
+//     source.via(states)
+//            .via(changes)
+//            .via(marshalling)
+//            .via(persistence)
+//            .via(connectionFlow)
+//            .runForeach{ r => println(s"$r") }
 
       //source.via(states).via(changes)
       //repo.runWith(Sink.foreach())

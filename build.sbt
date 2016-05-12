@@ -9,7 +9,8 @@ def create(name: String): Project = Project(name, file(name))
         scalaVersion         := Version.scala,
         scalacOptions       ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
         resolvers           ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic, scalazCore)
+        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic, scalazCore),
+        shellPrompt          := { state => ">> " }
         ): _*
     )
 
@@ -36,6 +37,7 @@ lazy val seed = create("seed")
       kryo,
       scalatest
     ),
+    mainClass in (Compile) := Some("seed.Main"),
     dockerRepository := Some("127.0.0.1:5000/inu"),
     packageName in Docker := "storedq",
     dockerCommands := Seq(
@@ -47,7 +49,7 @@ lazy val seed = create("seed")
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", "bin/storedq")
+      Cmd("ENTRYPOINT", "bin/seed")
     ),
     bashScriptExtraDefines += """
                                 |my_ip=$(hostname --ip-address)

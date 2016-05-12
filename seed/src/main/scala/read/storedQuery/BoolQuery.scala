@@ -3,7 +3,6 @@ package read.storedQuery
 import protocol.storedQuery._
 import org.json4s.JsonDSL._
 import org.json4s._
-import org.json4s.JValue
 import org.json4s.native.JsonMethods._
 
 import scala.language.implicitConversions
@@ -63,7 +62,7 @@ object BoolQuery {
 }
 
 object Percolator {
-  def unapply(arg: StoredQuery): Option[(String,JValue)] = {
+  def unapply(arg: StoredQuery): Option[(String,JObject)] = {
     val StoredQuery(id, title, clauses, tags) = arg
     val BoolQuery(query) = clauses.values
     val doc =

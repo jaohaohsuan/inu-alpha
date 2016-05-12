@@ -15,8 +15,9 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import akka.pattern.ask
 import akka.util.Timeout
-import domain.{Initial2}
+import domain.Initial2
 import read.storedQuery.StoredQueriesView
+
 import scala.concurrent.duration._
 import scala.collection.JavaConversions._
 
@@ -29,13 +30,10 @@ object Main extends App {
   system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
-  implicit val client = TransportClient.builder().build().addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300))
-  val clusterAdminClient = client.admin().cluster()
+  val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
+     .put("cluster.name", config.getString("elasticsearch.cluster-name")).build();
 
-  val healths = client.admin().cluster().prepareHealth().get()
-  val clusterName = healths.getClusterName()
-  val numberOfDataNodes = healths.getNumberOfDataNodes()
-  val numberOfNodes = healths.getNumberOfNodes()
+  implicit val client = TransportClient.builder().settings(settings).build().addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(config.getString("elasticsearch.transport-address")), 9300))
 
   implicit class clustering(props: Props) {
 
@@ -45,19 +43,19 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system))
   }
 
-  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "storedq-agg")
-  system.actorOf(StoredQueriesView.props.singleton(), "storedq-view")
-
-  system.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = s"/user/storedq-agg",
-    settings = ClusterSingletonProxySettings(system)
-  ), name = "storedq-agg-proxy") ! Initial2
-
-
-  system.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = s"/user/storedq-view",
-    settings = ClusterSingletonProxySettings(system)
-  ), name = "storedq-view-proxy") ! "go"
+//  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "storedq-agg")
+//  system.actorOf(StoredQueriesView.props.singleton(), "storedq-view")
+//
+//  system.actorOf(ClusterSingletonProxy.props(
+//    singletonManagerPath = s"/user/storedq-agg",
+//    settings = ClusterSingletonProxySettings(system)
+//  ), name = "storedq-agg-proxy") ! Initial2
+//
+//
+//  system.actorOf(ClusterSingletonProxy.props(
+//    singletonManagerPath = s"/user/storedq-view",
+//    settings = ClusterSingletonProxySettings(system)
+//  ), name = "storedq-view-proxy") ! "go"
 
 //
 //  system.actorOf(ClusterSingletonProxy.props(
@@ -71,6 +69,7 @@ object Main extends App {
   IO(Http) ? Http.Bind(service, interface = "0.0.0.0", port = frontend.Config.port)
 
   sys.addShutdownHook {
+    client.close()
     system.terminate()
   }
 }

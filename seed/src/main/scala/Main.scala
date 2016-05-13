@@ -29,15 +29,10 @@ object Main extends App {
   system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
-  implicit val client = TransportClient.builder().build().addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300))
-  val clusterAdminClient = client.admin().cluster()
-
-  val healths = client.admin().cluster().prepareHealth().get()
-  val clusterName = healths.getClusterName()
-  val numberOfDataNodes = healths.getNumberOfDataNodes()
-  val numberOfNodes = healths.getNumberOfNodes()
-
-
+  val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
+  .put("cluster.name", config.getString("elasticsearch.cluster-name")).build()
+  implicit val client = TransportClient.builder().settings(settings).build()
+    .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(config.getString("elasticsearch.transport-address")), 9300))
   system.actorOf(ClusterSingletonManager.props(
     singletonProps = Props(classOf[StoredQueryAggregateRoot]),
     terminationMessage = PoisonPill,

@@ -35,6 +35,7 @@ lazy val seed = create("seed")
       kryo,
       scalatest
     ),
+    mainClass in Compile := Some("Main"),
     dockerRepository := Some("127.0.0.1:5000/inu"),
     packageName in Docker := "storedq",
     dockerCommands := Seq(

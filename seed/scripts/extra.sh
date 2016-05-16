@@ -1,20 +1,20 @@
 #!/bin/bash
 
-my_ip=$(hostname --ip-address)
+my_ip=$(hostname -i)
 
 function format {
   local fqdn=$1
 
-  local result=$(host $fqdn | \
-    grep -v "not found" | grep -v "connection timed out" | \
-    grep -v $my_ip | \
-    sort | \
-    head -5 | \
-    awk '{print $4}' | \
-    xargs | \
+  local result=$(nslookup $fqdn 2> /dev/null | \
+    grep -v ${my_ip} | \
+    grep 'Address' | \
+    head -5 | awk '{print $3}' | \
+    sort | xargs | \
     sed -e 's/ /,/g')
-  if [ ! -z "$result" ]; then
-    export $2=$result
+  if [ -z "$result" ]; then
+    exit
+  else
+    export $2=${result}
   fi
 }
 

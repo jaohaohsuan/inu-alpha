@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -x
 
 my_ip=$(hostname -i)
 
@@ -11,12 +13,12 @@ function format {
     head -5 | awk '{print $3}' | \
     sort | xargs | \
     sed -e 's/ /,/g')
-  if [ -z "$result" ]; then
-    exit
-  else
+  if [ -n "$result" ]; then
     export $2=${result}
   fi
 }
 
 format $PEER_DISCOVERY_SERVICE SEED_NODES
 format $AKKA_PERSISTENCE_SERVICE CASSANDRA_NODES
+
+set +x

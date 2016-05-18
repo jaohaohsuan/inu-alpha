@@ -35,6 +35,8 @@ lazy val seed = create("seed")
       kryo,
       scalatest
     ),
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+    buildInfoPackage := "inu.storedq",
     mainClass in Compile := Some("seed.Main"),
     dockerRepository := Some("127.0.0.1:5000/inu"),
     version in Docker := "latest",
@@ -58,16 +60,17 @@ lazy val seed = create("seed")
       Cmd("RUN",
         """set -x \
           |&& apk add --no-cache \
-          |openjdk8-jre="$JAVA_ALPINE_VERSION" \
+          |openjdk8-jre="$JAVA_ALPINE_VERSION" bash \
           |&& [ "$JAVA_HOME" = "$(docker-java-home)" ]
         """.stripMargin),
+      //Cmd("RUN", "apk add --update bash && rm -rf /var/cache/apk/*"),
       Cmd("WORKDIR", "/opt/docker"),
-      Cmd("ADD", "opt /opt"),
+      Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
+      Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),
       Cmd("ENTRYPOINT", s"bin/${name.value}")
     ),
     bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
-  ).enablePlugins(JavaAppPackaging)
-
+  ).enablePlugins(JavaAppPackaging, BuildInfoPlugin, GitVersioning, GitBranchPrompt)

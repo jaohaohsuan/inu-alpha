@@ -42,7 +42,7 @@ class StoredQueriesView extends read.MaterializeView with PercolatorWriter {
     val bcast = builder.add(Broadcast[StoredQuery](2))
     val merge = builder.add(Merge[JValue](2))
 
-    source ~> states ~> changes ~> bcast ~> query ~> merge ~> out
+    source ~> states ~> changes ~> bcast ~> query    ~> merge ~> out
                                    bcast ~> keywords
 
     ClosedShape

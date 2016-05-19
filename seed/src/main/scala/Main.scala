@@ -23,7 +23,7 @@ import scala.collection.JavaConversions._
 
 object Main extends App {
 
-  val config: Config = ConfigFactory.load().register().enableCassandraPlugin()
+  val config: Config = ConfigFactory.load().onboard().enableCassandraPlugin()
 
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
 

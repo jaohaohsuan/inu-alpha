@@ -26,7 +26,7 @@ object NodeConfigurator {
 
   implicit class SelfRegister(config: Config) {
 
-    def register(): Config = {
+    def onboard(): Config = {
 
       val storedqPart = config.getConfig("storedq")
       val clusterName = storedqPart.getString("cluster-name")

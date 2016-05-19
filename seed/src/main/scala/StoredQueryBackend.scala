@@ -26,7 +26,7 @@ object StoredQueryBackend {
     import NodeConfigurator._
     import com.typesafe.config._
 
-    val config = ConfigFactory.load().register().enableCassandraPlugin()
+    val config = ConfigFactory.load().onboard().enableCassandraPlugin()
 
     val system = ActorSystem(config.getString("storedq.cluster-name"), config)
     

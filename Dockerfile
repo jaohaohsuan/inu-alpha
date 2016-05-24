@@ -17,6 +17,8 @@ RUN set -x \
   && apk add --no-cache openjdk8-jre="$JAVA_ALPINE_VERSION" bash curl git openssh ca-certificates \
   && [ "$JAVA_HOME" = "$(docker-java-home)" ]
 
+ENV HOME /home/jenkins
+
 # Install docker
 ENV DOCKER_BUCKET get.docker.com
 ENV DOCKER_VERSION 1.11.1
@@ -29,18 +31,18 @@ RUN set -x \
 	&& mv docker/* /usr/local/bin/ \
 	&& rmdir docker \
 	&& rm docker.tgz \
-	&& docker -v
-
-ENV HOME /home/jenkins
-RUN addgroup jenkins && adduser -h $HOME -s /bin/bash -D -G jenkins jenkins
-RUN addgroup -g 999 docker && adduser jenkins docker
-
-RUN curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.52/remoting-2.52.jar \
-  && chmod 755 /usr/share/jenkins \
-  && chmod 644 /usr/share/jenkins/slave.jar
-
-RUN curl -s https://raw.githubusercontent.com/paulp/sbt-extras/master/sbt > /usr/local/bin/sbt && \
-    chmod 0755 /usr/local/bin/sbt
+	&& docker -v \
+        &&  addgroup jenkins \
+        && adduser -h $HOME -s /bin/bash -D -G jenkins jenkins \
+        && addgroup -g 999 docker && adduser jenkins docker \
+        && curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.52/remoting-2.52.jar \
+        && chmod 755 /usr/share/jenkins \
+        && chmod 644 /usr/share/jenkins/slave.jar \
+        && curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.52/remoting-2.52.jar \
+        && chmod 755 /usr/share/jenkins \
+        && chmod 644 /usr/share/jenkins/slave.jar \
+	&& curl -s https://raw.githubusercontent.com/paulp/sbt-extras/master/sbt > /usr/local/bin/sbt && \
+        chmod 0755 /usr/local/bin/sbt
 
 COPY jenkins-slave /usr/local/bin/jenkins-slave
 ADD project $HOME/project

@@ -43,10 +43,15 @@ RUN curl -s https://raw.githubusercontent.com/paulp/sbt-extras/master/sbt > /usr
     chmod 0755 /usr/local/bin/sbt
 
 COPY jenkins-slave /usr/local/bin/jenkins-slave
-VOLUME /home/jenkins
+ADD project $HOME/project
+ADD build.sbt $HOME/
+ADD common $HOME/common
+ADD protocol $HOME/protocol
+ADD seed $HOME/seed
+RUN chown -R jenkins:jenkins /home/jenkins
 WORKDIR /home/jenkins
 USER jenkins
-COPY build.sbt $HOME/build.sbt
 RUN /usr/local/bin/sbt -v -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project seed' 'compile'
 
+VOLUME /home/jenkins
 ENTRYPOINT ["jenkins-slave"]

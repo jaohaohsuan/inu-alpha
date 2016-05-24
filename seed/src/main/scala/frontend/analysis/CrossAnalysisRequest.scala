@@ -11,7 +11,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.{BoolQueryBuilder, QueryBuilder, QueryBuilders, WrapperQueryBuilder}
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.{Aggregation, AggregationBuilders}
 import org.elasticsearch.search.aggregations.bucket.filters.Filters.Bucket
 import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAggregationBuilder}
 import org.json4s.JsonAST._
@@ -22,10 +22,11 @@ import spray.http.StatusCodes._
 import spray.http.Uri
 import spray.routing.RequestContext
 import frontend.UriImplicitConversions._
+
 import scala.collection.JavaConversions._
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.Try
+import scala.util.{Try, Failure, Success }
 
 object Condition {
 
@@ -325,13 +326,22 @@ case class CrossAnalysisLineChartRequest (ctx: RequestContext, implicit val clie
         }
   }
 
-  (for {
-    source <- logs.buildSourceAgg()
-    filter <- conditionSet.buildQuery
-    cross <- includable.toAgg(source, filter)
-    result <- logs.prepareSearch().addAggregation(cross).execute().future.map(_.getAggregations)
-    agg = if(result == null) None else result.asMap().toMap.get("source")
-  } yield agg) pipeTo self
+  val proc: Future[Option[Aggregation]] = for {
+    source <- logs.buildSourceAgg() recoverWith { case ex => Future.failed(new Exception("source <- logs.buildSourceAgg()", ex)) }
+    filter <- conditionSet.buildQuery recoverWith { case ex => Future.failed(new Exception("filter <- conditionSet.buildQuery", ex)) }
+    cross <- includable.toAgg(source, filter) recoverWith { case ex => Future.failed(new Exception("cross <- includable.toAgg(source, filter)", ex)) }
+    result <- logs.prepareSearch().addAggregation(cross).execute().future.map(_.getAggregations) recoverWith { case ex => Future.failed(new Exception("result <- logs.prepareSearch()", ex)) }
+    agg = if (result == null) None else result.asMap().toMap.get("source")
+  } yield agg
+
+
+  proc onComplete  {
+    case Success(None) => "proc is None" logError()
+    case Success(r) => self ! r
+    case Failure(ex) => log.error(ex, "proc")
+  }
+
+ // proc pipeTo self
 
   def processResult = {
 

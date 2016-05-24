@@ -37,41 +37,41 @@ lazy val seed = create("seed")
       kryo,
       scalatest
     ),
-    mainClass in (Compile) := Some("seed.Main"),
+    mainClass in Compile := Some("seed.Main"),
     dockerRepository := Some("127.0.0.1:5000/inu"),
+    version in Docker := "latest",
     packageName in Docker := "storedq",
     dockerCommands := Seq(
-      Cmd("FROM", "java:latest"),
-      Cmd("ENV", "REFRESHED_AT 2016-04-08"),
-      Cmd("RUN", "apt-get update && apt-get install -y apt-utils dnsutils && apt-get clean && rm -rf /var/lib/apt/lists/*"),
+      Cmd("FROM", "alpine:3.3"),
+      Cmd("ENV", "LANG C.UTF-8"),
+      Cmd("RUN",
+        """{ \
+          |echo '#!/bin/sh'; \
+          |echo 'set -e'; \
+          |echo; \
+          |echo 'dirname "$(dirname "$(readlink -f "$(which javac || which java)")")"'; \
+          |} > /usr/local/bin/docker-java-home \
+          |&& chmod +x /usr/local/bin/docker-java-home
+        """.stripMargin),
+      Cmd("ENV", "JAVA_HOME /usr/lib/jvm/java-1.8-openjdk/jre"),
+      Cmd("ENV", "PATH $PATH:$JAVA_HOME/bin"),
+      Cmd("ENV", "JAVA_VERSION 8u92"),
+      Cmd("ENV", "JAVA_ALPINE_VERSION 8.92.14-r0"),
+      Cmd("RUN",
+        """set -x \
+          |&& apk add --no-cache \
+          |openjdk8-jre="$JAVA_ALPINE_VERSION" bash curl \
+          |&& [ "$JAVA_HOME" = "$(docker-java-home)" ]
+        """.stripMargin),
+      //Cmd("RUN", "apk add --update bash && rm -rf /var/cache/apk/*"),
       Cmd("WORKDIR", "/opt/docker"),
-      Cmd("ADD", "opt /opt"),
+      Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
+      Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", "bin/seed")
+      Cmd("ENTRYPOINT", s"bin/${name.value}")
     ),
-    bashScriptExtraDefines += """
-                                |my_ip=$(hostname --ip-address)
-                                |
-                                |function format {
-                                |  local fqdn=$1
-                                |
-                                |  local result=$(host $fqdn | \
-                                |    grep -v "not found" | grep -v "connection timed out" | \
-                                |    grep -v $my_ip | \
-                                |    sort | \
-                                |    head -5 | \
-                                |    awk '{print $4}' | \
-                                |    xargs | \
-                                |    sed -e 's/ /,/g')
-                                |  if [ ! -z "$result" ]; then
-                                |    export $2=$result
-                                |  fi
-                                |}
-                                |
-                                |format $PEER_DISCOVERY_SERVICE SEED_NODES
-                                |format $AKKA_PERSISTENCE_SERVICE CASSANDRA_NODES
-                                |""".stripMargin)
+    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" ))
   .enablePlugins(JavaAppPackaging)
 

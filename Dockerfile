@@ -1,4 +1,4 @@
-FROM jaohaohsuan/jnlp-slave:0.0.7
+FROM jaohaohsuan/jnlp-slave:latest
 MAINTAINER Henry Jao
 COPY build.sbt ./
 COPY project project/

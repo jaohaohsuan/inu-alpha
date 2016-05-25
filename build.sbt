@@ -28,9 +28,9 @@ lazy val seed = create("seed")
   .settings(
     libraryDependencies ++= Seq(
       spray, sprayRouting,
+      akkaHttpCore, akkaHttpExp,
       akkaCluster, akkaClusterTools,
       akkaPersistenceQuery, akkaPersistenceCassandra,
-      akkaHttpCore, akkaHttpExperimental,
       akkaClusterMetrics,
       elasticsearch,
       nscalaTime,

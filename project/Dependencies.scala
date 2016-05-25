@@ -16,7 +16,12 @@ object Library {
   val akkaClusterTools         = "com.typesafe.akka" %% "akka-cluster-tools"                  % Version.akka
   val akkaCluster              = "com.typesafe.akka" %% "akka-cluster"                        % Version.akka
   val akkaClusterMetrics       = "com.typesafe.akka" %% "akka-cluster-metrics"                % Version.akka
-  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.11"
+  val akkaHttpCore             = "com.typesafe.akka" %% "akka-http-core"                      % Version.akka
+  val akkaHttpExp              = "com.typesafe.akka" %% "akka-http-experimental"              % Version.akka
+  val akkaHttpJacksonExp       = "com.typesafe.akka" %% "akka-http-jackson-experimental"      % Version.akka
+  val akkaHttpSprayJsonExp     = "com.typesafe.akka" %% "akka-http-spray-json-experimental"   % Version.akka
+  val akkaHttpXmlExp           = "com.typesafe.akka" %% "akka-http-xml-experimental"          % Version.akka
+  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.11"
 
   val spray                      = "io.spray"                   %% "spray-can"                  % Version.spray
   val sprayRouting               = "io.spray"                   %% "spray-routing"              % Version.spray

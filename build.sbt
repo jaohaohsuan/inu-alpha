@@ -9,13 +9,16 @@ def create(name: String): Project = Project(name, file(name))
         scalaVersion         := Version.scala,
         scalacOptions       ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
         resolvers           ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic, scalazCore),
+        libraryDependencies ++= Seq(
+        scalazCore,
+        "org.scala-lang" % "scala-reflect" % "2.11.8",
+        "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5"),
         shellPrompt          := { state => ">> " }
         ): _*
     )
 
 lazy val common = create("common").settings(
-  libraryDependencies ++= Seq(elasticsearch, scalaLogging)
+  libraryDependencies ++= Seq(elasticsearch, scalaLogging, akkaSlf4j, logbackClassic)
 )
 
 lazy val protocol = create("protocol")

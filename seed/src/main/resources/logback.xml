@@ -2,11 +2,11 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%replace(%thread){'-akka.actor.default-dispatcher-', '-d'} %highlight(%-5level) %replace(%msg%n){'akka.tcp://', ''}</pattern>
+            <pattern>%date{ISO8601} %-5level %logger{36} %X{sourceThread} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <root level="INFO">
-        <appender-ref ref="STDOUT" />
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

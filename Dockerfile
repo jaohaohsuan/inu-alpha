@@ -32,11 +32,11 @@ RUN set -x \
         && curl --create-dirs -sSLo /usr/share/jenkins/slave.jar http://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/2.52/remoting-2.52.jar \
         && chmod 755 /usr/share/jenkins \
         && chmod 644 /usr/share/jenkins/slave.jar \
-	&& curl -s https://raw.githubusercontent.com/paulp/sbt-extras/master/sbt > /usr/local/bin/sbt \
-        && chmod 0755 /usr/local/bin/sbt \
-        && /usr/local/bin/sbt -v -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project seed' 'compile' \
-        && rm -rf *
+	    && curl -s https://raw.githubusercontent.com/paulp/sbt-extras/master/sbt > /usr/local/bin/sbt \
+        && chmod 0755 /usr/local/bin/sbt
 
 USER jenkins
+RUN /usr/local/bin/sbt -v -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project seed' 'compile' \
+    && rm -rf *
 VOLUME /home/jenkins
 ENTRYPOINT ["jenkins-slave"]

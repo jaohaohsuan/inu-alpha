@@ -42,28 +42,7 @@ lazy val seed = create("seed")
     version in Docker := "latest",
     packageName in Docker := "storedq",
     dockerCommands := Seq(
-      Cmd("FROM", "alpine:3.3"),
-      Cmd("ENV", "LANG C.UTF-8"),
-      Cmd("RUN",
-        """{ \
-          |echo '#!/bin/sh'; \
-          |echo 'set -e'; \
-          |echo; \
-          |echo 'dirname "$(dirname "$(readlink -f "$(which javac || which java)")")"'; \
-          |} > /usr/local/bin/docker-java-home \
-          |&& chmod +x /usr/local/bin/docker-java-home
-        """.stripMargin),
-      Cmd("ENV", "JAVA_HOME /usr/lib/jvm/java-1.8-openjdk/jre"),
-      Cmd("ENV", "PATH $PATH:$JAVA_HOME/bin"),
-      Cmd("ENV", "JAVA_VERSION 8u92"),
-      Cmd("ENV", "JAVA_ALPINE_VERSION 8.92.14-r0"),
-      Cmd("RUN",
-        """set -x \
-          |&& apk add --no-cache \
-          |openjdk8-jre="$JAVA_ALPINE_VERSION" bash curl \
-          |&& [ "$JAVA_HOME" = "$(docker-java-home)" ]
-        """.stripMargin),
-      //Cmd("RUN", "apk add --update bash && rm -rf /var/cache/apk/*"),
+      Cmd("FROM", "anapsix/alpine-java:jdk8"),
       Cmd("WORKDIR", "/opt/docker"),
       Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
       Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
@@ -74,4 +53,3 @@ lazy val seed = create("seed")
     ),
     bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" ))
   .enablePlugins(JavaAppPackaging)
-

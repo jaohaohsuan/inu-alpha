@@ -1,7 +1,7 @@
 import sbt._
 
 object Version {
-  val akka          = "2.4.6"
+  val akka          = "2.4.7"
   val scala         = "2.11.8"
   val spray         = "1.3.3"
   val elasticsearch = "2.3.1"
@@ -21,14 +21,15 @@ object Library {
   val akkaHttpJacksonExp       = "com.typesafe.akka" %% "akka-http-jackson-experimental"      % Version.akka
   val akkaHttpSprayJsonExp     = "com.typesafe.akka" %% "akka-http-spray-json-experimental"   % Version.akka
   val akkaHttpXmlExp           = "com.typesafe.akka" %% "akka-http-xml-experimental"          % Version.akka
-  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.11"
+  val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.16"
 
   val spray                      = "io.spray"                   %% "spray-can"                  % Version.spray
   val sprayRouting               = "io.spray"                   %% "spray-routing"              % Version.spray
-  //val sprayTestkit             = "io.spray"                   %% "spray-testkit"              % Version.spray                               % "test"
+  val sprayTestkit               = "io.spray"                   %% "spray-testkit"              % Version.spray                               % "test"
   val logbackClassic             = "ch.qos.logback"             %  "logback-classic"            % "1.1.7"
   val scalaLogging               = "com.typesafe.scala-logging" %% "scala-logging"              % "3.4.0"
   val json4sNative               = "org.json4s"                 %% "json4s-native"              % "3.3.0"
+  val json4sExt                  = "org.json4s"                 %% "json4s-ext"                 % "3.3.0"
   val elasticsearch              = "org.elasticsearch"          %  "elasticsearch"              % Version.elasticsearch
   val nscalaTime                 = "com.github.nscala-time"     %% "nscala-time"                % "2.12.0"
   val scopt                      = "com.github.scopt"           %% "scopt"                      % "3.3.0"

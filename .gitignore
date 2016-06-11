@@ -100,3 +100,22 @@ project/plugins/project/
 
 .ensime_cache/
 .ensime
+common/project/
+common/src/main/java/
+common/src/main/resources/
+common/src/main/scala-2.11/
+common/src/test/
+deployment/
+project/project/
+protocol/project/
+protocol/src/main/java/
+protocol/src/main/resources/
+protocol/src/main/scala-2.11/
+protocol/src/test/
+seed/project/
+seed/src/main/java/
+seed/src/main/scala-2.11/
+seed/src/test/java/
+seed/src/test/resources/
+seed/src/test/scala-2.11/
+src/

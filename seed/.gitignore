@@ -1,4 +1,0 @@
-var/elastic/data/**
-!var/elastic/plugins/**
-
-!src/universal/**

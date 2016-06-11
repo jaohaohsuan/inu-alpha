@@ -6,50 +6,60 @@ def create(name: String): Project = Project(name, file(name))
     .settings(
       Revolver.settings ++
       Seq(
-        scalaVersion         := Version.scala,
-        scalacOptions       ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked"),
-        resolvers           ++= Dependencies.resolvers,
-        libraryDependencies ++= Seq(scopt, akkaSlf4j, logbackClassic, scalazCore),
-        shellPrompt          := { state => ">> " }
+        scalaVersion          := Version.scala,
+        scalacOptions        ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked", "-language:postfixOps", "-language:implicitConversions"),
+        resolvers            ++= Dependencies.resolvers,
+        libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
+        shellPrompt           := { state => ">> " },
+        maintainer            := "Henry Jao",
+        organization          := "com.inu",
+        git.useGitDescribe    := true,
+        dockerRepository      := Some("127.0.0.1:5000/inu")
         ): _*
     )
 
-lazy val common = create("common").settings(
-  libraryDependencies ++= Seq(elasticsearch, scalaLogging)
-)
+//lazy val common = create("common")
 
 lazy val protocol = create("protocol")
-  .dependsOn(common)
-  .settings(libraryDependencies ++= Seq(akkaClusterTools, json4sNative, nscalaTime)
+  .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime)
 )
 
-lazy val seed = create("seed")
-  .dependsOn(common, protocol)
+lazy val cluster = create("cluster")
+  .dependsOn(protocol)
   .settings(
     libraryDependencies ++= Seq(
-      spray, sprayRouting,
-      akkaHttpCore, akkaHttpExp,
-      akkaCluster, akkaClusterTools,
-      akkaPersistenceQuery, akkaPersistenceCassandra,
-      akkaClusterMetrics,
-      elasticsearch,
-      nscalaTime,
+      akkaCluster, akkaClusterTools,akkaClusterMetrics,
+      akkaPersistence, akkaPersistenceCassandra,
+      akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
       kryo,
       scalatest
     ),
-    mainClass in Compile := Some("seed.Main"),
-    dockerRepository := Some("127.0.0.1:5000/inu"),
-    version in Docker := "latest",
-    packageName in Docker := "storedq",
+    packageName in Docker := packageName.value,
+    mainClass in Compile := Some("com.inu.Main"),
     dockerCommands := Seq(
-      Cmd("FROM", "anapsix/alpine-java:jdk8"),
+      Cmd("FROM", "java:8-jdk-alpine"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
       Cmd("WORKDIR", "/opt/docker"),
       Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
       Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", s"bin/${name.value}")
+      Cmd("ENTRYPOINT", s"bin/${packageName.value}")
     ),
-    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" ))
-  .enablePlugins(JavaAppPackaging)
+    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )).
+    enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)
+
+lazy val frontend = create("frontend").
+  dependsOn(protocol).
+  settings(
+  libraryDependencies ++= Seq(
+    akkaCluster, akkaClusterTools,akkaClusterMetrics,
+    elasticsearch,
+    json4sExt,
+    spray, sprayRouting,
+    scalatest,
+    scalazCore
+  )
+  ).
+  enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)

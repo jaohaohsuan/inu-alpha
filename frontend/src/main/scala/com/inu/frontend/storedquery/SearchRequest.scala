@@ -63,14 +63,14 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
 
             val template = JField("template", "data" -> Set(
               ("name" -> "title") ~~ ("value" -> "query0"),
-              ("name" -> "tags") ~~ ("value" -> "tag0 tag1")
+              ("name" -> "tags")  ~~ ("value" -> "tag0 tag1")
             ))
 
             val queries = JField("queries",
               ("href" -> s"${uri.withQuery()}") ~~
               ("rel" -> "search")  ~~
               ("data" -> Set(
-                ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
+                ("name" -> "q")    ~~ ("prompt" -> "search title or any terms"),
                 ("name" -> "tags") ~~ ("prompt" -> ""),
                 ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
                 ("name" -> "from") ~~ ("prompt" -> "items display from")

@@ -40,7 +40,7 @@ object BoolClause {
 
 import BoolClause._
 
-case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String, clauses: Map[Int,BoolClause] = Map.empty) extends BoolClause {
+case class NamedClause(storedQueryId: String, storedQueryTitle: String, occurrence: String, clauses: Option[Map[Int,BoolClause]] = None) extends BoolClause {
   require(test)
   def test = occurrence.matches(OccurrenceRegex.toString())
 }
@@ -72,11 +72,11 @@ case class SpanNearClause(query: String, field: String, slop: Int, inOrder: Bool
   }
 }
 
-case object SearchTags
-
-case class StoredQueryItem(title: String, tags: Option[String]) {
-  require( title.nonEmpty )
-}
+//case object SearchTags
+//
+//case class StoredQueryItem(title: String, tags: Option[String]) {
+//  require( title.nonEmpty )
+//}
 
 
 

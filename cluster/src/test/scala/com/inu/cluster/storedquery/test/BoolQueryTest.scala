@@ -34,7 +34,7 @@ class BoolQueryTest extends FlatSpec with Matchers {
 
   "boolQuery" should "" in {
 
-    val namedClause = NamedClause("1", "untitled", "should", Map((1, MatchClause("owl goose", "customer*", "or", "must_not"))))
+    val namedClause = NamedClause("1", "untitled", "should", Some(Map((1, MatchClause("owl goose", "customer*", "or", "must_not")))))
 
     val BoolQuery(json) = List(namedClause)
 

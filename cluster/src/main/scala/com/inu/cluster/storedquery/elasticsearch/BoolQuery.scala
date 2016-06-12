@@ -20,7 +20,7 @@ object BoolQuery {
         val query: JValue = clause match {
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
-          case NamedClause(_, _, occur, innerClauses) => "bool" -> (occur -> Set(build(innerClauses.values)))
+          case NamedClause(_, _, occur, innerClauses) => "bool" -> (occur -> Set(build(innerClauses.getOrElse(Map.empty).values)))
         }
         acc merge query
       }

@@ -28,35 +28,10 @@ object Clause {
 }
 
 
-object AddClauseRequest {
-
-  def props[A: Clause](entity: A)(implicit ctx: RequestContext, storedQueryId: String) = {
-    val m = implicitly[Clause[A]]
-    Props(classOf[AddClauseRequest], ctx, storedQueryId, m.as(entity))
-  }
-}
 
 
-case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: BoolClause) extends PerRequest {
 
-  context.actorSelection("/user/storedq-agg-proxy") ! AddClause(storedQueryId, clause)
 
-  def processResult = {
-
-    case ClauseAddedAck(clauseId) =>
-      response {
-        URI { href =>
-          respondWithHeader(RawHeader("Location", s"$href/$clauseId")){
-            complete(Created)
-          }
-        }
-      }
-//    case CycleInDirectedGraphError =>
-//      response {
-//        complete(NotAcceptable)
-//      }
-  }
-}
 
 
 

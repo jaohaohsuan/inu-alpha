@@ -17,6 +17,6 @@ object QueryTerms {
     values.flatMap({
       case MatchClause(query, _, _ , _) => query.split("""\s+""").toList
       case SpanNearClause(terms, _, _, _, _) => terms.split("""\s+""").toList
-      case NamedClause(_, _, _, clauses) => extract(clauses.values)
+      case NamedClause(_, _, _, clauses) => extract(clauses.getOrElse(Map.empty).values)
     }) toList
 }

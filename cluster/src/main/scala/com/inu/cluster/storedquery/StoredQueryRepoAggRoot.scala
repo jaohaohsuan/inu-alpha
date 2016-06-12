@@ -109,7 +109,7 @@ object StoredQueryRepoAggRoot {
             clauseId <- dep.get((consumerId, providerId))
             clause <- consumer.clauses.get(clauseId)
             consumerClauses = clause match {
-              case n: NamedClause => consumer.clauses + (clauseId -> n.copy(clauses = provider.clauses))
+              case n: NamedClause => consumer.clauses + (clauseId -> n.copy(clauses = Some(provider.clauses)))
               case _ => consumer.clauses
             }
             updatedConsumer = consumerId -> consumer.copy(clauses = consumerClauses)

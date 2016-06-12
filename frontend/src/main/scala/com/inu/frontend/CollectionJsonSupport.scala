@@ -52,34 +52,6 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
       })
   }
 
-  def collection: Directive1[JObject] = requestUri.flatMap {
-    case uri => provide("collection" ->
-      ("version" -> "1.0") ~~
-        ("href" -> s"$uri") ~~
-        ("links" -> JNothing) ~~
-        ("queries" -> JNothing) ~~
-        ("items" -> JNothing) ~~
-        ("template" -> JNothing)
-    )
-  }
-
-  def item[T <: AnyRef](value: T): Directive1[JObject] = requestUri.flatMap {
-    case uri =>
-
-      val data: JObject = value match {
-        case x: JObject => x
-        case x => x.asTemplate
-      }
-      val json: JObject = "collection" ->
-        ("version" -> "1.0") ~~
-        ("href" -> s"${uri.withPath(uri.path.reverse.tail.tail.reverse)}") ~~
-        ("links" -> JNothing) ~~
-        ("queries" -> JNothing) ~~
-        ("items" -> List(("href" -> s"$uri") ~~ data ~~ ("links" -> JNothing))) ~~
-        ("template" -> data)
-      provide(json)
-  }
-
   implicit def unmarshaller[T <: AnyRef : Manifest] =
     Unmarshaller[T](`application/vnd.collection+json`) {
     case HttpEntity.NonEmpty(contentType, data) =>
@@ -106,12 +78,4 @@ trait CollectionJsonSupport extends Json4sSupport with Directives{
         compact(render("collection" -> value.foldLeft(json){ (obj, field) => obj ~~ field })))
         )
     }
-
-//  implicit val searchResponseMarshaller: Marshaller[SearchResponse] =
-//    Marshaller.of[SearchResponse](`application/vnd.collection+json`) { (res, contentType, ctx) =>
-//      val items = parse(s"$res") \\ "item" \ "item"
-//      ctx.marshalTo(HttpEntity(contentType,
-//        compact(render("collection" -> ("version" -> "1.0") ~~ ("items" -> items))))
-//      )
-//    }
 }

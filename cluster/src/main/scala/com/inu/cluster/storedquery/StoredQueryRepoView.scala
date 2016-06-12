@@ -2,17 +2,14 @@ package com.inu.cluster.storedquery
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpResponse
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
-import akka.stream.{ActorMaterializer, ClosedShape, SourceShape}
-import akka.stream.javadsl.RunnableGraph
 import akka.stream.scaladsl._
+import akka.stream.{ActorMaterializer, SourceShape}
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Future
 import scala.language.implicitConversions
 
 object StoredQueryRepoView {
@@ -27,8 +24,8 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
   val config = ConfigFactory.load()
 
   implicit val system: ActorSystem = context.system
-  implicit val mat = ActorMaterializer()(context)
-  implicit val executor = system.dispatcher
+  implicit val mat = ActorMaterializer()
+  implicit val executor = context.dispatcher
 
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)

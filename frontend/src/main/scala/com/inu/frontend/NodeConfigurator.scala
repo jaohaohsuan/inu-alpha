@@ -1,14 +1,14 @@
 package com.inu.frontend
 
 import java.net.{InetAddress, NetworkInterface}
-
 import scala.collection.JavaConversions._
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
 /**
   * Created by henry on 4/1/16.
   */
 object NodeConfigurator {
+
+  import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
   val getHostLocalAddress: PartialFunction[String, String] = {
     case ifac =>

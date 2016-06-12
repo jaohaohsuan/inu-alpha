@@ -19,7 +19,7 @@ class StoredQueryMarshallingTest  extends FlatSpec with Matchers {
     val c3 = 3 -> SpanNearClause("y z", "dialogs", 1, true, "should")
 
     val c4 = 4 -> SpanNearClause("g h", "dialogs", 1, true, "should")
-    val c5 = 5 -> NamedClause("456", "query1", "must", Map(c4))
+    val c5 = 5 -> NamedClause("456", "query1", "must", Some(Map(c4)))
 
     val sq0 = StoredQuery("123", "query0", Map(c0, c1, c2, c3, c5))
 
@@ -36,7 +36,7 @@ class StoredQueryMarshallingTest  extends FlatSpec with Matchers {
     val c3 = 3 -> SpanNearClause("y z", "dialogs", 1, true, "should")
 
     val c4 = 4 -> SpanNearClause("g h", "dialogs", 1, true, "should")
-    val c5 = 5 -> NamedClause("456", "query1", "must", Map(c4))
+    val c5 = 5 -> NamedClause("456", "query1", "must", Some(Map(c4)))
 
     val Occurs(json) = Map(c0, c1, c2, c3, c5)
 

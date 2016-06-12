@@ -3,10 +3,53 @@ package com.inu.frontend.storedquery
 import com.inu.frontend.CollectionJsonSupport
 import spray.routing._
 import spray.http.StatusCodes._
+import spray.httpx.unmarshalling._
+import com.inu.protocol.storedquery.messages._
+import org.json4s._
+
+trait Template[A <: AnyRef] {
+  import org.json4s._
+  import org.json4s.JsonDSL._
+  val entity: A
+  val prompts: Map[String, String]
+  lazy val template: JObject = {
+    import org.json4s.native.JsonMethods._
+    import org.json4s.native.Serialization
+    import org.json4s.native.Serialization.write
+    implicit val formats = Serialization.formats(NoTypeHints)
+
+    val JObject(xs) = parse(write[A](entity))
+    "data" -> JArray(xs.map {
+      case JField(name, value) if prompts.contains(name) => ("name" -> name) ~~ ("value", value) ~~ ("prompt", prompts(name))
+      case JField("field", value) => ("name" -> "field") ~~ ("value", value) ~~ ("prompt", "dialogs agent* customer*")
+      case JField(name, value) => ("name" -> name) ~~ ("value", value)
+    })
+  }
+}
+
+object Template {
+  def apply[A <: AnyRef](e: A, kvp: Map[String, String]) = new Template[A] {
+    val entity = e
+    val prompts = kvp
+  }
+}
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
   implicit def client: org.elasticsearch.client.Client
+
+  def postClause[A](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[A]): Route = {
+    entity(as[A]) { entity => implicit ctx: RequestContext =>
+      ctx.complete(OK, entity)
+    }
+  }
+  def clausePath[A <: AnyRef](name: String)(e: A, kvp : (String, String)* ): Route = {
+    path(name) {
+      requestUri { uri =>
+        complete(OK, JField("href", JString(s"$uri")) :: JField("template", Template(e, kvp.toMap).template) :: Nil)
+      }
+    }
+  }
 
   lazy val `_query/template/`: Route =
     get {
@@ -21,7 +64,10 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
       pathPrefix("_query" / "template" / Segment) { implicit storedQueryId =>
         pathEnd { implicit ctx =>
           actorRefFactory.actorOf(GetItemRequest.props)
-        }
+        } ~
+        clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
+        clausePath("match")(MatchClause("hello inu", "dialogs", "or", "must_not")) ~
+        clausePath("named")(NamedClause("temporary","query", "should"))
       }
     } ~
     post {
@@ -30,6 +76,11 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
           entity(as[NewTemplate]) { implicit entity => implicit ctx =>
             actorRefFactory.actorOf(NewTemplateRequest.props)
           }
+        } ~
+        pathPrefix(Segment) { implicit id =>
+          postClause[NamedClause]("named") ~
+          postClause[MatchClause]("match") ~
+          postClause[SpanNearClause]("near")
         }
       }
     } ~

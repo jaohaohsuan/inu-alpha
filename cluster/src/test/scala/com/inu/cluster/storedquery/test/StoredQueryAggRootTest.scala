@@ -90,7 +90,7 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
     val stage4 = stage3.update(ClauseAdded("1", (100, demoClause0)))
 
     assert(stage4.items("0").clauses.exists({
-      case (100, NamedClause("1", "query1", "must", clauses)) if clauses.exists{ case (100, c) if c == demoClause0 => true } => true
+      case (100, NamedClause("1", "query1", "must", clauses)) if clauses.getOrElse(Map.empty).exists{ case (100, c) if c == demoClause0 => true } => true
       case _ => false
     }))
     val x :: xs = stage4.changes

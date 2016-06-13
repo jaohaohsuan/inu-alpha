@@ -159,7 +159,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case CreateNewStoredQuery(_, Some(refId), _) if !refId.exist() => sender() ! RejectAck(s"$refId is not exist.")
 
     case CreateNewStoredQuery(title,refId, tags) =>
-      doPersist(ItemCreated(state.newItemId, title, refId, tags.toList), PersistedAck(sender(),Some(StoredQueryCreatedAck(state.newItemId))))
+      doPersist(ItemCreated(state.newItemId, title, refId, tags), PersistedAck(sender(),Some(StoredQueryCreatedAck(state.newItemId))))
 
     case UpdateStoredQuery(storedQueryId, _, _) if !storedQueryId.exist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
 

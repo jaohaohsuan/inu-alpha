@@ -19,7 +19,7 @@ case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: 
   import spray.http.HttpHeaders.RawHeader
   import spray.http.StatusCodes._
 
-  context.actorSelection("/user/storedq-agg-proxy") ! AddClause(storedQueryId, clause)
+  context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! AddClause(storedQueryId, clause)
 
   def processResult = {
 

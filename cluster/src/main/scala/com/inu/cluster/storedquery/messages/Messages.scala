@@ -15,7 +15,7 @@ trait State
 
 
 // events
-case class ItemCreated(id: String, title: String, refId: Option[String] = None, tags: List[String] = Nil) extends Event {
+case class ItemCreated(id: String, title: String, refId: Option[String] = None, tags: Set[String] = Set.empty) extends Event {
   require(title.nonEmpty && id.nonEmpty)
 }
 

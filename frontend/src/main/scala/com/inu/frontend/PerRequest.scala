@@ -49,7 +49,6 @@ trait PerRequest extends Actor with Directives {
       }
 
     case unexpected => {
-      println(s"${ctx.request.uri} $unexpected")
       //log.warning(s"${ctx.request.uri} $unexpected")
       response { complete(InternalServerError, s"""{ "error": { "content": "${unexpected}" } }""") }
     }

@@ -1,5 +1,7 @@
 package com.inu.protocol.media
 
+import org.json4s._
+import org.json4s.JsonDSL._
 /**
   * Created by henry on 6/14/16.
   */

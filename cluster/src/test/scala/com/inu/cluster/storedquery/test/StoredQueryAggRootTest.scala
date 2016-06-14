@@ -11,7 +11,7 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage0 = StoredQueries()
 
-    val stage2 = stage0.update(ItemCreated("123", "query0", None, "demo"::Nil))
+    val stage2 = stage0.update(ItemCreated("123", "query0", None, Set("demo")))
 
     assert(stage2.items.exists(_ == ("123", StoredQuery("123", title = "query0", Map.empty, Set("demo")))))
     stage2.paths should be (empty)
@@ -23,8 +23,8 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage0 = StoredQueries()
 
-    val stage1 = stage0.update(ItemCreated("0", "query0", None, "demo"::Nil))
-    val stage2 = stage1.update(ItemCreated("1", "query1", None, "test"::Nil))
+    val stage1 = stage0.update(ItemCreated("0", "query0", None, Set("demo")))
+    val stage2 = stage1.update(ItemCreated("1", "query1", None, Set("test")))
 
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
     assert(stage3.paths.exists(_ == (("0", "1") -> 100)))
@@ -38,8 +38,8 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage0 = StoredQueries()
 
-    val stage1 = stage0.update(ItemCreated("0", "query0", None, "demo"::Nil))
-    val stage2 = stage1.update(ItemCreated("1", "query1", None, "test"::Nil))
+    val stage1 = stage0.update(ItemCreated("0", "query0", None, Set("demo")))
+    val stage2 = stage1.update(ItemCreated("1", "query1", None, Set("test")))
 
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
 
@@ -59,8 +59,8 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage0 = StoredQueries()
 
-    val stage1 = stage0.update(ItemCreated("0", "query0", None, "demo"::Nil))
-    val stage2 = stage1.update(ItemCreated("1", "query1", None, "test"::Nil))
+    val stage1 = stage0.update(ItemCreated("0", "query0", None, Set("demo")))
+    val stage2 = stage1.update(ItemCreated("1", "query1", None, Set("test")))
 
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
 
@@ -81,8 +81,8 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage0 = StoredQueries()
 
-    val stage1 = stage0.update(ItemCreated("0", "query0", None, "demo"::Nil))
-    val stage2 = stage1.update(ItemCreated("1", "query1", None, "test"::Nil))
+    val stage1 = stage0.update(ItemCreated("0", "query0", None, Set("demo")))
+    val stage2 = stage1.update(ItemCreated("1", "query1", None, Set("test")))
 
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
 

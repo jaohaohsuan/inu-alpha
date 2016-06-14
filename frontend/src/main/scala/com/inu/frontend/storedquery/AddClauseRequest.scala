@@ -8,9 +8,8 @@ import spray.httpx.unmarshalling._
 
 
 object AddClauseRequest {
-  def props[A: Clause](entity: A)(implicit ctx: RequestContext, storedQueryId: String) = {
-    val m = implicitly[Clause[A]]
-    Props(classOf[AddClauseRequest], ctx, storedQueryId, m.as(entity))
+  def props[A <: BoolClause](entity: A)(implicit ctx: RequestContext, storedQueryId: String) = {
+    Props(classOf[AddClauseRequest], ctx, storedQueryId, entity)
   }
 }
 

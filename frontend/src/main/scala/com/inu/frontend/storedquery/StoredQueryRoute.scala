@@ -7,45 +7,19 @@ import spray.httpx.unmarshalling._
 import com.inu.protocol.storedquery.messages._
 import org.json4s._
 
-trait Template[A <: AnyRef] {
-  import org.json4s._
-  import org.json4s.JsonDSL._
-  val entity: A
-  val prompts: Map[String, String]
-  lazy val template: JObject = {
-    import org.json4s.native.JsonMethods._
-    import org.json4s.native.Serialization
-    import org.json4s.native.Serialization.write
-    implicit val formats = Serialization.formats(NoTypeHints)
-
-    val JObject(xs) = parse(write[A](entity))
-    "data" -> JArray(xs.map {
-      case JField(name, value) if prompts.contains(name) => ("name" -> name) ~~ ("value", value) ~~ ("prompt", prompts(name))
-      case JField("field", value) => ("name" -> "field") ~~ ("value", value) ~~ ("prompt", "dialogs agent* customer*")
-      case JField(name, value) => ("name" -> name) ~~ ("value", value)
-    })
-  }
-}
-
-object Template {
-  def apply[A <: AnyRef](e: A, kvp: Map[String, String]) = new Template[A] {
-    val entity = e
-    val prompts = kvp
-  }
-}
-
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
 
   implicit def client: org.elasticsearch.client.Client
 
-  def postClause[A](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[A]): Route = {
+  def postClause[A <: BoolClause ](name: String)(implicit storedQueryId: String, um: FromRequestUnmarshaller[A]): Route = {
     entity(as[A]) { entity => implicit ctx: RequestContext =>
-      ctx.complete(OK, entity)
+      actorRefFactory.actorOf(AddClauseRequest.props(entity))
     }
   }
   def clausePath[A <: AnyRef](name: String)(e: A, kvp : (String, String)* ): Route = {
     path(name) {
       requestUri { uri =>
+        import com.inu.protocol.media.CollectionJson.Template
         complete(OK, JField("href", JString(s"$uri")) :: JField("template", Template(e, kvp.toMap).template) :: Nil)
       }
     }

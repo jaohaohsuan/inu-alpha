@@ -35,7 +35,7 @@ lazy val cluster = create("cluster")
       scalatest
     ),
     packageName in Docker := packageName.value,
-    mainClass in Compile := Some("com.inu.Main"),
+    mainClass in Compile := Some("com.inu.cluster.Main"),
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
       ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
@@ -53,6 +53,7 @@ lazy val cluster = create("cluster")
 lazy val frontend = create("frontend").
   dependsOn(protocol).
   settings(
+  fork := true,
   libraryDependencies ++= Seq(
     akkaCluster, akkaClusterTools,akkaClusterMetrics,
     elasticsearch,

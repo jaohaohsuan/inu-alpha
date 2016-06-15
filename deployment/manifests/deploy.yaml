@@ -86,6 +86,6 @@ spec:
           - name: PEER_DISCOVERY_SERVICE
             value: storedq-cluster.default.svc.cluster.local
           - name: ES_TRANSPORT_ADDRESS
-            value: elasticsearch-discovery.default.svc.cluster.local
+            value: elasticsearch.default.svc.cluster.local
           - name: ES_CLUSTER_NAME
             value: myesdb

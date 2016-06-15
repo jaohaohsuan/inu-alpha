@@ -1,3 +1,4 @@
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -24,7 +25,7 @@ spec:
           - name: CASSANDRA_DC
             value: DC1
           - name: CLUSTER_ROLES
-            value: [compute]
+            value: "[compute]"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -56,7 +57,7 @@ spec:
           - name: CASSANDRA_DC
             value: DC1
           - name: CLUSTER_ROLES
-            value: [queryside]
+            value: "[queryside]"
 ---
 #apiVersion: extensions/v1beta1
 #kind: Deployment

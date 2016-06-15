@@ -21,6 +21,8 @@ spec:
             value: storedq-cluster.default.svc.cluster.local
           - name: AKKA_PERSISTENCE_SERVICE
             value: cassandra3.default.svc.cluster.local
+          - name: CASSANDRA_DC
+            value: DC1
 ---
 #apiVersion: extensions/v1beta1
 #kind: Deployment

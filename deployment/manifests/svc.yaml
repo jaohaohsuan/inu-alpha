@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storedq-cluster
+spec:
+  clusterIP: None
+  ports:
+  - name: peer
+    port: 2551
+  selector:
+    storedq: compute
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storedq-api
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 7879
+  selector:
+    storedq: frontend

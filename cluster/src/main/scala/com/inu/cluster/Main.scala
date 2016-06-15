@@ -7,6 +7,7 @@ import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 import NodeConfigurator._
 import PersistenceConfigurator._
+import akka.cluster.client.ClusterClientReceptionist
 
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
@@ -28,11 +29,14 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system))
   }
 
-  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot")
-  system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
+  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot"))
+
+  //system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
 
   sys.addShutdownHook {
     //esClient.close()
     system.terminate()
   }
+
+  system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 }

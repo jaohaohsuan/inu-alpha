@@ -1,8 +1,11 @@
 import Library._
 import com.typesafe.sbt.packager.docker._
+import org.clapper.sbt.editsource.EditSourcePlugin.autoImport._
 import sbt.Keys._
+import sbtbuildinfo.BuildInfoPlugin.autoImport._
+import sbtrelease.ReleaseStateTransformations._
 
-def create(name: String): Project = Project(name, file(name))
+def create(title: String): Project = Project(title, file(title))
     .settings(
       Revolver.settings ++
       Seq(
@@ -14,11 +17,27 @@ def create(name: String): Project = Project(name, file(name))
         maintainer            := "Henry Jao",
         organization          := "com.inu",
         git.useGitDescribe    := true,
-        dockerRepository      := Some("127.0.0.1:5000/inu")
+        dockerRepository      := Some("127.0.0.1:5000/inu"),
+        buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
         ): _*
     )
 
-//lazy val common = create("common")
+lazy val root = project.in(file(".")).settings(
+  Seq(
+    scalaVersion := Version.scala,
+      sources in EditSource <++= baseDirectory.map{ d =>
+    (d / "deployment" ** "*.yaml").get ++ (d / "deployment" ** "*.sh").get
+  },
+  targetDirectory in EditSource <<= baseDirectory(_ / "target"),
+  flatten in EditSource := false,
+  variables in EditSource <+= version { ver => ("version", ver )},
+  releaseProcess := Seq[ReleaseStep](
+    checkSnapshotDependencies,
+    releaseStepTask(org.clapper.sbt.editsource.EditSourcePlugin.autoImport.clean in EditSource),
+    releaseStepTask(org.clapper.sbt.editsource.EditSourcePlugin.autoImport.edit in EditSource)
+  )
+  )
+).enablePlugins(GitVersioning, GitBranchPrompt)
 
 lazy val protocol = create("protocol")
   .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime)
@@ -34,7 +53,8 @@ lazy val cluster = create("cluster")
       kryo,
       scalatest
     ),
-    packageName in Docker := packageName.value,
+    buildInfoPackage := s"com.inu.cluster.storedq",
+    packageName in Docker := "storedq-compute",
     mainClass in Compile := Some("com.inu.cluster.Main"),
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
@@ -45,15 +65,14 @@ lazy val cluster = create("cluster")
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551"),
       Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", s"bin/${packageName.value}")
-    ),
-    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )).
-    enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)
+      Cmd("ENTRYPOINT", s"bin/${name.value}")
+    )
+    ,bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
+    ).enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)
 
 lazy val frontend = create("frontend").
   dependsOn(protocol).
   settings(
-  fork := true,
   libraryDependencies ++= Seq(
     akkaCluster, akkaClusterTools,akkaClusterMetrics,
     elasticsearch,
@@ -61,6 +80,7 @@ lazy val frontend = create("frontend").
     spray, sprayRouting,
     scalatest,
     scalazCore
-  )
+  ),
+    buildInfoPackage := s"com.inu.frontend.storedquery"
   ).
   enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)

@@ -16,18 +16,21 @@ object PersistenceConfigurator {
       val not_found: PartialFunction[String, Array[String]] = { case "" => Array("127.0.0.1") }
       val found: PartialFunction[String, Array[String]] = { case x: String => x.split(",").map(_.trim) }
 
-      val content = not_found.orElse(found)(cassandra_nodes).map {
-        addr => s"""
-             |cassandra-journal.contact-points += "$addr"
-             |cassandra-snapshot-store.contact-points += "$addr"
-             """.stripMargin
-      }.mkString("\n")
-        .concat(s"""
-             |akka.persistence.journal.plugin = "cassandra-journal"
-             |akka.persistence.snapshot-store.plugin = "cassandra-snapshot-store"
-           """.stripMargin)
+      val content0 =
+        """akka.persistence.journal.plugin = "cassandra-journal"
+          |akka.persistence.snapshot-store.plugin = "cassandra-snapshot-store"
+          |cassandra-journal.contact-points = []
+          |cassandra-snapshot-store.contact-points = []
+        """.stripMargin
 
-      ConfigFactory.parseString(content)
+      val content1 = not_found.orElse(found)(cassandra_nodes).foldLeft(content0){ (acc, addr) =>
+        s"""$acc
+           |cassandra-journal.contact-points += "$addr"
+           |cassandra-snapshot-store.contact-points += "$addr"
+         """.stripMargin
+       }
+
+      ConfigFactory.parseString(content1)
         .withFallback(config)
         .resolve()
     }

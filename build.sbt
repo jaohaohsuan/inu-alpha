@@ -47,6 +47,7 @@ lazy val cluster = create("cluster")
   .dependsOn(protocol)
   .settings(
     libraryDependencies ++= Seq(
+      "io.netty" % "netty-transport-native-epoll" % "4.1.1.Final",
       akkaCluster, akkaClusterTools,akkaClusterMetrics,
       akkaPersistence, akkaPersistenceCassandra,
       akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,

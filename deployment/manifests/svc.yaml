@@ -4,7 +4,6 @@ kind: Service
 metadata:
   name: storedq-cluster
 spec:
-  clusterIP: None
   ports:
   - name: peer
     port: 2551
@@ -16,7 +15,7 @@ kind: Service
 metadata:
   name: storedq-api
 spec:
-  clusterIP: None
+  type: NodePort
   ports:
   - name: http
     port: 7879

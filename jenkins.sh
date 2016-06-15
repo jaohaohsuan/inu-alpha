@@ -5,12 +5,13 @@ set -x
 source /root/.bashrc
 
 # prepare deployment
+# substitute ${version} in target/deployment/*.yaml and *.sh files
 sbt 'root' 'clean' 'compile' 'release'
 
-chmod +x target/deployment/up.sh
-
+# make storedq-compute images
 sbt 'project cluster' 'clean' 'compile' 'test' 'docker:publish'
 
+chmod +x target/deployment/up.sh
 . target/deployment/up.sh
 
 docker rmi $(docker images -f "dangling=true" -q) 2>&1 || true

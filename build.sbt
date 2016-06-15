@@ -54,7 +54,7 @@ lazy val cluster = create("cluster")
       scalatest
     ),
     buildInfoPackage := s"com.inu.cluster.storedq",
-    packageName in Docker := "storedq-compute",
+    packageName in Docker := "storedq-cluster",
     mainClass in Compile := Some("com.inu.cluster.Main"),
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),

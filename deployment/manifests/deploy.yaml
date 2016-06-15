@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: compute
-        image: 127.0.0.1:5000/inu/storedq-compute:${version}
+        image: 127.0.0.1:5000/inu/storedq-cluster:${version}
         ports:
         - containerPort: 2551
         env:
@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
       - name: queryside
-        image: 127.0.0.1:5000/inu/storedq-queryside:${version}
+        image: 127.0.0.1:5000/inu/storedq-cluster:${version}
         ports:
         - containerPort: 2551
         env:

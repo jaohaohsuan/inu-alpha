@@ -94,6 +94,7 @@ lazy val frontend = create("frontend").
       Cmd("EXPOSE", "2551", "7879"),
       Cmd("USER", "daemon"),
       Cmd("ENTRYPOINT", s"bin/${name.value}")
-    )
+    ),
+    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
   ).
   enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)

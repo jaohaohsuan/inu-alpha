@@ -30,8 +30,8 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-  val address = config.getString("elasticsearch.transport-address")
-  val port = config.getInt("elasticsearch.transport-http")
+  val address = config.getString("elasticsearch.client-address")
+  val port = config.getInt("elasticsearch.client-http")
   val connectionFlow = Http().cachedHostConnectionPool[String](address, port)
 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)

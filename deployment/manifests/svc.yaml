@@ -20,4 +20,4 @@ spec:
   - name: http
     port: 7879
   selector:
-    storedq: frontend
+    storedq: api

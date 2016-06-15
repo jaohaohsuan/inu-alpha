@@ -81,6 +81,19 @@ lazy val frontend = create("frontend").
     scalatest,
     scalazCore
   ),
-    buildInfoPackage := s"com.inu.frontend.storedquery"
+    mainClass in Compile := Some("com.inu.frontend.Main"),
+    packageName in Docker := "storedq-api",
+    buildInfoPackage := s"com.inu.frontend.storedq",
+    dockerCommands := Seq(
+      Cmd("FROM", "java:8-jdk-alpine"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
+      Cmd("WORKDIR", "/opt/docker"),
+      Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
+      Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
+      ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
+      Cmd("EXPOSE", "2551", "7879"),
+      Cmd("USER", "daemon"),
+      Cmd("ENTRYPOINT", s"bin/${name.value}")
+    )
   ).
   enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)

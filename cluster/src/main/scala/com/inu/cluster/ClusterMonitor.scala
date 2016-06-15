@@ -32,7 +32,7 @@ class ClusterMonitor extends  Actor with ActorLogging {
 
   override def receive: Receive = {
     case MemberUp(member) =>
-      log.info(s"Cluster member up: ${member.address} roles(${member.roles.mkString(",")}")
+      log.info(s"Cluster member up: ${member.address} roles(${member.roles.mkString(",")})")
       if (member.hasRole("compute")){
         ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot"))
       }

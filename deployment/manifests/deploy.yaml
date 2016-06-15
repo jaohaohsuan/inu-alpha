@@ -23,35 +23,41 @@ spec:
             value: cassandra3.default.svc.cluster.local
           - name: CASSANDRA_DC
             value: DC1
+          - name: CLUSTER_ROLES
+            value: [compute]
 ---
-#apiVersion: extensions/v1beta1
-#kind: Deployment
-#metadata:
-#  name: storedq-queryside-deployment
-#spec:
-#  replicas: 1
-#  template:
-#    metadata:
-#      labels:
-#        storedq: queryside
-#    spec:
-#      containers:
-#      - name: queryside
-#        image: 127.0.0.1:5000/inu/storedq-queryside:${version}
-#        ports:
-#        - containerPort: 2551
-#        env:
-#          - name: IFAC
-#            value: eth0
-#          - name: PEER_DISCOVERY_SERVICE
-#            value: storedq-cluster
-#          - name: AKKA_PERSISTENCE_SERVICE
-#            value: cassandra3
-#          - name: ES_TRANSPORT_ADDRESS
-#            value: elasticsearch-discovery
-#          - name: ES_CLUSTER_NAME
-#            value: myesdb
-#---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: storedq-queryside-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        storedq: queryside
+    spec:
+      containers:
+      - name: queryside
+        image: 127.0.0.1:5000/inu/storedq-queryside:${version}
+        ports:
+        - containerPort: 2551
+        env:
+          - name: IFAC
+            value: eth0
+          - name: PEER_DISCOVERY_SERVICE
+            value: storedq-cluster.default.svc.cluster.local
+          - name: AKKA_PERSISTENCE_SERVICE
+            value: cassandra3.default.svc.cluster.local
+          - name: ES_TRANSPORT_ADDRESS
+            value: elasticsearch-discovery.default.svc.cluster.local
+          - name: ES_CLUSTER_NAME
+            value: myesdb
+          - name: CASSANDRA_DC
+            value: DC1
+          - name: CLUSTER_ROLES
+            value: [queryside]
+---
 #apiVersion: extensions/v1beta1
 #kind: Deployment
 #metadata:

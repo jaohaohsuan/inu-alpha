@@ -16,23 +16,13 @@ object Main extends App {
 
   val config: Config = ConfigFactory.load().onboard().enableCassandraPlugin()
 
+
   implicit val timeout = Timeout(5.seconds)
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
 
   system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
   system.log.info("Configured cassandra nodes: " + config.getStringList("cassandra-journal.contact-points").mkString(", "))
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
-
-  implicit class clustering(props: Props) {
-    def singleton()(implicit system: ActorSystem) = ClusterSingletonManager.props(
-      singletonProps = props,
-      terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(system))
-  }
-
-  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot"))
-
-  //system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
 
   sys.addShutdownHook {
     //esClient.close()

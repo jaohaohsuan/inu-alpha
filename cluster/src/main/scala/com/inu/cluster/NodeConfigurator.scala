@@ -34,6 +34,8 @@ object NodeConfigurator {
       val ifac = storedqPart.getString("ifac")
       val seedNodes = storedqPart.getString("seed-nodes")
 
+      val roles = storedqPart.getString("roles")
+
       val host: String = getHostname.orElse(getHostLocalAddress)(ifac).trim
 
       val init: PartialFunction[String, Array[String]] = { case "" => Array(host) }
@@ -43,7 +45,7 @@ object NodeConfigurator {
         addr => s"""akka.cluster.seed-nodes += "akka.tcp://$clusterName@$addr:$seedPort""""
       }.mkString("\n")
 
-      ConfigFactory.parseString(`akka.cluster.seed-nodes`)
+      ConfigFactory.parseString(`akka.cluster.seed-nodes` + s"\nakka.cluster.roles = $roles")
         .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(host))
         .withFallback(config)
         .resolve()

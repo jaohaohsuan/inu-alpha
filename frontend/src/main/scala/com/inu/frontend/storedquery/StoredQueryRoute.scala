@@ -48,7 +48,6 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
       get {
         path("_query" / "template") {
           parameters('q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, tags, size, from) => implicit ctx =>
-            complete(OK)
             actorRefFactory.actorOf(SearchRequest.props(q, tags, size, from))
           }
         } ~
@@ -86,6 +85,9 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
       } ~
       post {
         pathPrefix("_query" / "template") {
+          path("init") { implicit ctx =>
+            actorRefFactory.actorOf(AdminRequest.props(Initial))
+          } ~
           pathEnd {
             entity(as[NewTemplate]) { implicit entity => implicit ctx =>
               actorRefFactory.actorOf(NewTemplateRequest.props)

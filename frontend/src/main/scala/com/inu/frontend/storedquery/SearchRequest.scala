@@ -59,7 +59,9 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
             val items = JField("items", parse(s"$r") \ "hits" \ "hits" \ "_source" \ "item" transformField {
               case JField("href", JString(s)) => ("href", JString(s"${uri.withPath(uri.path./(s)).withQuery()}"))
             })
-            val links = JField("links", JArray(Pagination(size, from, r).links))
+
+            val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withPath(uri.path / "temporary")}")
+            val links = JField("links", JArray(temporary :: Pagination(size, from, r).links))
 
             val template = JField("template", "data" -> Set(
               ("name" -> "title") ~~ ("value" -> "query0"),

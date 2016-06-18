@@ -27,6 +27,10 @@ abstract class KryoInit {
 
     // command
     kryo.register(classOf[CreateNewStoredQuery], 5000)
+    kryo.register(classOf[UpdateStoredQuery], 5001)
+    kryo.register(classOf[AddClause], 5002)
+    kryo.register(classOf[RemoveClauses], 5003)
+    kryo.register(classOf[ResetOccurrence], 5004)
 
 
     // ack

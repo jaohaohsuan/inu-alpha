@@ -40,7 +40,7 @@ lazy val root = project.in(file(".")).settings(
 ).enablePlugins(GitVersioning, GitBranchPrompt)
 
 lazy val protocol = create("protocol")
-  .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime)
+  .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)
 )
 
 lazy val cluster = create("cluster")
@@ -50,8 +50,8 @@ lazy val cluster = create("cluster")
       akkaCluster, akkaClusterTools,akkaClusterMetrics,
       akkaPersistence, akkaPersistenceCassandra,
       akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
-      kryo,
-      scalatest
+      scalatest,
+      kryo
     ),
     buildInfoPackage := s"com.inu.cluster.storedq",
     packageName in Docker := "storedq-cluster",
@@ -79,7 +79,8 @@ lazy val frontend = create("frontend").
     json4sExt,
     spray, sprayRouting,
     scalatest,
-    scalazCore
+    scalazCore,
+    kryo
   ),
     mainClass in Compile := Some("com.inu.frontend.Main"),
     packageName in Docker := "storedq-api",

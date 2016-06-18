@@ -1,8 +1,10 @@
 package com.inu.protocol.storedquery.messages
 
-case class StoredQueryCreatedAck(id: String)
-case class ClauseAddedAck(clauseId: String)
-case object UpdatedAck
-case object ClausesRemovedAck
+trait Ack extends Serializable
 
-case class RejectAck(reason: String)
+case class StoredQueryCreatedAck(id: String) extends  Ack
+case class ClauseAddedAck(clauseId: String) extends  Ack
+case object UpdatedAck extends Ack
+case object ClausesRemovedAck extends Ack
+
+case class RejectAck(reason: String) extends  Ack

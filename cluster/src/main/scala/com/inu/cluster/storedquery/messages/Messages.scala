@@ -10,8 +10,8 @@ import scala.language.implicitConversions
   * Created by henry on 4/30/16.
   */
 
-trait Event
-trait State
+trait Event extends Serializable
+trait State extends Serializable
 
 
 // events

@@ -2,7 +2,7 @@ package com.inu.protocol.storedquery.messages
 
 import com.inu.protocol.storedquery.messages.BoolClause._
 
-trait Command
+trait Command extends Serializable
 
 // commands
 case object Initial extends Command

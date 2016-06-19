@@ -1,9 +1,13 @@
 package com.inu.frontend
 
 import org.elasticsearch.action.search.SearchResponse
+import org.json4s.JValue
+import org.json4s.JsonAST.JObject
 import spray.http.Uri
+
 import scala.language.implicitConversions
-import scalaz._, Scalaz._
+import scalaz._
+import Scalaz._
 import scalaz.Ordering
 import org.json4s.JsonDSL._
 
@@ -39,5 +43,5 @@ case class Pagination(size: Int, from: Int, totals: Long = 0)(implicit uri: spra
     case _ => None
   }
 
-  lazy val links = List(linkOfNext, linkOfPrevious).flatten
+  lazy val links: List[JValue] = List(linkOfNext, linkOfPrevious).flatten
 }

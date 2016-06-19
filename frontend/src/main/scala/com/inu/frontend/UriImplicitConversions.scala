@@ -20,6 +20,10 @@ object UriImplicitConversions {
       uri.withQuery(uri.query.toMap ++ kvp)
     }
 
+    def /(segment: String): Uri = {
+      uri.withPath(uri.path / segment)
+    }
+
     def drop(keys: String*) = {
       uri.withQuery(keys.foldLeft(uri.query.toMap)(_ - _))
     }

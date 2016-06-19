@@ -6,6 +6,7 @@ import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.native.Serialization._
+import shapeless._
 import spray.http.{HttpEntity, MediaType, MediaTypes}
 import spray.httpx.Json4sSupport
 import spray.httpx.marshalling.Marshaller
@@ -39,6 +40,15 @@ object CollectionJsonSupport {
 trait CollectionJsonSupport extends Json4sSupport with Directives{
 
   import CollectionJsonSupport.`application/vnd.collection+json`
+
+  def pagination(r: SearchResponse)(implicit uri: spray.http.Uri): Directive1[Pagination] = {
+    parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hmap {
+      case size :: from :: HNil => {
+        import com.inu.frontend.Pagination._
+        Pagination(size, from, r)
+      }
+    }
+  }
 
   implicit class Template0[T <: AnyRef](value: T) {
     def asTemplate: JObject =

@@ -10,12 +10,13 @@ import org.json4s.JsonAST.{JArray, JField, JString}
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
+import com.inu.frontend.UriImplicitConversions._
+import com.inu.frontend.storedquery.directive.{ LogsDirectives, StoredQueryDirectives }
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
+trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsDirectives with StoredQueryDirectives {
 
-  implicit def client: org.elasticsearch.client.Client
   implicit def executionContext: ExecutionContext
 
   val aggRoot = actorRefFactory.actorSelection("/user/StoredQueryRepoAggRoot-Proxy")
@@ -34,15 +35,6 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
     }
   }
 
-  def item (id: String): Directive1[JValue] = {
-    import com.inu.frontend.elasticsearch.ImplicitConversions._
-    val f: Future[GetResponse] = client.prepareGet("stored-query", ".percolator", id).setFetchSource(Array("item", "occurs"), null).execute().future
-    onComplete(f).flatMap {
-      case scala.util.Success(res) => provide(parse(res.getSourceAsString()))
-      case _ => reject
-    }
-  }
-
   lazy val `_query/template/`: Route =
     requestUri { uri =>
       get {
@@ -55,18 +47,20 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
           item(storedQueryId) { source =>
             pathEnd {
               val links: JObject = "links" -> Set(
-                ("rel" -> "edit") ~~ ("href" -> s"${uri.withPath(uri.path / "match")}"),
-                ("rel" -> "edit") ~~ ("href" -> s"${uri.withPath(uri.path / "near" )}"),
-                ("rel" -> "edit") ~~ ("href" -> s"${uri.withPath(uri.path / "named")}"),
-                ("rel" -> "section") ~~ ("href" -> s"${uri.withPath(uri.path / "must")}"),
-                ("rel" -> "section") ~~ ("href" -> s"${uri.withPath(uri.path / "should")}"),
-                ("rel" -> "section") ~~ ("href" -> s"${uri.withPath(uri.path / "must_not")}")
+                ("rel" -> "edit") ~~    ("href" -> s"${uri / "match"}"),
+                ("rel" -> "edit") ~~    ("href" -> s"${uri / "near"}") ,
+                ("rel" -> "edit") ~~    ("href" -> s"${uri / "named"}"),
+                ("rel" -> "section") ~~ ("href" -> s"${uri / "must"}") ~~ ("name" -> "must"),
+                ("rel" -> "section") ~~ ("href" -> s"${uri / "should"}") ~~ ("name" -> "should"),
+                ("rel" -> "section") ~~ ("href" -> s"${uri / "must_not"}") ~~ ("name" -> "must_not"),
+                ("rel" -> "preview") ~~ ("href" -> s"${uri / "preview"}") ~~ ("name" -> "preview") ~~ ("data" -> Set(
+                  ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
+                  ("name" -> "from") ~~ ("prompt" -> "items display from")
+                ))
               )
-
               val items = JField("items", JArray((source \ "item" transformField {
                 case JField("href", _) => ("href", JString(s"$uri"))
               }).merge(links) :: Nil))
-
               val href = JField("href", JString("""/\w+$""".r.replaceFirstIn(s"$uri", "")))
               val template = JField("template", "data" -> (source \ "item" \ "data"))
               complete(OK, href :: items :: template :: Nil)
@@ -79,7 +73,14 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport {
             } ~
             clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
             clausePath("match")(MatchClause("hello inu", "dialogs", "or", "must_not")) ~
-            clausePath("named")(NamedClause("temporary","query", "should"))
+            clausePath("named")(NamedClause("temporary","query", "should")) ~
+            pathPrefix("preview") {
+              pathEnd {
+                prepareSearch(source \ "query") { sb => implicit ctx =>
+                  actorRefFactory.actorOf(PreviewRequest.props(sb))
+                }
+              }
+            }
           }
         }
       } ~

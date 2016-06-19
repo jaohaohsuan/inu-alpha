@@ -35,9 +35,8 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                          qb: QueryBuilder,
                          size: Int, from: Int) extends PerRequest with CollectionJsonSupport {
 
-  import com.inu.frontend.Pagination
-  import com.inu.frontend.Pagination._
   import com.inu.frontend.elasticsearch.ImplicitConversions._
+  import com.inu.frontend.UriImplicitConversions._
   import context.dispatcher
 
   implicit val timeout = Timeout(5 seconds)
@@ -54,32 +53,33 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
   def processResult: Receive = {
     case (r: SearchResponse ,tags: String) =>
       response {
-        requestUri(implicit uri =>  {
-          respondWithMediaType(`application/vnd.collection+json`) {
-            val items = JField("items", parse(s"$r") \ "hits" \ "hits" \ "_source" \ "item" transformField {
-              case JField("href", JString(s)) => ("href", JString(s"${uri.withPath(uri.path./(s)).withQuery()}"))
-            })
+        requestUri(implicit uri => {
+          pagination(r)(uri) { p =>
+              respondWithMediaType(`application/vnd.collection+json`) {
+              val items = JField("items", parse(s"$r") \ "hits" \ "hits" \ "_source" \ "item" transformField {
+                case JField("href", JString(s)) => ("href", JString(s"${uri.withPath(uri.path./(s)).withQuery()}"))
+              })
 
-            val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withPath(uri.path / "temporary")}")
-            val links = JField("links", JArray(temporary :: Pagination(size, from, r).links))
+              val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
+              val links = JField("links", JArray(temporary :: p.links))
 
-            val template = JField("template", "data" -> Set(
-              ("name" -> "title") ~~ ("value" -> "query0"),
-              ("name" -> "tags")  ~~ ("value" -> "tag0 tag1")
-            ))
-
-            val queries = JField("queries",
-              ("href" -> s"${uri.withQuery()}") ~~
-              ("rel" -> "search")  ~~
-              ("data" -> Set(
-                ("name" -> "q")    ~~ ("prompt" -> "search title or any terms"),
-                ("name" -> "tags") ~~ ("prompt" -> ""),
-                ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
-                ("name" -> "from") ~~ ("prompt" -> "items display from")
+              val template = JField("template", "data" -> Set(
+                ("name" -> "title") ~~ ("value" -> "query0"),
+                ("name" -> "tags") ~~ ("value" -> "tag0 tag1")
               ))
-            )
 
-            complete(OK, links :: items :: queries :: template :: Nil)
+              val queries = JField("queries",
+                ("href" -> s"${uri.withQuery()}") ~~
+                  ("rel" -> "search") ~~
+                  ("data" -> Set(
+                    ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
+                    ("name" -> "tags") ~~ ("prompt" -> ""),
+                    ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
+                    ("name" -> "from") ~~ ("prompt" -> "items display from")
+                  ))
+              )
+              complete(OK, links :: items :: queries :: template :: Nil)
+            }
           }
         })
       }

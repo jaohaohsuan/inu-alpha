@@ -12,9 +12,8 @@ import shapeless._
 
 import scala.concurrent.Future
 
-/**
-  * Created by henry on 6/19/16.
-  */
+case class PreviewStatus(count: Long, query: String)
+
 object PreviewRequest {
   def props(s: SearchRequestBuilder)(implicit ctx: RequestContext) = {
     Props(classOf[PreviewRequest], ctx, s)
@@ -24,19 +23,25 @@ object PreviewRequest {
 case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder) extends PerRequest with CollectionJsonSupport{
 
   import com.inu.frontend.elasticsearch.ImplicitConversions._
+  import com.inu.frontend.UriImplicitConversions._
+  import org.json4s.JsonDSL._
   import org.json4s.native.JsonMethods._
   import context.dispatcher
 
   //val storedQueryQuery = compact(render(item \ "query"))
   s.execute().future pipeTo self
 
+
   def processResult: Receive = {
     case res: SearchResponse =>
       response {
         requestUri { uri =>
           pagination(res)(uri) { p =>
-            val links = JField("links", JArray(p.links))
+            val status = ("rel" -> "status") ~~ ("href" -> s"${uri / "status"}")
+            val links = JField("links", JArray(status :: p.links))
             val href = JField("href", JString(s"$uri"))
+
+
             complete(OK, href :: links :: Nil)
           }
         }

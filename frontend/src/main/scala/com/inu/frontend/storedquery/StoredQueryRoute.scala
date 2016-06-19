@@ -11,7 +11,9 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
 import com.inu.frontend.UriImplicitConversions._
-import com.inu.frontend.storedquery.directive.{ LogsDirectives, StoredQueryDirectives }
+import com.inu.frontend.storedquery.directive.{LogsDirectives, StoredQueryDirectives}
+import com.inu.frontend.elasticsearch.ImplicitConversions._
+import com.inu.protocol.media.CollectionJson.Template
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -75,9 +77,17 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             clausePath("match")(MatchClause("hello inu", "dialogs", "or", "must_not")) ~
             clausePath("named")(NamedClause("temporary","query", "should")) ~
             pathPrefix("preview") {
-              pathEnd {
-                prepareSearch(source \ "query") { sb => implicit ctx =>
+              prepareSearch(source \ "query") { sb =>
+                pathEnd { implicit ctx =>
                   actorRefFactory.actorOf(PreviewRequest.props(sb))
+                } ~
+                path("status") {
+                  onSuccess(sb.setSize(0).execute().future){ res =>
+                    val href = JField("href", JString(s"$uri".replaceFirst("""\/status""", "")))
+                    val item = Template(PreviewStatus(res.getHits.getTotalHits, pretty(render(source \ "query")))).template ~~ ("href" -> s"$uri")
+                    val items = JField("items", JArray(item :: Nil))
+                    complete(OK, href :: items :: Nil)
+                  }
                 }
               }
             }

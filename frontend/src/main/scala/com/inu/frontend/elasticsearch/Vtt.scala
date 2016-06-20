@@ -73,13 +73,19 @@ object SearchHitHighlightFields {
           } yield VttHighlightFragment(time, keywords)
       }).flatten
 
-    def unapply(value: AnyRef): Option[(String, scala.Iterable[VttHighlightFragment])]= {
+  def intStartTime(value: VttHighlightFragment): Int = {
+    org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS").parseDateTime(value.start).getMillisOfDay
+  }
+
+  def unapply(value: AnyRef): Option[(String, List[VttHighlightFragment])]= {
       value match {
         case h: SearchHit =>
           val VttField(map) = h
           val Path(path) = h
 
-          Some((path, h.highlightFields.values.flatMap(_.fragments().flatMap(splitFragment)).flatMap(substitute(map)(_).toOption)))
+          Some((path, h.highlightFields.values
+                        .flatMap(_.fragments().flatMap(splitFragment))
+                        .flatMap(substitute(map)(_).toOption).toList.sortBy(intStartTime)))
         case _ => None
       }
     }

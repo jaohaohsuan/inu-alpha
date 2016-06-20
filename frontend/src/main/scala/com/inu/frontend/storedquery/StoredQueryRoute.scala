@@ -79,7 +79,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             pathPrefix("preview") {
               prepareSearch(source \ "query") { sb =>
                 pathEnd { implicit ctx =>
-                  actorRefFactory.actorOf(PreviewRequest.props(sb))
+                  actorRefFactory.actorOf(PreviewRequest.props(sb, storedQueryId))
                 } ~
                 path("status") {
                   onSuccess(sb.setSize(0).execute().future){ res =>

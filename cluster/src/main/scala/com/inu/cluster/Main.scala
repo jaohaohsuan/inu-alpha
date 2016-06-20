@@ -29,5 +29,5 @@ object Main extends App {
     system.terminate()
   }
 
-  system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+  //system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 }

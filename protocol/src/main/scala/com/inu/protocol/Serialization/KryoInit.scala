@@ -4,9 +4,10 @@ import com.esotericsoftware.kryo.Kryo
 import com.inu.protocol.storedquery.messages._
 import com.romix.scala.serialization.kryo._
 
-abstract class KryoInit {
+class KryoInit {
 
   def customize(kryo:Kryo):Unit = {
+
     // Serialization of Scala maps like Trees, etc
     kryo.addDefaultSerializer(classOf[scala.collection.Map[_,_]], classOf[ScalaImmutableMapSerializer])
     kryo.addDefaultSerializer(classOf[scala.collection.generic.MapFactory[scala.collection.Map]], classOf[ScalaImmutableMapSerializer])
@@ -37,6 +38,12 @@ abstract class KryoInit {
     kryo.register(classOf[StoredQueryCreatedAck], 6000)
     kryo.register(classOf[ClauseAddedAck], 6001)
     kryo.register(classOf[RejectAck], 6002)
+
+    // event
+    kryo.register(classOf[ItemCreated], 7000)
+    kryo.register(classOf[ItemUpdated], 7001)
+    kryo.register(classOf[ClauseAdded], 7002)
+    kryo.register(classOf[ClauseRemoved], 7003)
   }
 
 }

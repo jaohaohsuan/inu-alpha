@@ -14,7 +14,7 @@ case class StoredQueries(items: Map[String, StoredQuery] = Map.empty,
   }
 }
 
-trait BoolClause {
+trait BoolClause extends Serializable {
   val occurrence: String
 
   lazy val shortName = {

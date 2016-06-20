@@ -4,7 +4,7 @@ object Version {
   val akka          = "2.4.7"
   val scala         = "2.11.8"
   val spray         = "1.3.3"
-  val elasticsearch = "2.3.1"
+  val elasticsearch = "2.3.3"
 }
 
 object Library {

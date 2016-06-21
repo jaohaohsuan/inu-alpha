@@ -5,7 +5,7 @@ import akka.pattern._
 import com.inu.frontend.{CollectionJsonSupport, PerRequest}
 import com.inu.protocol.media.CollectionJson.Template
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
-import org.json4s.JObject
+import org.json4s.{JObject, JValue}
 import org.json4s.JsonAST.{JArray, JField, JString}
 import spray.http.StatusCodes._
 import shapeless._
@@ -14,7 +14,7 @@ import spray.http.Uri.Path
 import scala.collection.JavaConversions._
 import spray.routing._
 
-case class PreviewStatus(count: Long, query: String)
+case class PreviewStatus(count: Long, query: JValue)
 case class LogItem(highlight: List[String], keywords: String)
 
 object PreviewRequest {
@@ -63,9 +63,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
               val href = JField("href", JString(s"$uri"))
 
               complete(OK, href :: links :: JField("items", JArray(items)) :: Nil)
-
             }
-
           }
         }
       }

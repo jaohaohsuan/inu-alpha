@@ -1,11 +1,13 @@
 package com.inu.frontend
 
+import com.inu.frontend.logs.LogsRoute
 import spray.routing.HttpServiceActor
 import spray.util.LoggingContext
 import com.inu.frontend.storedquery.StoredQueryRoute
 
 class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends HttpServiceActor
-  with StoredQueryRoute {
+  with StoredQueryRoute
+  with LogsRoute {
 
   implicit val executionContext = actorRefFactory.dispatcher
   implicit val json4sFormats = org.json4s.DefaultFormats ++ org.json4s.ext.JodaTimeSerializers.all
@@ -14,7 +16,8 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
 
   def receive = runRoute(
     pathPrefix("sapi") {
-      `_query/template/`
+      `_query/template/` ~
+      `logs-*`
     }
   )
 }

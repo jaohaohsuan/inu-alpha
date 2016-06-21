@@ -1,10 +1,13 @@
-package com.inu.frontend.storedquery.directive
+package com.inu.frontend.directive
 
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.percolate.PercolateSourceBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import spray.routing._
+import shapeless._
 
 trait LogsDirectives extends Directives {
 
@@ -13,9 +16,16 @@ trait LogsDirectives extends Directives {
   import QueryBuilders._
   val noReturnQuery = boolQuery().mustNot(matchAllQuery())
 
-  def prepareSearch(query: JValue): Directive1[SearchRequestBuilder] = {
-    import shapeless._
+  def prepareGetVtt = {
+    path("""^logs-\d{4}\.\d{2}\.\d{2}$""".r / Segment / Segment).hflatMap {
+      case index :: typ :: id :: HNil =>
+        provide(client.prepareGet(index,typ,id)
+                      .setFields("vtt")
+                      .setFetchSource(Array("dialogs", "agent*", "customer*"), null))
+    }
+  }
 
+  def prepareSearch(query: JValue): Directive1[SearchRequestBuilder] = {
     parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
       case size :: from :: HNil => {
         provide(
@@ -37,6 +47,8 @@ trait LogsDirectives extends Directives {
                   .addHighlightedField("dialogs")
         )
       }
+      case _ => reject
     }
   }
+
 }

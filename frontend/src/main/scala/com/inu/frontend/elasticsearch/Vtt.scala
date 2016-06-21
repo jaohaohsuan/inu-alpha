@@ -4,7 +4,6 @@ import org.elasticsearch.common.text.Text
 import org.elasticsearch.search.SearchHit
 import scala.collection.JavaConversions._
 
-
 import scala.util.Try
 
 case class VttHighlightFragment(start: String, keywords: String)

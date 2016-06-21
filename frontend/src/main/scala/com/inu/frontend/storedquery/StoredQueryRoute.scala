@@ -11,7 +11,7 @@ import org.json4s._
 import org.json4s.native.JsonMethods._
 import org.json4s.JsonDSL._
 import com.inu.frontend.UriImplicitConversions._
-import com.inu.frontend.storedquery.directive.{LogsDirectives, StoredQueryDirectives}
+import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives}
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
 
@@ -84,7 +84,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
                 path("status") {
                   onSuccess(sb.setSize(0).execute().future){ res =>
                     val href = JField("href", JString(s"$uri".replaceFirst("""\/status""", "")))
-                    val item = Template(PreviewStatus(res.getHits.getTotalHits, pretty(render(source \ "query")))).template ~~ ("href" -> s"$uri")
+                    val item = Template(PreviewStatus(res.getHits.getTotalHits, source \ "query")).template ~~ ("href" -> s"$uri")
                     val items = JField("items", JArray(item :: Nil))
                     complete(OK, href :: items :: Nil)
                   }

@@ -61,7 +61,6 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
               val status = ("rel" -> "status") ~~ ("href" -> s"${uri / "status"}")
               val links = JField("links", JArray(status :: p.links))
               val href = JField("href", JString(s"$uri"))
-
               complete(OK, href :: links :: JField("items", JArray(items)) :: Nil)
             }
           }

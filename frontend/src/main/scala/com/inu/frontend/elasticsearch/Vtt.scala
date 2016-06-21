@@ -50,15 +50,19 @@ object SearchHitHighlightFields {
     val insideHighlightTag = """(?:<\w+\b[^>]*>)([^<>]*)(?:<\/\w+>)""".r
     // "agent0-780</c> 喂哎哎您好下<c>女士</c>是吧" extract '780' and '喂哎哎您好下<c>女士</c>是吧'
     val highlightedSentence = """(?:<\w+>)*((?:agent|customer)\d+-\d+)(?:<\/(?:em|c)>)*\s([\s\S]+)""".r
+
+    // agent0-1190 您好 请问是 姓名 小学 三 一般 老家 超 同学 的 <em>家长</em> 对 吗
+    // 匹配有<anyTag></anyTag>
     val highlightFragment = """(?:[^\n]*[<>]+[^\n]*)""".r
+
     val insideTagV = """(<v\b[^>]*>)[^<>]*(<\/v>)"""
     val startTime = """^(\d{2,3}[:\.]?)+""".r
     val party = """\w+(?=-)""".r
 
     def splitFragment(fragment: Text): List[String] = {
-      //import util.ImplicitPrint._
-      //println(s"$fragment")
-      (highlightFragment findAllIn fragment.string()).toList//.println()
+      // sample: agent0-1190 您好 请问是 姓名 小学 三 一般 老家 超 同学 的 <em>家长</em> 对 吗
+      // 匹配有<em></em>, 如果没有匹配返回空List
+      (highlightFragment findAllIn fragment.string()).toList
     }
 
     def substitute(vtt: Map[String, String])(txt: String): Try[VttHighlightFragment] =

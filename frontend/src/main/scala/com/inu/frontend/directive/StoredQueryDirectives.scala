@@ -26,13 +26,13 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def percolate(gr: GetResponse) = {
-    parameters("_id").flatMap {
+    parameters("_id".?).flatMap {
       case storedQueryId => {
         provide(client.preparePercolate()
           .setIndices("stored-query")
           .setDocumentType(gr.getType)
           .setSource(s"""{
-                         |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ "$storedQueryId" ] } },
+                         |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ "${storedQueryId.getOrElse("")}" ] } },
                          |    "doc" : ${gr.getSourceAsString},
                          |    "size" : 10,
                          |    "highlight" : {

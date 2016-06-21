@@ -5,10 +5,7 @@ import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives, VttDir
 import spray.routing.{HttpService, Route}
 import spray.http.StatusCodes._
 import com.inu.frontend.elasticsearch.ImplicitConversions._
-
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
-
 
 trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with VttDirectives with StoredQueryDirectives {
 
@@ -18,12 +15,13 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
     get {
       prepareGetVtt { q =>
         onSuccess(q.execute().future) { gr =>
-          getVtt(gr) { kv =>
+          format(gr.getField("vtt")) { vttMap =>
             percolate(gr) { p =>
               onSuccess(p.execute().future) { pr =>
-
-                respondWithMediaType(`text/vtt`) {
-                  complete(OK, kv)
+                extractFragments(pr.getMatches) { segments =>
+                  respondWithMediaType(`text/vtt`) {
+                    complete(OK, vttMap.highlightWith(segments))
+                  }
                 }
               }
             }

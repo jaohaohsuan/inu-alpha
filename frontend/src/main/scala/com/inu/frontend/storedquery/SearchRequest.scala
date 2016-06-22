@@ -8,11 +8,13 @@ import com.inu.frontend.{CollectionJsonSupport, PerRequest}
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
 import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilder, QueryBuilders}
-import org.json4s.JsonAST._
+import org.json4s._
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
+import org.json4s.{JObject => _, JValue => _, _}
 import spray.http.StatusCodes._
-import spray.routing.RequestContext
+import spray.http.Uri
+import spray.routing._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -50,35 +52,52 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
       .execute().future
   } yield (searchResponse, tags)) pipeTo self
 
+  def extractItems(sr: SearchResponse): Directive1[List[JValue]] = {
+    requestUri.flatMap { uri =>
+      import com.inu.frontend.UriImplicitConversions._
+      val dropQuery = uri.drop("q", "size", "from")
+
+      val hits = parse(s"$sr") \ "hits" \ "hits" match {
+        case o: JObject => o :: Nil
+        case JArray(xs) => xs
+        case _ => Nil
+      }
+      val items = hits.map { h =>
+        val JString(id) = h \ "_id"
+        val item = h \ "_source" \ "item"
+        item.merge(("href" -> s"${dropQuery.withPath(uri.path./(id))}"): JObject)
+      }
+      provide(items)
+    }
+  }
+
   def processResult: Receive = {
     case (r: SearchResponse ,tags: String) =>
       response {
         requestUri(implicit uri => {
           pagination(r)(uri) { p =>
+            extractItems(r) { items =>
               respondWithMediaType(`application/vnd.collection+json`) {
-              val items = JField("items", parse(s"$r") \ "hits" \ "hits" \ "_source" \ "item" transformField {
-                case JField("href", JString(s)) => ("href", JString(s"${uri.withPath(uri.path./(s)).withQuery()}"))
-              })
 
-              val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
-              val links = JField("links", JArray(temporary :: p.links))
+                val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
+                val links = JField("links", JArray(temporary :: p.links))
 
-              val template = JField("template", "data" -> Set(
-                ("name" -> "title") ~~ ("value" -> "query0") ~~ ("prompt" -> "title can not be empty"),
-                ("name" -> "tags") ~~ ("value" -> "tag0 tag1") ~~ ("prompt" -> "optional")
-              ))
+                val template = JField("template", "data" -> Set(
+                  ("name" -> "title") ~~ ("value" -> "query0") ~~ ("prompt" -> "title can not be empty"),
+                  ("name" -> "tags") ~~ ("value" -> "tag0 tag1") ~~ ("prompt" -> "optional")
+                ))
 
-              val queries = JField("queries",
-                ("href" -> s"${uri.withQuery()}") ~~
+                val queries = JField("queries", JArray(("href" -> s"${uri.withQuery()}") ~~
                   ("rel" -> "search") ~~
                   ("data" -> Set(
                     ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
                     ("name" -> "tags") ~~ ("prompt" -> ""),
                     ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
                     ("name" -> "from") ~~ ("prompt" -> "items display from")
-                  ))
-              )
-              complete(OK, links :: items :: queries :: template :: Nil)
+                  )) :: Nil)
+                )
+                complete(OK, links :: JField("items", JArray(items)) :: queries :: template :: Nil)
+              }
             }
           }
         })

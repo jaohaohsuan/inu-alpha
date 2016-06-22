@@ -35,7 +35,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
 
     requestUri.hmap {
       case uri :: HNil => {
-        val extractor = """logs-(\d{4}).(\d{2}).(\d{2}).*\/([\w-]*$)""".r
+        val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
         r.getHits.map {
           case SearchHitHighlightFields(loc, fragments) =>
             val highlight = fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }

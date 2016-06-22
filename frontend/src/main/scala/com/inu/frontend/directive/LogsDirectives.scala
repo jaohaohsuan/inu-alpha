@@ -51,4 +51,10 @@ trait LogsDirectives extends Directives {
     }
   }
 
+//  def count(percolators: Map[String, JValue]) = {
+//
+//    percolators.par.map { case (id, json) => client.prepareSearch("logs-*").setQuery() }
+//
+//  }
+
 }

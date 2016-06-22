@@ -15,7 +15,7 @@ import scala.collection.JavaConversions._
 import spray.routing._
 
 case class PreviewStatus(count: Long, query: JValue)
-case class LogItem(highlight: List[String], keywords: String)
+case class LogItem(highlight: List[String], keywords: String, audioUrl: String)
 
 object PreviewRequest {
   def props(s: SearchRequestBuilder, storedQueryId: String)(implicit ctx: RequestContext) = {
@@ -35,12 +35,15 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
 
     requestUri.hmap {
       case uri :: HNil => {
+        val extractor = """logs-(\d{4}).(\d{2}).(\d{2}).*\/([\w-]*$)""".r
         r.getHits.map {
           case SearchHitHighlightFields(loc, fragments) =>
             val highlight = fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
             val keywords = fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
-            // uri.toString().replaceFirst("\\/_.*$", "")
-            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc")).withQuery(("_id", ids))}") ~~ Template(LogItem(highlight, keywords)).template
+            val extractor(year, month, day, id) = loc
+            // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
+            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc")).withQuery(("_id", ids))}") ~~
+            Template(LogItem(highlight, keywords, s"$year/$month/$day/$id")).template
         } toList
       }
     }

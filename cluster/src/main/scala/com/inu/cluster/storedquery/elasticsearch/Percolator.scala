@@ -25,7 +25,8 @@ object Percolator {
       ("data" -> Set(
         ("name" -> "title") ~~ ("value" -> title),
         ("name" -> "tags") ~~ ("value" -> tags.mkString(" "))
-      ))
+      )) ~~
+      ("links" -> JArray(id :: Nil))
 
     val doc =
       ("title" -> title) ~~

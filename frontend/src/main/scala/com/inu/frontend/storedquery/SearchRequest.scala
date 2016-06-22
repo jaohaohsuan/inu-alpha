@@ -64,8 +64,8 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
               val links = JField("links", JArray(temporary :: p.links))
 
               val template = JField("template", "data" -> Set(
-                ("name" -> "title") ~~ ("value" -> "query0"),
-                ("name" -> "tags") ~~ ("value" -> "tag0 tag1")
+                ("name" -> "title") ~~ ("value" -> "query0") ~~ ("prompt" -> "title can not be empty"),
+                ("name" -> "tags") ~~ ("value" -> "tag0 tag1") ~~ ("prompt" -> "optional")
               ))
 
               val queries = JField("queries",

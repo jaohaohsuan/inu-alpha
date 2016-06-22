@@ -74,7 +74,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
               complete(OK, JField("items", items) :: Nil)
             } ~
             clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
-            clausePath("match")(MatchClause("hello inu", "dialogs", "or", "must_not")) ~
+            clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~
             clausePath("named")(NamedClause("temporary","query", "should")) ~
             pathPrefix("preview") {
               prepareSearch(source \ "query") { sb =>

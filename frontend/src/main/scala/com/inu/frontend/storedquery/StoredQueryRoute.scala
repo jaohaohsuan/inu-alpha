@@ -99,6 +99,11 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
           path("init") { implicit ctx =>
             actorRefFactory.actorOf(AdminRequest.props(Initial))
           } ~
+          path(Segment) { storedQueryId =>
+            entity(as[NewTemplate]) { entity => ctx =>
+              actorRefFactory.actorOf(NewTemplateRequest.props(ctx, entity,Some(storedQueryId)))
+            }
+          } ~
           pathEnd {
             entity(as[NewTemplate]) { implicit entity => implicit ctx =>
               actorRefFactory.actorOf(NewTemplateRequest.props)

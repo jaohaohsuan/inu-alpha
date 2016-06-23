@@ -8,6 +8,6 @@ kubectl apply -f target/deployment/manifests/cluster-deploy.yaml --record
 
 sleep 20
 
-kubectl apply -f target/deployment/manifests/cluster-frontend.yaml --record
+kubectl apply -f target/deployment/manifests/frontend-deploy.yaml --record
 
 set +x

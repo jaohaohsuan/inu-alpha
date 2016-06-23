@@ -2,17 +2,15 @@
 
 set -x
 
-alias sbt='/usr/local/bin/sbt -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers'
-
 # prepare deployment
 # substitute ${version} in target/deployment/*.yaml and *.sh files
-sbt 'project root' 'clean' 'compile' 'release'
+/usr/local/bin/sbt -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project root' 'clean' 'compile' 'release'
 
 # make storedq-compute images
-sbt 'project cluster' 'clean' 'compile' 'test' 'docker:publish'
+/usr/local/bin/sbt -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project cluster' 'clean' 'compile' 'test' 'docker:publish'
 
 # make storedq-api images
-sbt 'project frontend' 'clean' 'compile' 'test' 'docker:publish'
+/usr/local/bin/sbt -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers 'project frontend' 'clean' 'compile' 'test' 'docker:publish'
 
 chmod +x target/deployment/up.sh
 ./target/deployment/up.sh

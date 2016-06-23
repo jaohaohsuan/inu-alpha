@@ -2,7 +2,7 @@
 
 set -x
 
-source /root/.bashrc
+alias sbt='/usr/local/bin/sbt -sbt-dir /tmp/.sbt/0.13.11 -sbt-boot /tmp/.sbt/boot -ivy /tmp/.ivy2 -sbt-launch-dir /tmp/.sbt/launchers'
 
 # prepare deployment
 # substitute ${version} in target/deployment/*.yaml and *.sh files

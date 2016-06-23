@@ -64,30 +64,3 @@ spec:
 #            value: DC1
 #          - name: CLUSTER_ROLES
 #            value: "[queryside]"
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: storedq-api-deployment
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        storedq: api
-    spec:
-      containers:
-      - name: api
-        image: 127.0.0.1:5000/inu/storedq-api:${version}
-        ports:
-        - containerPort: 7879
-        - containerPort: 2551
-        env:
-          - name: IFAC
-            value: eth0
-          - name: PEER_DISCOVERY_SERVICE
-            value: storedq-cluster.default.svc.cluster.local
-          - name: ES_TRANSPORT_ADDRESS
-            value: elasticsearch-discovery.default.svc.cluster.local
-          - name: ES_CLUSTER_NAME
-            value: myesdb

@@ -77,7 +77,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~
             clausePath("named")(NamedClause("temporary","query", "should")) ~
             pathPrefix("preview") {
-              prepareSearch(source \ "query") { sb =>
+              prepareSearchLogs(source \ "query") { sb =>
                 pathEnd { implicit ctx =>
                   actorRefFactory.actorOf(PreviewRequest.props(sb, storedQueryId))
                 } ~

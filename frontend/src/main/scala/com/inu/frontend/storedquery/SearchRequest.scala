@@ -79,6 +79,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
             extractItems(r) { items =>
               respondWithMediaType(`application/vnd.collection+json`) {
 
+                val href = JField("href", JString(s"${uri.withQuery()}"))
                 val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
                 val links = JField("links", JArray(temporary :: p.links))
 
@@ -96,7 +97,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                     ("name" -> "from") ~~ ("prompt" -> "items display from")
                   )) :: Nil)
                 )
-                complete(OK, links :: JField("items", JArray(items)) :: queries :: template :: Nil)
+                complete(OK, href :: links :: JField("items", JArray(items)) :: queries :: template :: Nil)
               }
             }
           }

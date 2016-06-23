@@ -14,7 +14,6 @@ trait LogsDirectives extends Directives {
   implicit def client: org.elasticsearch.client.Client
 
   import QueryBuilders._
-  val noReturnQuery = boolQuery().mustNot(matchAllQuery())
 
   def prepareGetVtt = {
     path("""^logs-\d{4}\.\d{2}\.\d{2}$""".r / Segment / Segment).hflatMap {
@@ -25,9 +24,10 @@ trait LogsDirectives extends Directives {
     }
   }
 
-  def prepareSearch(query: JValue): Directive1[SearchRequestBuilder] = {
+  def prepareSearchLogs(query: JValue): Directive1[SearchRequestBuilder] = {
     parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
       case size :: from :: HNil => {
+        val noReturnQuery = boolQuery().mustNot(matchAllQuery())
         provide(
           client.prepareSearch("logs-*")
                 .setQuery(
@@ -50,11 +50,5 @@ trait LogsDirectives extends Directives {
       case _ => reject
     }
   }
-
-//  def count(percolators: Map[String, JValue]) = {
-//
-//    percolators.par.map { case (id, json) => client.prepareSearch("logs-*").setQuery() }
-//
-//  }
 
 }

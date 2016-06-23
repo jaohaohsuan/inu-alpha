@@ -12,13 +12,9 @@ import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.search.SearchHits
-import org.json4s.JsonAST.{JField, JString}
-import spray.routing.directives.ParamDefMagnet
+import org.elasticsearch.search.{SearchHit, SearchHits}
+import org.json4s._
 
-/**
-  * Created by henry on 6/19/16.
-  */
 trait StoredQueryDirectives extends Directives {
 
   implicit def executionContext: ExecutionContext
@@ -78,38 +74,54 @@ trait StoredQueryDirectives extends Directives {
     }
   }
 
-  def prepareSearchPercolator3: Directive1[SearchRequestBuilder] = {
+  def conditions: Directive1[SearchRequestBuilder] = {
     import QueryBuilders._
     parameters('conditionSet.?, 'include.?).hflatMap {
       case conditionSet :: include :: HNil =>
+        val noReturnQuery = boolQuery().mustNot(matchAllQuery())
         val query = boolQuery().excludeTemporary
         provide(client.prepareSearch("stored-query").setTypes(".percolator")
           .setQuery(conditionSet ++ (include : Seq[String]) match {
-            case Nil => query
+            case Nil => query.should(noReturnQuery)
             case ids => query.must(QueryBuilders.idsQuery(".percolator").addIds(ids))
           })
           .setFetchSource(Array("query", "title"), null))
     }
   }
 
+
+//  def count(conditions: Map[String, Condition]) = {
+//    parameters('conditionSet.?, 'include.?).hflatMap {
+//      case excludedIds :: includedIds :: HNil =>
+//        val conditionSet =  ConditionSet(excludedIds)
+//        //Future.traverse(excludedIds) { id => conditionSet.exclude(id).count() }
+//        //Future.traverse(includedIds) { id => conditionSet.include(id).count() }
+//
+//
+//        provide("")
+//    }
+//
+//  }
+
+//  val items = JField("items", JArray((ConditionSet(conditionSetIds).all :: storedQueries.values.toList).map {
+//    case Condition(id, title, _, state, _, hits) =>
+//      Template(Map("title" -> title, "state" -> state, "hits" -> hits)).template ~~ ("links" -> Nil)
+//  } ))
+
   def prepareSearchPercolator: Directive1[SearchRequestBuilder] = {
-    parameters('q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
-      case q :: tags :: size :: from :: HNil =>
+    parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
+      case conditionSet :: include :: q :: tags :: size :: from :: HNil =>
+        val excludedIds = (conditionSet: Seq[String]) ++ include
         provide(
           client.prepareSearch("stored-query").setTypes(".percolator")
             .setQuery(boolQuery()
               .excludeTemporary
               .search_all(q)
-              .matchQuery("tags", tags))
+              .matchQuery("tags", tags)
+              .mustNot(idsQuery().ids(excludedIds)))
             .setFetchSource(Array("item"), null)
             .setSize(size).setFrom(from)
         )
     }
-
   }
-
-//  def format(hits: SearchHits): Directive1[Map[String, JValue]] = {
-//    provide(hits.map { hit => hit.id() -> parse(hit.getSourceAsString()) } toMap)
-//  }
-
 }

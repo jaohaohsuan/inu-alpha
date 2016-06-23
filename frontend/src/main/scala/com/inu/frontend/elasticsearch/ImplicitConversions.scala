@@ -1,6 +1,8 @@
 package com.inu.frontend.elasticsearch
 
 import org.elasticsearch.action.{ActionListener, ListenableActionFuture}
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.QueryBuilders._
 
 import scala.concurrent.{Future, Promise}
 
@@ -19,5 +21,15 @@ object ImplicitConversions {
 
   implicit class OptionIsFuture[A](val option: Option[A]) {
     def future(ex: Exception = new Exception) = option.map(Future.successful).getOrElse(Future.failed(ex))
+  }
+
+  implicit class String0(value: Option[String]) {
+    def asTypeQuery = {
+      value match {
+        case None => boolQuery()
+        case Some(value) =>
+          boolQuery().filter(value.split("""(\s+|,)""").foldLeft(boolQuery()){ (acc, t) => acc.should(QueryBuilders.typeQuery(t))})
+      }
+    }
   }
 }

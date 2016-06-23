@@ -41,7 +41,22 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
     case _ => true
   }
 
-  val changes = Flow[StoredQueries].mapConcat { case StoredQueries(items, _, x :: xs) => x.flatMap(items.get) }
+  val changes = Flow[StoredQueries].mapConcat { case StoredQueries(items, _, changes@x :: xs) =>
+
+    //x.flatMap(items.get)
+    x.flatMap{ e => items.get(e).map { x => retrieveDependencies(x, items) } }
+
+  }
+
+  def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =
+    item.clauses.foldLeft(item) { (acc, e) =>
+      e match {
+        case (clauseId, n: NamedClause) =>
+          val innerItem = items(n.storedQueryId)
+          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = Some(retrieveDependencies(innerItem,items).clauses))))
+        case _ => acc
+      }
+    }
 
   val g = Source.fromGraph(GraphDSL.create() { implicit builder =>
     import GraphDSL.Implicits._

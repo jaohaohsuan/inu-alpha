@@ -53,7 +53,8 @@ object StoredQueryRepoAggRoot {
         case (ClauseAdded(consumer, boolClause), StoredQueryRepo(repo)) => {
           Some(repo.get(consumer) match {
             case None => Left("oops")
-            case Some(entity) => Right(entity.copy(clauses = entity.clauses + boolClause))
+            case Some(entity) =>
+              Right(entity.copy(clauses = entity.clauses + boolClause))
           })
         }
         case (ClauseRemoved(storedQueryId, boolClauses), StoredQueryRepo(repo)) =>
@@ -89,10 +90,12 @@ object StoredQueryRepoAggRoot {
             case _ => None
           }
           val consumerPaths = paths.filterKeys({ case (consumer, _) => consumer == id }).keys
-          acyclicProofing(paths -- consumerPaths ++ newDep).map { p =>
+
+          val result =  acyclicProofing(paths -- consumerPaths ++ newDep).map { p =>
              val guides = collectPaths[String](id)(toPredecessor(p.keys)).flatten.toList
             (guides, state.copy(paths = p))
           }
+          result
         case _ => None
       }
     }

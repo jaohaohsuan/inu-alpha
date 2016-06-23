@@ -98,4 +98,25 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
     stage4.changes.flatten should have size 5
   }
 
+  "named query" should "exist" in {
+    val stage0 = StoredQueries()
+
+    val stage1 = stage0.update(ItemCreated("0", "query0", None, Set("demo")))
+    val stage2 = stage1.update(ItemCreated("1", "query1", None, Set("test")))
+
+    val stage3 = stage2.update(ClauseAdded("1", (100, MatchClause("hello", "dialogs", "OR", "must"))))
+
+    stage3.items("1").clauses should have size 1
+
+    // query0
+    val stage4 = stage3.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
+
+    stage4.items("0").clauses should have size 1
+
+    stage4.items("0").clauses(100) match {
+      case NamedClause(_, _, _, Some(clauses)) => clauses should have size 1
+      case _ => fail("there should only have a NamedClause")
+    }
+  }
+
 }

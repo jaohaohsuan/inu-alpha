@@ -68,8 +68,8 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
 
   def conditionSet(map: Map[String, Condition]): Directive1[Map[String, WrapperQueryBuilder]] = {
     parameters('conditionSet.?).hflatMap {
-      case conditionSet :: HNil =>
-        provide(map.filterKeys(conditionSet.getOrElse("").contains).map { case (k, c) => k -> wrapperQuery(c.query) })
+      case ids :: HNil =>
+        provide(map.filterKeys(ids.getOrElse("").contains).map { case (k, c) => k -> wrapperQuery(c.query) })
     }
   }
 

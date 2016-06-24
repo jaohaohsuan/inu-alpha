@@ -43,7 +43,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
             val extractor(year, month, day, id) = loc
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
             ("href" -> s"${uri.withPath(Path(s"/sapi/$loc")).withQuery(("_id", ids))}") ~~
-            Template(LogItem(highlight, keywords, s"$year/$month/$day/$id")).template
+            Template(LogItem(highlight, keywords, s"$year$month$day/$id")).template
         } toList
       }
     }

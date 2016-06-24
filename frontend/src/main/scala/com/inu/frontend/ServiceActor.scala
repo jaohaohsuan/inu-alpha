@@ -7,6 +7,7 @@ import spray.util.LoggingContext
 import com.inu.frontend.storedquery.StoredQueryRoute
 
 class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends HttpServiceActor
+  with CorsSupport
   with StoredQueryRoute
   with LogsRoute
   with AnalysisRoute {
@@ -17,10 +18,12 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   def receive = runRoute(
-    pathPrefix("sapi") {
-      `_query/template/` ~
-      `logs-*` ~
-      `_analysis`
-    }
+   cors {
+     pathPrefix("sapi") {
+       `_query/template/` ~
+         `logs-*` ~
+         `_analysis`
+     }
+   }
   )
 }

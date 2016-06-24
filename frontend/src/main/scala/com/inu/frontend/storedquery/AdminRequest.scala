@@ -2,7 +2,7 @@ package com.inu.frontend.storedquery
 
 import akka.actor.Props
 import com.inu.frontend.PerRequest
-import com.inu.protocol.storedquery.messages.{Command, StoredQueryCreatedAck}
+import com.inu.protocol.storedquery.messages.{Command, RejectAck, StoredQueryCreatedAck}
 import spray.routing.RequestContext
 import spray.http.StatusCodes._
 
@@ -22,6 +22,10 @@ case class AdminRequest(ctx: RequestContext, message: Command) extends PerReques
     case StoredQueryCreatedAck("temporary") =>
       response {
         complete(Created)
+      }
+    case RejectAck(msg) =>
+      response {
+        complete(InternalServerError, msg)
       }
   }
 }

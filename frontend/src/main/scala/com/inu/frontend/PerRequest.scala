@@ -21,7 +21,7 @@ trait PerRequest extends Actor with Directives {
   val URI: Directive1[URI] = extract(ctx => s"${ctx.request.uri}".uri)
 
   import scala.concurrent.duration._
-  setReceiveTimeout(5.seconds)
+  setReceiveTimeout(500.seconds)
 
   def ctx: RequestContext
 

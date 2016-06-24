@@ -159,6 +159,9 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case Initial if !state.items.contains("temporary") =>
       doPersist(ItemCreated("temporary", "temporary"), PersistedAck(sender(), Some(StoredQueryCreatedAck("temporary"))))
 
+    case Initial if state.items.contains("temporary") =>
+      sender() ! RejectAck("already initialized")
+
     case CreateNewStoredQuery(_, Some(refId), _) if !refId.exist() => sender() ! RejectAck(s"$refId is not exist.")
 
     case CreateNewStoredQuery(title,refId, tags) =>

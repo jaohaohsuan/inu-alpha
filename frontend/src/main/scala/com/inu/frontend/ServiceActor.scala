@@ -18,12 +18,12 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   val log = LoggingContext.fromActorRefFactory(actorRefFactory)
 
   def receive = runRoute(
-   cors {
      pathPrefix("sapi") {
-       `_query/template/` ~
-         `logs-*` ~
-         `_analysis`
+      cors {
+        `_query/template/` ~
+          `logs-*` ~
+          `_analysis`
+       }
      }
-   }
   )
 }

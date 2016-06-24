@@ -165,7 +165,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
                   set(conditionsMap) { set =>
                     include(conditionsMap) { includes =>
                       exclude(conditionsMap) { excludes =>
-                        val links = JField("links", JArray(("href" -> s"${uri.withPath(uri.path / "source")}") :: Nil))
+                        val links = JField("links", JArray(("href" -> s"${uri.withPath(uri.path / "source")}") ~~ ("rel" -> "source"):: Nil))
                         complete(OK, JField("href", JString(s"$uri")) :: links :: JField("items", JArray(set :: includes ++ excludes)) :: Nil)
                       }
                     }

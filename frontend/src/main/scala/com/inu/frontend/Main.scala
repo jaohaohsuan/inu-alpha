@@ -43,7 +43,7 @@ object Main extends App {
 
   val listener = system.actorOf(Props(classOf[ServiceActor], client), "service")
 
-  val host = "0.0.0.0"
+  val host = Config.host
   val port = Config.port
 
   val release = () => {

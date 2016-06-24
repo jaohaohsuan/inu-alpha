@@ -21,6 +21,7 @@ object Config {
   }
 
   val port = config.getInt("service.port")
+  val host = config.getString("service.host")
 
   val corsAllowCredentials = config.getBoolean("service.cors.allow_credentials")
 
@@ -51,7 +52,7 @@ trait CorsSupport {
   private val optionsCorsHeaders = List(
     `Access-Control-Allow-Headers`(Config.corsAllowHeaders.mkString(", ")),
     `Access-Control-Max-Age`(60 * 60 * 24 * 20),  // cache pre-flight response for 20 days
-    `Access-Control-Allow-Credentials`(Config.corsAllowCredentials)
+    `Access-Control-Allow-Credentials`(true)
   )
 
   /**
@@ -60,8 +61,10 @@ trait CorsSupport {
    */
   private def getAllowedOrigins(context: RequestContext): Option[`Access-Control-Allow-Origin`] = {
     context.request.header[Origin].collect {
-      case origin if Config.corsAllowOrigins.contains(origin.value) ||
-        Config.corsAllowOrigins.contains("*") => `Access-Control-Allow-Origin`(SomeOrigins(origin.originList))
+      case origin if Config.corsAllowOrigins.contains(origin.value) || Config.corsAllowOrigins.contains("*") =>
+        `Access-Control-Allow-Origin`(SomeOrigins(origin.originList))
+      case origin =>
+        `Access-Control-Allow-Origin`(SomeOrigins(origin.originList))
     }
   }
 
@@ -71,15 +74,17 @@ trait CorsSupport {
       // defined CORS details and the allowed options grabbed from the rejection
       case Rejected(reasons) if context.request.method == HttpMethods.OPTIONS && reasons.exists(_.isInstanceOf[MethodRejection]) => {
         val allowedMethods = reasons.collect { case r: MethodRejection => r.supported }
+        val headers = `Access-Control-Allow-Methods`(OPTIONS, allowedMethods :_*) ::
+          getAllowedOrigins(context) ++:
+            optionsCorsHeaders
 
-        context.complete(HttpResponse().withHeaders(
-          `Access-Control-Allow-Methods`(OPTIONS, allowedMethods :_*) ::
-            getAllowedOrigins(context) ++:
-              optionsCorsHeaders
-        ))
+
+        context.complete(HttpResponse().withHeaders(headers))
       }
     } withHttpResponseHeadersMapped {
-      headers => getAllowedOrigins(context).toList ++ headers ++ optionsCorsCustomHeaders
+      headers =>
+        val result =  getAllowedOrigins(context).toList ++ headers ++ optionsCorsCustomHeaders ++ optionsCorsHeaders
+        result
     }
   }
 }

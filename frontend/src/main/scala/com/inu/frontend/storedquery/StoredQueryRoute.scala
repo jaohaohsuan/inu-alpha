@@ -70,8 +70,11 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             path("""^must$|^must_not$|^should$""".r) { occur =>
               val items = source \ "occurs" \ occur transformField {
                 case JField("href", JString(p)) => ("href", JString(s"""/$occur""".r.replaceFirstIn(s"$uri", p)))
+              } match {
+                case JNothing => JArray(Nil)
+                case arr => arr
               }
-              complete(OK, JField("items", items) :: Nil)
+              complete(OK, JField("href", JString(s"$uri")):: JField("items", items) :: Nil)
             } ~
             clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
             clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~

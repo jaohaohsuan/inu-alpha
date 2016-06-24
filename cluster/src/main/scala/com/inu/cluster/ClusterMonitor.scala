@@ -7,6 +7,9 @@ import akka.cluster.ClusterEvent._
 import akka.cluster.client.ClusterClientReceptionist
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
+import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.util.Try
 
 
 /**
@@ -29,6 +32,24 @@ class ClusterMonitor extends  Actor with ActorLogging {
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
+
+  Cluster(system).registerOnMemberRemoved {
+    // exit JVM when ActorSystem has been terminated
+    system.registerOnTermination(System.exit(0))
+    // shut down ActorSystem
+    system.terminate()
+
+    // In case ActorSystem shutdown takes longer than 10 seconds,
+    // exit the JVM forcefully anyway.
+    // We must spawn a separate thread to not block current thread,
+    // since that would have blocked the shutdown of the ActorSystem.
+    new Thread {
+      override def run(): Unit = {
+        if (Try(Await.ready(system.whenTerminated, 10.seconds)).isFailure)
+          System.exit(-1)
+      }
+    }.start()
+  }
 
   override def receive: Receive = {
     case MemberUp(member) =>

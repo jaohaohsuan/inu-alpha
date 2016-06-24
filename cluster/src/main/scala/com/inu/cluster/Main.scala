@@ -25,5 +25,5 @@ object Main extends App {
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
 
-  //system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+  system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 }

@@ -55,7 +55,7 @@ object Main extends App {
     .mapTo[Http.Event]
     .map {
       case Http.Bound(address) =>
-        //println(s"river service v${com.inu.frontend.storedq.BuildInfo.version} bound to $address")
+        println(s"river service v${com.inu.frontend.storedq.BuildInfo.version} bound to $address")
       case Http.CommandFailed(cmd) =>
         println("river service could not bind to " +  s"$host:$port, ${cmd.failureMessage}")
         release()

@@ -32,7 +32,6 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
 
   def extractHighlights(r: SearchResponse)(ids: String): Directive1[List[JObject]] = {
     import com.inu.frontend.elasticsearch._
-
     requestUri.hmap {
       case uri :: HNil => {
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r

@@ -37,6 +37,24 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
     }
   }
 
+  def preview(storedQueryId: String)(query: JValue): Route = {
+    prepareSearchLogs(query) { sb =>
+      pathEnd { implicit ctx =>
+        actorRefFactory.actorOf(PreviewRequest.props(sb, storedQueryId))
+      } ~
+        path("status") {
+          onSuccess(sb.setSize(0).execute().future) { res =>
+            requestUri { uri =>
+              val href = JField("href", JString(s"$uri".replaceFirst("""\/status""", "")))
+              val item = Template(PreviewStatus(res.getHits.getTotalHits, query)).template ~~ ("href" -> s"$uri")
+              val items = JField("items", JArray(item :: Nil))
+              complete(OK, href :: items :: Nil)
+            }
+          }
+        }
+    }
+  }
+
   lazy val `_query/template/`: Route =
     requestUri { uri =>
       get {
@@ -80,22 +98,10 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~
             clausePath("named")(NamedClause("temporary","query", "should")) ~
             pathPrefix("preview") {
+              val previewWith = preview(storedQueryId)(_)
               userFilter { filter =>
-                println(s"$filter")
-                prepareSearchLogs(source \ "query") { sb =>
-                  pathEnd { implicit ctx =>
-                    actorRefFactory.actorOf(PreviewRequest.props(sb, storedQueryId))
-                  } ~
-                    path("status") {
-                      onSuccess(sb.setSize(0).execute().future) { res =>
-                        val href = JField("href", JString(s"$uri".replaceFirst("""\/status""", "")))
-                        val item = Template(PreviewStatus(res.getHits.getTotalHits, source \ "query")).template ~~ ("href" -> s"$uri")
-                        val items = JField("items", JArray(item :: Nil))
-                        complete(OK, href :: items :: Nil)
-                      }
-                    }
-                }
-              }
+                previewWith(source \ "query")
+              } ~ previewWith(source \ "query")
             }
           }
         }

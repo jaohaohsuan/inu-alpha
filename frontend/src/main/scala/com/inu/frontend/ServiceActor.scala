@@ -13,7 +13,7 @@ class ServiceActor(implicit val client: org.elasticsearch.client.Client) extends
   with AnalysisRoute {
 
   implicit val system = context.system
-  implicit val executionContext = actorRefFactory.dispatcher
+  implicit val executionContext = system.dispatchers.lookup("my-thread-pool-dispatcher")
   implicit val json4sFormats = org.json4s.DefaultFormats ++ org.json4s.ext.JodaTimeSerializers.all
 
   val log = LoggingContext.fromActorRefFactory(actorRefFactory)

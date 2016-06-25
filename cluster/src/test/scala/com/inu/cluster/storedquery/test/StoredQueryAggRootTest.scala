@@ -1,9 +1,8 @@
 package com.inu.cluster.storedquery.test
 
 import com.inu.cluster.storedquery.StoredQueryRepoAggRoot._
-import com.inu.cluster.storedquery.messages._
-import org.scalatest.{FlatSpec, Matchers}
 import com.inu.protocol.storedquery.messages._
+import org.scalatest.{FlatSpec, Matchers}
 
 class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
@@ -43,9 +42,12 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
 
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
 
+    val cycleClauseAdded = ClauseAdded("1", (100, NamedClause("0", "query0", "must")))
     an [Exception] should be thrownBy {     // Ensure a particular exception type is thrown
-      stage3.update(ClauseAdded("1", (100, NamedClause("0", "query0", "must"))))
+      stage3.update(cycleClauseAdded)
     }
+
+    stage3.testCycleInDirectedGraph(cycleClauseAdded) should equal (Left("CycleInDirectedGraphError"))
 
     stage3.paths should have size 1
     assert(stage3.paths.exists(_ == (("0", "1") -> 100)))

@@ -5,7 +5,9 @@ import akka.persistence.{PersistentActor, SnapshotOffer}
 import com.inu.cluster.storedquery.algorithm.TopologicalSort
 import com.inu.protocol.storedquery.messages._
 import messages._
+
 import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 case class StoredQueryRepo(items: Map[String, StoredQuery])
 case class CascadingUpdateGuide(guides: List[(String, String)])
@@ -90,12 +92,10 @@ object StoredQueryRepoAggRoot {
             case _ => None
           }
           val consumerPaths = paths.filterKeys({ case (consumer, _) => consumer == id }).keys
-
-          val result =  acyclicProofing(paths -- consumerPaths ++ newDep).map { p =>
-             val guides = collectPaths[String](id)(toPredecessor(p.keys)).flatten.toList
+          acyclicProofing(paths -- consumerPaths ++ newDep).map { p =>
+            val guides = collectPaths[String](id)(toPredecessor(p.keys)).flatten.toList
             (guides, state.copy(paths = p))
           }
-          result
         case _ => None
       }
     }
@@ -143,6 +143,20 @@ object StoredQueryRepoAggRoot {
       proc((evt, StoredQueryRepo(items)))
     }
 
+    def testCycleInDirectedGraph(evt: ClauseAdded): String Either ClauseAdded = {
+      val x :: xs = Nil :: changes
+      def proc(arg: Any): StoredQueries = {
+        arg match {
+          case UpdateClauses(Right(entity))     => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
+          case BuildDependencies(guides, state) => state
+          case _ => throw new Exception("CycleInDirectedGraphError")
+        }
+      }
+      Try(proc((evt, StoredQueryRepo(items)))) match {
+        case Success(_) => Right(evt)
+        case Failure(e) => Left(e.getMessage)
+      }
+    }
   }
 }
 
@@ -176,13 +190,18 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
 
     case AddClause(storedQueryId, clause: BoolClause) if !storedQueryId.exist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
 
+
     case AddClause(storedQueryId, clause: BoolClause) => {
       def genClauseId(item: StoredQuery): Int = {
         val id = scala.math.abs(scala.util.Random.nextInt())
         if (item.clauses.keys.exists(_ == id)) genClauseId(item) else id
       }
       val id = genClauseId(storedQueryId)
-      doPersist(ClauseAdded(storedQueryId, (id, clause)), PersistedAck(sender(), Some(ClauseAddedAck(s"$id"))))
+
+      state.testCycleInDirectedGraph(ClauseAdded(storedQueryId, (id, clause))) match {
+        case Left(err) => sender() ! RejectAck(err)
+        case Right(evt: ClauseAdded) => doPersist(evt, PersistedAck(sender(), Some(ClauseAddedAck(s"$id"))))
+      }
     }
 
     case RemoveClauses(id, _) if !id.exist() => sender() ! RejectAck(s"$id is not exist.")

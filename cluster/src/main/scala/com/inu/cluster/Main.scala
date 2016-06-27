@@ -24,6 +24,21 @@ object Main extends App {
   system.log.info("Configured cassandra nodes: " + config.getStringList("cassandra-journal.contact-points").mkString(", "))
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
+  implicit class clustering(props: Props) {
+    def singleton()(implicit system: ActorSystem) = ClusterSingletonManager.props(
+      singletonProps = props,
+      terminationMessage = PoisonPill,
+      settings = ClusterSingletonManagerSettings(system).withRole("backend"))
+  }
+
+  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot"))
+
+  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView"))
 
   system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+
+  val release = () => {
+    system.terminate()
+  }
+  sys.addShutdownHook(release())
 }

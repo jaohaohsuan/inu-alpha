@@ -8,11 +8,13 @@ import spray.http.{HttpCookie, HttpRequest, HttpResponse, Uri}
 import spray.routing.{Directive1, Directives}
 import akka.pattern._
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import spray.http.HttpHeaders.RawHeader
 import spray.http.HttpMethods._
-import scala.concurrent.duration._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /**
   * Created by henry on 6/24/16.
@@ -23,19 +25,19 @@ trait UserProfileDirectives extends Directives {
   implicit def system: ActorSystem
   implicit val timeout: Timeout = Timeout(15.seconds)
 
+  private val config = ConfigFactory.load()
+
   def userSid: Directive1[String]= {
     cookie("sid").flatMap {
       case sid => provide(sid.content)
     }
   }
 
-  def userFilter: Directive1[String] = {
+  def userFilter: Directive1[Future[HttpResponse]] = {
     userSid.flatMap { sid =>
-      val response = (IO(Http) ? HttpRequest(GET, Uri("http://127.0.0.1:2403/users/me?include=datasourcesRangeEsQueries"),
+      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filter")}"),
          headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
-      onSuccess(response).flatMap { res =>
-        provide(s"${res.entity}")
-      }
+      provide(response)
     }
   }
 

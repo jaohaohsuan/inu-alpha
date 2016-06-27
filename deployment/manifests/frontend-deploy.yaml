@@ -25,3 +25,5 @@ spec:
             value: elasticsearch-discovery.default.svc.cluster.local
           - name: ES_CLUSTER_NAME
             value: myesdb
+          - name: USER_PROFILE_HOST
+            value: deployd.default.svc.cluster.local:2403

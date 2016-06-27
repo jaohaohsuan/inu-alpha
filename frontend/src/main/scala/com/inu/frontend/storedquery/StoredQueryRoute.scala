@@ -16,6 +16,7 @@ import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsDirectives with StoredQueryDirectives with UserProfileDirectives {
 
@@ -100,7 +101,10 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             pathPrefix("preview") {
               val previewWith = preview(storedQueryId)(_)
               userFilter { filter =>
-                previewWith(source \ "query")
+                onSuccess(filter) { res =>
+                  println(s"${res.entity}")
+                  previewWith(source \ "query")
+                }
               } ~ previewWith(source \ "query")
             }
           }

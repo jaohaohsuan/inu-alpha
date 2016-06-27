@@ -87,7 +87,7 @@ lazy val frontend = create("frontend").
     buildInfoPackage := s"com.inu.frontend.storedq",
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl"),
       Cmd("WORKDIR", "/opt/docker"),
       Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
       Cmd("ADD", "opt/docker/bin /opt/docker/bin"),

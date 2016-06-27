@@ -16,6 +16,7 @@ object AdminRequest {
 
 case class AdminRequest(ctx: RequestContext, message: Command) extends PerRequest {
 
+  println(s"AdminRequest $message")
   context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! message
 
   def processResult: Receive = {

@@ -26,4 +26,4 @@ spec:
           - name: ES_CLUSTER_NAME
             value: myesdb
           - name: USER_PROFILE_HOST
-            value: deployd.default.svc.cluster.local:2403
+            value: http://deployd.default.svc.cluster.local:2403

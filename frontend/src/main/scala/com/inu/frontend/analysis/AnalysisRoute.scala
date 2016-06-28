@@ -85,9 +85,11 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
             val highlight = "highlight" -> fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
             val keywords = "keywords" -> fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
             val extractor(year, month, day, id) = loc
-            val audioUrl = "audioUrl" -> s"$year$month$day/$id"
+            val audioUrl = "audioUrl" -> {
+              s"$year$month$day/$id"
+            }
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl)).template
+            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day")).template
         } toList
       }
     }

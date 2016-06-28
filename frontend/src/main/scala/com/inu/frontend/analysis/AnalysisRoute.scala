@@ -1,8 +1,9 @@
 package com.inu.frontend.analysis
 
 import com.inu.frontend.CollectionJsonSupport
-import com.inu.frontend.directive.StoredQueryDirectives
+import com.inu.frontend.directive.{StoredQueryDirectives, UserProfileDirectives}
 import com.inu.frontend.elasticsearch.ImplicitConversions._
+import com.inu.frontend.storedquery.PreviewRequest
 import com.inu.protocol.media.CollectionJson.Template
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.QueryBuilders._
@@ -14,6 +15,7 @@ import org.json4s.native.JsonMethods._
 import shapeless._
 import spray.http.StatusCodes._
 import spray.http.Uri
+import spray.http.Uri.Path
 import spray.routing._
 
 import scala.collection.JavaConversions._
@@ -32,7 +34,7 @@ object Condition {
   }
 }
 
-trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQueryDirectives {
+trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQueryDirectives with UserProfileDirectives {
 
   implicit def executionContext: ExecutionContext
 
@@ -73,16 +75,70 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
     }
   }
 
+  def extractHighlights(r: SearchResponse): Directive1[List[JObject]] = {
+    import com.inu.frontend.elasticsearch._
+    requestUri.hmap {
+      case uri :: HNil => {
+        val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
+        r.getHits.map {
+          case SearchHitHighlightFields(loc, fragments) =>
+            val highlight = "highlight" -> fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
+            val keywords = "keywords" -> fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
+            val extractor(year, month, day, id) = loc
+            val audioUrl = "audioUrl" -> s"$year$month$day/$id"
+            // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
+            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl)).template
+        } toList
+      }
+    }
+  }
+
+  def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
+    conditionSet(map).flatMap { q =>
+      parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
+        case size :: from :: HNil => {
+
+          //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+
+          onSuccess(client.prepareSearch("logs-*")
+              .setQuery(
+                q.values.foldLeft(boolQuery())(_ must _)
+              )
+              .setSize(size).setFrom(from)
+              .addField("vtt")
+              .setHighlighterRequireFieldMatch(true)
+              .setHighlighterNumOfFragments(0)
+              .setHighlighterPreTags("<em>")
+              .setHighlighterPostTags("</em>")
+              .addHighlightedField("agent*")
+              .addHighlightedField("customer*")
+              .addHighlightedField("dialogs").execute().future).flatMap { res =>
+                provide(res)
+              }
+        }
+        case _ => reject
+      }
+    }
+  }
+
   def set(map: Map[String, Condition]): Directive1[JObject] = {
     conditionSet(map).flatMap { q =>
       onSuccess(client.prepareSearch("logs-*")
         .setQuery(q.values.foldLeft(boolQuery())(_ must _))
         .setSize(0)
         .execute().future).flatMap { res =>
-        provide(
-          Template(Map("title" -> "set", "state" -> "set", "hits" -> res.getHits.totalHits)).template ~~
-            ("links" -> JArray(Nil))
-        )
+          requestUri.flatMap { uri =>
+
+            // TODO: 生成用户可以查询的type进行分类
+            // val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
+            // typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
+            //            .getOrElse(List(logsLink.format("*", uri.withPath(uri.path / "logs"))))
+
+            provide(
+              Template(Map("title" -> "set", "state" -> "set", "hits" -> res.getHits.totalHits)).template ~~
+                ("links" -> JArray(("rel" -> "logs") ~~ ("render" -> "grid") ~~ ("name" -> "*") ~~ ("href" -> s"${uri.withPath(uri.path / "logs")}") :: Nil))
+            )
+          }
       }
     }
   }
@@ -181,7 +237,30 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
                       implicit val withoutSearchParamsUri = uri.drop("q", "tags", "size", "from")
                       val href = JField("href", JString(s"$withoutSearchParamsUri"))
                       val links = JField("links", JArray(p.links))
-                      complete(OK, href :: links :: JField("items", JArray(items.map { case(_,item) => item })) :: Nil)
+
+                      val searchParams = Template(Map("from" -> 0, "size" -> 10, "q" -> "", "tags" -> ""),
+                        Map("size" -> "size of displayed items",
+                            "from" -> "items display from",
+                            "q"    -> "search title or any terms",
+                            "tags" -> "")).template
+
+                      val queries = JField("queries", JArray(("href" -> s"$withoutSearchParamsUri") ~~ ("rel" -> "search") ~~ searchParams :: Nil))
+                      complete(OK, href :: queries :: links :: JField("items", JArray(items.map { case(_,item) => item })) :: Nil)
+                    }
+                  }
+                }
+              }
+            } ~
+            path("logs") {
+              conditions { searchSq =>
+                formatHits(searchSq) { conditionsMap =>
+                  logs(conditionsMap) { res =>
+                    extractHighlights(res) { items =>
+                      pagination(res)(uri) { p =>
+                        val links = JField("links", JArray(p.links))
+                        val href = JField("href", JString(s"$uri"))
+                        complete(OK, href :: links :: JField("items", JArray(items)) :: Nil)
+                      }
                     }
                   }
                 }

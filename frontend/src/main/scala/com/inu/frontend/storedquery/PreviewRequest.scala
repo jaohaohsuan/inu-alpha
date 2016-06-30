@@ -15,7 +15,6 @@ import scala.collection.JavaConversions._
 import spray.routing._
 
 case class PreviewStatus(count: Long, query: JValue)
-case class LogItem(highlight: List[String], keywords: String, audioUrl: String)
 
 object PreviewRequest {
   def props(s: SearchRequestBuilder, storedQueryId: String)(implicit ctx: RequestContext) = {

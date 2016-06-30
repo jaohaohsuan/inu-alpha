@@ -4,11 +4,12 @@ import akka.actor.ActorSystem
 import akka.io.IO
 import org.json4s.JValue
 import spray.can.Http
-import spray.http.{HttpCookie, HttpRequest, HttpResponse, Uri}
+import spray.http._
 import spray.routing.{Directive1, Directives}
 import akka.pattern._
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import spray.http.HttpEntity._
 import spray.http.HttpHeaders.RawHeader
 import spray.http.HttpMethods._
 
@@ -33,11 +34,16 @@ trait UserProfileDirectives extends Directives {
     }
   }
 
-  def userFilter: Directive1[Future[HttpResponse]] = {
+  def userFilter: Directive1[Future[JValue]] = {
     userSid.flatMap { sid =>
-      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filter")}"),
-         headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
-      provide(response)
+      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filter")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
+      provide(response.map { res => res.entity match {
+        case entity: NonEmpty =>
+          import org.json4s.native.JsonMethods._
+          parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "query"
+          }
+        }
+      )
     }
   }
 

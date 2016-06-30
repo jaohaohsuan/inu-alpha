@@ -190,6 +190,8 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
     }
   }
 
+  //def graph0
+
   lazy val `_analysis`: Route =
     get {
       requestUri { uri =>
@@ -266,6 +268,10 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
                   }
                 }
               }
+            } ~
+            path("graph0") {
+
+              complete(OK)
             }
           }
         }

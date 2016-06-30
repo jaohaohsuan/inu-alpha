@@ -27,15 +27,13 @@ trait LogsDirectives extends Directives {
   def prepareSearchLogs(query: JValue): Directive1[SearchRequestBuilder] = {
     parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
       case size :: from :: HNil => {
-        val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+        //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+        val JArray(xs) = query \ "indices"
+        val indices = xs.map{ case JString(s) => s}
+        println(s"${pretty(render(query \ "query"))}")
         provide(
           client.prepareSearch("logs-*")
-                .setQuery(
-                  query \ "bool" match {
-                    case JObject(Nil) => boolQuery().should(noReturnQuery)
-                    case _ => boolQuery().should(noReturnQuery).should(wrapperQuery(compact(render(query))))
-                  }
-                )
+                .setQuery(indicesQuery(wrapperQuery(compact(render(query \ "query"))), indices: _*).noMatchQuery("none"))
                 .setSize(size).setFrom(from)
                 .addField("vtt")
                   .setHighlighterRequireFieldMatch(true)

@@ -37,12 +37,12 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
         r.getHits.map {
           case SearchHitHighlightFields(loc, fragments) =>
-            val highlight = fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
-            val keywords = fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
+            val highlight = "highlight" -> fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
+            val keywords = "keywords" -> fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
             val extractor(year, month, day, id) = loc
+            val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc")).withQuery(("_id", ids))}") ~~
-            Template(LogItem(highlight, keywords, s"$year$month$day/$id")).template
+            ("href" -> s"${uri.withQuery("_id" -> ids).withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day")).template
         } toList
       }
     }

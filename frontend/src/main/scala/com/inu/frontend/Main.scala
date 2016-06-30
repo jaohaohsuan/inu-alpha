@@ -26,7 +26,6 @@ object Main extends App {
 
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
-
   val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
     .put("cluster.name", config.getString("elasticsearch.cluster-name"))
     .build()

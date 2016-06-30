@@ -43,6 +43,8 @@ object NodeConfigurator {
         addr => s"""akka.cluster.seed-nodes += "akka.tcp://$clusterName@$addr:$seedPort""""
       }.mkString("\n")
 
+      println(`akka.cluster.seed-nodes`)
+
       ConfigFactory.parseString(`akka.cluster.seed-nodes`)
         .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(host))
         .withFallback(config)

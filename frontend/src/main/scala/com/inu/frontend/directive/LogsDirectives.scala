@@ -30,7 +30,6 @@ trait LogsDirectives extends Directives {
         //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
         val JArray(xs) = query \ "indices"
         val indices = xs.map{ case JString(s) => s}
-        println(s"${pretty(render(query \ "query"))}")
         provide(
           client.prepareSearch("logs-*")
                 .setQuery(indicesQuery(wrapperQuery(compact(render(query \ "query"))), indices: _*).noMatchQuery("none"))

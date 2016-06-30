@@ -7,7 +7,7 @@ import com.inu.frontend.storedquery.PreviewRequest
 import com.inu.protocol.media.CollectionJson.Template
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.WrapperQueryBuilder
+import org.elasticsearch.index.query.{QueryBuilder, WrapperQueryBuilder}
 import org.elasticsearch.search.SearchHit
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -68,10 +68,10 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
     }
   }
 
-  def conditionSet(map: Map[String, Condition]): Directive1[Map[String, WrapperQueryBuilder]] = {
+  def conditionSet(map: Map[String, Condition]): Directive1[Map[String, JValue]] = {
     parameters('conditionSet.?).hflatMap {
       case ids :: HNil =>
-        provide(map.filterKeys(ids.getOrElse("").contains).map { case (k, c) => k -> wrapperQuery(c.query) })
+        provide(map.filterKeys(ids.getOrElse("").contains).map { case (k,v) => k -> parse(v.query)})
     }
   }
 
@@ -94,52 +94,66 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
     }
   }
 
+
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
-    conditionSet(map).flatMap { q =>
-      parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
-        case size :: from :: HNil => {
-
-          //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
-
-          onSuccess(client.prepareSearch("logs-*")
-              .setQuery(
-                q.values.foldLeft(boolQuery())(_ must _)
-              )
-              .setSize(size).setFrom(from)
-              .addField("vtt")
-              .setHighlighterRequireFieldMatch(true)
-              .setHighlighterNumOfFragments(0)
-              .setHighlighterPreTags("<em>")
-              .setHighlighterPostTags("</em>")
-              .addHighlightedField("agent*")
-              .addHighlightedField("customer*")
-              .addHighlightedField("dialogs").execute().future).flatMap { res =>
+    conditionSet(map).flatMap { clauses =>
+      queryWithUserFilter(clauses.values.toList).flatMap { q =>
+        parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
+          case size :: from :: HNil => {
+            //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+            onSuccess(
+              client.prepareSearch("logs-*")
+                .setQuery(q)
+                .setSize(size).setFrom(from)
+                .addField("vtt")
+                .setHighlighterRequireFieldMatch(true)
+                .setHighlighterNumOfFragments(0)
+                .setHighlighterPreTags("<em>")
+                .setHighlighterPostTags("</em>")
+                .addHighlightedField("agent*")
+                .addHighlightedField("customer*")
+                .addHighlightedField("dialogs").execute().future).flatMap { res =>
                 provide(res)
-              }
+            }
+          }
+          case _ => reject
         }
-        case _ => reject
       }
     }
   }
 
+  def queryWithUserFilter(clauses: List[JValue]): Directive1[QueryBuilder] = {
+    userFilter.flatMap { filter =>
+      onSuccess(filter).flatMap { query =>
+        import org.json4s.JsonDSL._
+        val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> clauses)))
+        val withUserFilterQuery = query merge dd
+        val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
+        val indices = xs.collect { case JString(s) => s }
+        provide(indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none"))
+      }
+    }
+
+  }
+
   def set(map: Map[String, Condition]): Directive1[JObject] = {
     conditionSet(map).flatMap { q =>
-      onSuccess(client.prepareSearch("logs-*")
-        .setQuery(q.values.foldLeft(boolQuery())(_ must _))
-        .setSize(0)
-        .execute().future).flatMap { res =>
+      queryWithUserFilter(q.values.toList).flatMap { qb =>
+        onSuccess(client.prepareSearch("logs-*")
+          .setQuery(qb)
+          .setSize(0)
+          .execute().future).flatMap { res =>
           requestUri.flatMap { uri =>
-
             // TODO: 生成用户可以查询的type进行分类
             // val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
             // typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
             //            .getOrElse(List(logsLink.format("*", uri.withPath(uri.path / "logs"))))
-
             provide(
               Template(Map("title" -> "set", "state" -> "set", "hits" -> res.getHits.totalHits)).template ~~
                 ("links" -> JArray(("rel" -> "logs") ~~ ("render" -> "grid") ~~ ("name" -> "*") ~~ ("href" -> s"${uri.withPath(uri.path / "logs")}") :: Nil))
             )
           }
+        }
       }
     }
   }
@@ -148,19 +162,29 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
       parameters('conditionSet.?).flatMap { exclude =>
         conditionSet(map).flatMap { set =>
           requestUri.flatMap { uri =>
-            onSuccess(Future.traverse(map.filterKeys(exclude.getOrElse("").contains)) {
-              case (k, c) =>
-                val links = FurtherLinks(uri, k)
-                val q = (set - k).values.foldLeft(boolQuery())(_ must _)
-                client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
-                  Template(Map("title" -> c.title, "state" -> "excludable", "hits" -> res.getHits.totalHits)).template ~~
-                    ("links" -> Set(
-                      parse(links.action0("excludable")),
-                      parse(links.action1("excludable"))
-                    ))
+            userFilter.flatMap { filter =>
+              val f = for {
+                query <- filter
+                items <- Future.traverse(map.filterKeys(exclude.getOrElse("").contains)) {
+                  case (k, c) =>
+                    val links = FurtherLinks(uri, k)
+                    val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> (set - k).values.toList)))
+                    val withUserFilterQuery = query merge dd
+                    val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
+                    val indices = xs.collect { case JString(s) => s}
+                    val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
+                    client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
+                      Template(Map("title" -> c.title, "state" -> "excludable", "hits" -> res.getHits.totalHits)).template ~~
+                        ("links" -> Set(
+                          parse(links.action0("excludable")),
+                          parse(links.action1("excludable"))
+                        ))
+                    }
                 }
-            }).flatMap { items =>
-              provide(items.toList)
+              } yield items
+              onSuccess(f).flatMap { items =>
+                provide(items.toList)
+              }
             }
           }
         }
@@ -171,19 +195,29 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
     parameters('include.?).flatMap { include =>
       conditionSet(map).flatMap { set =>
         requestUri.flatMap { uri =>
-          onSuccess(Future.traverse(map.filterKeys(include.getOrElse("").contains)) {
-            case (k, c) =>
-              val links = FurtherLinks(uri, k)
-              val q = (set + (k -> wrapperQuery(c.query))).values.foldLeft(boolQuery())(_ must _)
-              client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
-                Template(Map("title" -> c.title, "state" -> "includable", "hits" -> res.getHits.totalHits)).template ~~
-                  ("links" -> Set(
-                    parse(links.action0("includable")),
-                    parse(links.action1("includable"))
-                  ))
-              }
-          }).flatMap { items =>
-            provide(items.toList)
+          userFilter.flatMap { filter =>
+
+            val f = for {
+               query <- filter
+               items <- Future.traverse(map.filterKeys(include.getOrElse("").contains)) {
+                case (k, c) =>
+                  val links = FurtherLinks(uri, k)
+                  val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> (set + (k -> parse(c.query))).values.toList)))
+                  val withUserFilterQuery = query merge dd
+                  val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
+                  val indices = xs.collect { case JString(s) => s}
+                  val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
+                  client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
+                    Template(Map("title" -> c.title, "state" -> "includable", "hits" -> res.getHits.totalHits)).template ~~
+                      ("links" -> Set(
+                        parse(links.action0("includable")),
+                        parse(links.action1("includable"))
+                      ))
+                  }
+            }} yield items
+            onSuccess(f).flatMap { items =>
+              provide(items.toList)
+            }
           }
         }
       }

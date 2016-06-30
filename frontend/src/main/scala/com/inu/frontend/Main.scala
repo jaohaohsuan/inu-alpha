@@ -24,7 +24,7 @@ object Main extends App {
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
   implicit val executionContext = system.dispatcher
 
-  system.actorOf(Props[ClusterMonitor], "cluster-monitor")
+  //system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
   val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
     .put("cluster.name", config.getString("elasticsearch.cluster-name"))

@@ -31,9 +31,9 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system).withRole("backend"))
   }
 
-  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot"))
+  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot")
 
-  ClusterClientReceptionist(system).registerService(system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView"))
+  system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
 
   system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 

@@ -76,6 +76,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
   }
 
   def extractHighlights(r: SearchResponse): Directive1[List[JObject]] = {
+    // TODO: 重复代码
     import com.inu.frontend.elasticsearch._
     parameters('conditionSet.?).flatMap { ids =>
       requestUri.flatMap { uri =>

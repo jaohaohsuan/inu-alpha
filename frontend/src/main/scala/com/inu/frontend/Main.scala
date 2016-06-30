@@ -24,6 +24,9 @@ object Main extends App {
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
   implicit val executionContext = system.dispatcher
 
+  system.actorOf(Props[ClusterMonitor], "cluster-monitor")
+
+
   val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
     .put("cluster.name", config.getString("elasticsearch.cluster-name"))
     .build()
@@ -35,11 +38,6 @@ object Main extends App {
 
   val status = client.admin().cluster().prepareHealth().get().getStatus
   println(status)
-
-  system.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-    settings = ClusterSingletonProxySettings(system)
-  ), name = "StoredQueryRepoAggRoot-Proxy")
 
   val listener = system.actorOf(Props(classOf[ServiceActor], client), "service")
 

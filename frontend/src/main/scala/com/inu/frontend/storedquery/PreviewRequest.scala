@@ -31,6 +31,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
   import org.json4s.JsonDSL._
 
   def extractHighlights(r: SearchResponse)(ids: String): Directive1[List[JObject]] = {
+    // TODO: 重复代码
     import com.inu.frontend.elasticsearch._
     requestUri.hmap {
       case uri :: HNil => {

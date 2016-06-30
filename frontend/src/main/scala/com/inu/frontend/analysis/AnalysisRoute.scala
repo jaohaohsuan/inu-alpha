@@ -77,20 +77,18 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with StoredQu
 
   def extractHighlights(r: SearchResponse): Directive1[List[JObject]] = {
     import com.inu.frontend.elasticsearch._
-    requestUri.hmap {
-      case uri :: HNil => {
+    parameters('conditionSet.?).flatMap { ids =>
+      requestUri.flatMap { uri =>
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
-        r.getHits.map {
+        provide(r.getHits.map {
           case SearchHitHighlightFields(loc, fragments) =>
             val highlight = "highlight" -> fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
             val keywords = "keywords" -> fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
             val extractor(year, month, day, id) = loc
-            val audioUrl = "audioUrl" -> {
-              s"$year$month$day/$id"
-            }
+            val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${uri.withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day")).template
-        } toList
+            ("href" -> s"${ids.map{ v => uri.withQuery("_id" -> v)}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day")).template
+        } toList)
       }
     }
   }

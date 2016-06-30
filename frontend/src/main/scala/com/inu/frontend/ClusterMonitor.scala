@@ -25,7 +25,7 @@ class ClusterMonitor extends  Actor with ActorLogging {
   def registerBackendActors = {
 
     implicit val timeout = Timeout(3 seconds)
-    context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy").resolveOne.onFailure { case ex =>
+    system.actorSelection("/user/StoredQueryRepoAggRoot-Proxy").resolveOne.onFailure { case ex =>
       log.info(ex.getMessage)
       system.actorOf(ClusterSingletonProxy.props(
         singletonManagerPath = "/user/StoredQueryRepoAggRoot",
@@ -43,7 +43,7 @@ class ClusterMonitor extends  Actor with ActorLogging {
 
     case UnreachableMember(member) =>
       if(member.roles.contains("compute")) {
-        context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! PoisonPill
+        system.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! PoisonPill
       }
       log.warning(s"Cluster member unreachable: ${member.address}")
     case _: MemberEvent =>

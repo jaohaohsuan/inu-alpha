@@ -25,7 +25,7 @@ spec:
           - name: ES_CLUSTER_NAME
             value: myesdb
           - name: PEER_DISCOVERY_SERVICE
-            value: storedq-cluster.default.svc.cluster.local
+            value: storedq-cluster
           - name: AKKA_PERSISTENCE_SERVICE
             value: cassandra3.default.svc.cluster.local
           - name: CASSANDRA_DC

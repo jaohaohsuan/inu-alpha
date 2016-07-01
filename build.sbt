@@ -58,7 +58,7 @@ lazy val cluster = create("cluster")
     mainClass in Compile := Some("com.inu.cluster.Main"),
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl"),
       Cmd("ARG", "K8S_VERSION=1.2.4"),
       Cmd("RUN",
         """curl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VERSION/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \

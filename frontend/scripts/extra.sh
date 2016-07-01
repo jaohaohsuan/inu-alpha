@@ -15,6 +15,6 @@ function format {
   fi
 }
 
-SEED_NODES=$(kubectl get endpoints ${PEER_DISCOVERY_SERVICE} --no-headers | awk '{ print $2}')
+export SEED_NODES=$(kubectl get endpoints ${PEER_DISCOVERY_SERVICE} --no-headers | awk '{ print $2}')
 
 set +x

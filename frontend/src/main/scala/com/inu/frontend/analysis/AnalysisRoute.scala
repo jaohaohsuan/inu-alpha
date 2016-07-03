@@ -3,6 +3,7 @@ package com.inu.frontend.analysis
 import com.inu.frontend.CollectionJsonSupport
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
+import org.elasticsearch.search.aggregations.bucket.filters.Filters
 import org.json4s.JsonDSL._
 import org.json4s._
 import spray.http.StatusCodes._
@@ -11,7 +12,32 @@ import spray.routing._
 
 trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDirectives {
 
-  //def graph0
+  lazy val graph0 = path("graph0") {
+    conditions { searchSq =>
+      formatHits(searchSq) { conditionsMap =>
+        parameters('conditionSet.?) { ids =>
+          datasourceAggregation { dsa =>
+            storedQueryAggregation(dsa) { sqa =>
+              datasourceBuckets(sqa){ buckets =>
+                val arr = buckets.foldLeft(List.empty[JObject]){ (acc, bucket) =>
+                  // nested
+                  def format(b: Filters.Bucket, defaultKey: Option[String]): JArray = JArray(JString(defaultKey.getOrElse(b.getKeyAsString)) :: JInt(bucket.getDocCount) :: Nil)
+                  val values = individualBuckets(bucket) match {
+                    case Nil  => format(bucket, Some("*")) :: Nil
+                    case list => list.map(format(_, None))
+                  }
+                  ("key" -> bucket.getKeyAsString) ~~ ("values" -> values) :: acc
+                }
+                respondWithMediaType(spray.http.MediaTypes.`application/json`) {
+                  complete(OK, JArray(arr))
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   lazy val `_analysis`: Route =
     get {
@@ -93,22 +119,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
                 }
               }
             } ~
-            path("graph0") {
-              conditions { searchSq =>
-                formatHits(searchSq) { conditionsMap =>
-                  parameters('conditionSet.?) { ids =>
-                    datasourceAggregation { dsa =>
-                      storedQueryAggregation(dsa) { sqa =>
-                        val f = client.prepareSearch("logs-*").addAggregation(sqa).execute().future.map(_.getAggregations)
-                        onSuccess(f) { aggs =>
-                          complete(OK, s"$aggs")
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            graph0
           }
         }
       }

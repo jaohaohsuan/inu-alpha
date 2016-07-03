@@ -6,8 +6,8 @@ import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.aggregations.AggregationBuilders
-import org.elasticsearch.search.aggregations.bucket.filters.FiltersAggregationBuilder
+import org.elasticsearch.search.aggregations.{Aggregation, AggregationBuilders}
+import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAggregationBuilder}
 import org.json4s.JsonAST.{JArray, JString}
 import org.json4s._
 import org.json4s.native.JsonMethods._
@@ -231,7 +231,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
     }
   }
 
-  def storedQueryAggregation(agg: FiltersAggregationBuilder) = {
+  def storedQueryAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
     conditions.flatMap { searchSq =>
       formatHits(searchSq).flatMap { conditionsMap =>
         parameters('conditionSet.?).flatMap {
@@ -243,6 +243,22 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
           case _ => provide(agg)
         }
       }
+    }
+  }
+
+  def datasourceBuckets(aggf: FiltersAggregationBuilder): Directive1[List[Filters.Bucket]] = {
+      onSuccess(client.prepareSearch("logs-*").addAggregation(aggf).execute().future).flatMap { res =>
+        res.getAggregations.asMap().toMap.get("datasource") match {
+          case Some(f: Filters) => provide(f.getBuckets.toList)
+          case unknown => reject()
+        }
+      }
+  }
+
+  def individualBuckets(bucket: Filters.Bucket):List[Filters.Bucket] = {
+    bucket.getAggregations.asMap().toMap.get("individual") match {
+      case Some(individual:Filters) => individual.getBuckets.toList
+      case _ => Nil
     }
   }
 

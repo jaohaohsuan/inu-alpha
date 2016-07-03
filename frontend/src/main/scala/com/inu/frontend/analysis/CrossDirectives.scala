@@ -231,16 +231,33 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
     }
   }
 
-  def storedQueryAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
-    conditions.flatMap { searchSq =>
+  def conditionSetAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
+    `conditionSet+include`.flatMap { searchSq =>
       formatHits(searchSq).flatMap { conditionsMap =>
         parameters('conditionSet.?).flatMap {
           case Some(ids) if !ids.isEmpty =>
-            val qu = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
+            val individual = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
               acc.filter(c.title, wrapperQuery(c.query))
             }
-            provide(agg.subAggregation(qu))
+            provide(agg.subAggregation(individual))
           case _ => provide(agg)
+        }
+      }
+    }
+  }
+
+  def includeAggregation(agg: FiltersAggregationBuilder) = {
+    `conditionSet+include`.flatMap { searchSq =>
+      formatHits(searchSq).flatMap { map =>
+        parameters('conditionSet.?).flatMap { param0 =>
+          val conditionSetQuery = map.filterKeys(param0.getOrElse("").contains).values.foldLeft(boolQuery()){ (bool, el) =>  bool.must(wrapperQuery(el.query))}
+          parameters('include.?).flatMap {
+          case None => provide(agg)
+          case Some(param1) =>
+            provide(agg.subAggregation(map.filterKeys(param1.contains).foldLeft(AggregationBuilders.filters("cross")){ case (acc, (_,el)) =>
+              acc.filter(el.title, boolQuery().filter(conditionSetQuery).must(wrapperQuery(el.query)))
+            }))
+          }
         }
       }
     }
@@ -255,9 +272,9 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
       }
   }
 
-  def individualBuckets(bucket: Filters.Bucket):List[Filters.Bucket] = {
-    bucket.getAggregations.asMap().toMap.get("individual") match {
-      case Some(individual:Filters) => individual.getBuckets.toList
+  def getBuckets(bucket: Filters.Bucket, name: String):List[Filters.Bucket] = {
+    bucket.getAggregations.asMap().toMap.get(name) match {
+      case Some(f:Filters) => f.getBuckets.toList
       case _ => Nil
     }
   }

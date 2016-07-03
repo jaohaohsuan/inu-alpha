@@ -12,32 +12,43 @@ import spray.routing._
 
 trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDirectives {
 
-  lazy val graph0 = path("graph0") {
-    conditions { searchSq =>
-      formatHits(searchSq) { conditionsMap =>
-        parameters('conditionSet.?) { ids =>
-          datasourceAggregation { dsa =>
-            storedQueryAggregation(dsa) { sqa =>
-              datasourceBuckets(sqa){ buckets =>
-                val arr = buckets.foldLeft(List.empty[JObject]){ (acc, bucket) =>
+  lazy val graph =
+    respondWithMediaType(spray.http.MediaTypes.`application/json`) {
+      datasourceAggregation { agg0 =>
+          path("graph0") {
+            conditionSetAggregation(agg0) { agg1 =>
+              datasourceBuckets(agg1) { buckets =>
+                val arr = buckets.foldLeft(List.empty[JObject]) { (acc, bucket) =>
                   // nested
                   def format(b: Filters.Bucket, defaultKey: Option[String]): JArray = JArray(JString(defaultKey.getOrElse(b.getKeyAsString)) :: JInt(bucket.getDocCount) :: Nil)
-                  val values = individualBuckets(bucket) match {
+                  val values = getBuckets(bucket, "individual") match {
                     case Nil  => format(bucket, Some("*")) :: Nil
                     case list => list.map(format(_, None))
                   }
                   ("key" -> bucket.getKeyAsString) ~~ ("values" -> values) :: acc
                 }
-                respondWithMediaType(spray.http.MediaTypes.`application/json`) {
-                  complete(OK, JArray(arr))
+                complete(OK, JArray(arr))
+              }
+            }
+          } ~
+          path("graph1") {
+            includeAggregation(agg0) { agg1 =>
+              datasourceBuckets(agg1) { buckets =>
+                val arr = buckets.foldLeft(List.empty[JObject]) { (acc, bucket) =>
+                  def format(b: Filters.Bucket,defaultKey: Option[String] = None): JObject = ("label" -> defaultKey.getOrElse(b.getKeyAsString)) ~~ ("y" -> b.getDocCount.toInt)
+                  val zero = List(format(bucket, Some("*")) ~~ ("x" -> 0))
+                  val values = getBuckets(bucket, "cross") match {
+                    case Nil  => zero
+                    case list => list.foldLeft(zero){ (acc, el) => format(el) ~~ ("x" -> acc.size) :: acc }
+                  }
+                  ("key" -> bucket.getKeyAsString) ~~ ("values" -> values.reverse) :: acc
                 }
+                complete(OK, JArray(arr))
               }
             }
           }
-        }
       }
     }
-  }
 
   lazy val `_analysis`: Route =
     get {
@@ -66,15 +77,15 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
           } ~
           pathPrefix("cross") {
             pathEnd {
-              conditions { searchSq =>
+              `conditionSet+include` { searchSq =>
                 formatHits(searchSq) { conditionsMap =>
                   set(conditionsMap) { set =>
                     include(conditionsMap) { includes =>
                       exclude(conditionsMap) { excludes =>
                         val links = JField("links", JArray(
                           ("href" -> s"${uri.withPath(uri.path / "source")}") ~~ ("rel" -> "source") ::
-                          ("href" -> s"${uri.withPath(uri.path / "graph0")}") ~~ ("rel" -> "graph")  ::
-                          ("href" -> s"${uri.withPath(uri.path / "graph1")}") ~~ ("rel" -> "graph")  :: Nil))
+                          ("href" -> s"${uri.withPath(uri.path / "graph0")}") ~~ ("rel" -> "graph") ~~ ("render" -> "bar") ::
+                          ("href" -> s"${uri.withPath(uri.path / "graph1")}") ~~ ("rel" -> "graph") ~~ ("render" -> "line") :: Nil))
                         complete(OK, JField("href", JString(s"$uri")) :: links :: JField("items", JArray(set :: includes ++ excludes)) :: Nil)
                       }
                     }
@@ -105,7 +116,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
               }
             } ~
             path("logs") {
-              conditions { searchSq =>
+              `conditionSet+include` { searchSq =>
                 formatHits(searchSq) { conditionsMap =>
                   logs(conditionsMap) { res =>
                     extractHighlights(res) { items =>
@@ -119,7 +130,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
                 }
               }
             } ~
-            graph0
+            graph
           }
         }
       }

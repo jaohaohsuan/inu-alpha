@@ -34,6 +34,8 @@ object NodeConfigurator {
       val ifac = storedqPart.getString("ifac")
       val seedNodes = storedqPart.getString("seed-nodes")
 
+      println(s"$seedNodes")
+
       val host: String = getHostname.orElse(getHostLocalAddress)(ifac).trim
 
       val join: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim) }

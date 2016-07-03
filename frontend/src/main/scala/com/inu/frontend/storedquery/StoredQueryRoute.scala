@@ -100,13 +100,11 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
             clausePath("named")(NamedClause("temporary","query", "should")) ~
             pathPrefix("preview") {
               val previewWith = preview(storedQueryId)(_)
-              userFilter { filter =>
-                onSuccess(filter) { query =>
+              userFilter { query =>
                   import org.json4s.JsonDSL._
                   val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> (source \ "query" :: Nil))))
                   val withUserFilterQuery = query merge dd
                   previewWith(withUserFilterQuery \ "indices")
-                }
               } ~ previewWith(source \ "query")
             }
           }

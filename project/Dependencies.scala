@@ -23,6 +23,7 @@ object Library {
   val akkaHttpXmlExp           = "com.typesafe.akka" %% "akka-http-xml-experimental"          % Version.akka
   val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.16"
 
+  val kubernetes                 = "io.fabric8.forge"           % "kubernetes"                  % "2.2.211"
   val spray                      = "io.spray"                   %% "spray-can"                  % Version.spray
   val sprayRouting               = "io.spray"                   %% "spray-routing"              % Version.spray
   val sprayTestkit               = "io.spray"                   %% "spray-testkit"              % Version.spray                               % "test"

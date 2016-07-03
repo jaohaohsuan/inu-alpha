@@ -9,6 +9,7 @@ import spray.routing.{Directive1, Directives}
 import akka.pattern._
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
+import org.json4s.JsonAST.JArray
 import spray.http.HttpEntity._
 import spray.http.HttpHeaders.RawHeader
 import spray.http.HttpMethods._
@@ -34,16 +35,30 @@ trait UserProfileDirectives extends Directives {
     }
   }
 
-  def userFilter: Directive1[Future[JValue]] = {
+  def userFilter: Directive1[JValue] = {
     userSid.flatMap { sid =>
       val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filter")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
-      provide(response.map { res => res.entity match {
-        case entity: NonEmpty =>
-          import org.json4s.native.JsonMethods._
-          parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "query"
-          }
+      onSuccess(response).flatMap { res => res.entity match {
+          case entity: NonEmpty =>
+            import org.json4s.native.JsonMethods._
+            provide(parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "query")
+          case _ => reject
         }
-      )
+      }
+    }
+  }
+
+  def dataSourceFilters : Directive1[List[JValue]]= {
+    userSid.flatMap { sid =>
+      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filters")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
+      onSuccess(response).flatMap { res => res.entity match {
+          case entity: NonEmpty =>
+            import org.json4s.native.JsonMethods._
+            val JArray(xs) = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "esQueries"
+            provide(xs)
+          case _ => reject
+        }
+      }
     }
   }
 

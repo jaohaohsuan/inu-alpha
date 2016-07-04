@@ -225,9 +225,9 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
       val ds = filters.foldLeft(AggregationBuilders.filters("datasource")) { (acc, el) =>
         val JString(typ) = el \ "type"
         import org.json4s.native.JsonMethods._
-        val queryJson = compact(render(el \ "query" \ "query" ))
+        //val queryJson = compact(render(el \ "query" \ "query" ))
         //println(queryJson)
-        acc.filter(typ, wrapperQuery(queryJson))
+        acc.filter(typ, typeQuery(typ))
       }
       provide(ds)
     }
@@ -266,12 +266,14 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def datasourceBuckets(aggf: FiltersAggregationBuilder): Directive1[List[Filters.Bucket]] = {
-      onSuccess(client.prepareSearch().addAggregation(aggf).execute().future).flatMap { res =>
+    userFilter.flatMap { filter =>
+      onSuccess(client.prepareSearch().setQuery(wrapperQuery(compact(render(filter)))).addAggregation(aggf).execute().future).flatMap { res =>
         res.getAggregations.asMap().toMap.get("datasource") match {
           case Some(f: Filters) => provide(f.getBuckets.toList)
           case unknown => reject()
         }
       }
+    }
   }
 
   def getBuckets(bucket: Filters.Bucket, name: String):List[Filters.Bucket] = {

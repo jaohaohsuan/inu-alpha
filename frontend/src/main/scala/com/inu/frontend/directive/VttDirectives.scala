@@ -9,6 +9,7 @@ import org.elasticsearch.action.percolate.PercolateResponse.Match
 import org.elasticsearch.index.get.GetField
 import spray.routing._
 
+import scala.util.{Success, Try}
 import scala.util.matching.Regex
 
 trait VttDirectives extends Directives {
@@ -28,7 +29,9 @@ trait VttDirectives extends Directives {
 
   def extractFragments(matches: Iterable[Match]): Directive1[VttSubtitles] = {
     import SearchHitHighlightFields._
-     provide(matches.flatMap(_.getHighlightFields)
+     provide(matches.flatMap { m =>
+       Try(m.getHighlightFields.toMap).getOrElse(Map.empty)
+      }
       .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
       .flatMap {
         case highlightedSentence(cueid, highlight) => Some(cueid -> highlight)

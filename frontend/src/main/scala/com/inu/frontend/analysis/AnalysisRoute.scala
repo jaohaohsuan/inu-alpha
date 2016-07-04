@@ -3,6 +3,7 @@ package com.inu.frontend.analysis
 import com.inu.frontend.CollectionJsonSupport
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
+import org.elasticsearch.common.xcontent.{ToXContent, XContentFactory, XContentType}
 import org.elasticsearch.search.aggregations.bucket.filters.Filters
 import org.json4s.JsonDSL._
 import org.json4s._
@@ -12,11 +13,17 @@ import spray.routing._
 
 trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDirectives {
 
+  val builder =  XContentFactory.contentBuilder(XContentType.JSON);
   lazy val graph =
     respondWithMediaType(spray.http.MediaTypes.`application/json`) {
       datasourceAggregation { agg0 =>
           path("graph0") {
             conditionSetAggregation(agg0) { agg1 =>
+              println("conditionSetAggregation")
+              builder.startObject()
+              agg1.toXContent(builder, ToXContent.EMPTY_PARAMS)
+              builder.endObject()
+              println(builder.string)
               datasourceBuckets(agg1) { buckets =>
                 val arr = buckets.foldLeft(List.empty[JObject]) { (acc, bucket) =>
                   // nested

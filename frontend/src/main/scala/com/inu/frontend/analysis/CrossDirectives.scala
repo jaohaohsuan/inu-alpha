@@ -248,7 +248,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                 println(s"conditionSetAggregation ${c.title}")
                 println(s"${c.query}")
                 //println(s"${pretty(render(withUserFilterQuery))}")
-                acc.filter(c.title, wrapperQuery(c.query))
+                acc.filter(c.title, boolQuery().must(wrapperQuery(c.query)))
               }
               provide(agg.subAggregation(individual))
             case _ => provide(agg)

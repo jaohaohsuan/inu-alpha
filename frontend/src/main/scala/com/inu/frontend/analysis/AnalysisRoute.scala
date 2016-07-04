@@ -28,7 +28,9 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
 
                 val arr = buckets.foldLeft(List.empty[JObject]) { (acc, bucket) =>
                   // nested
-                  def format(b: Filters.Bucket, defaultKey: Option[String]): JArray = JArray(JString(defaultKey.getOrElse(b.getKeyAsString)) :: JInt(b.getDocCount) :: Nil)
+                  def format(b: Filters.Bucket, defaultKey: Option[String]): JArray = {
+                    JArray(JString(defaultKey.getOrElse(b.getKeyAsString)) :: JInt(b.getDocCount) :: Nil)
+                  }
                   val values = getBuckets(bucket, "individual") match {
                     case Nil  => format(bucket, Some("*")) :: Nil
                     case list => list.map(format(_, None))

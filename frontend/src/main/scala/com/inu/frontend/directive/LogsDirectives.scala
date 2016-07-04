@@ -28,11 +28,11 @@ trait LogsDirectives extends Directives {
     parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
       case size :: from :: HNil => {
         //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
-        val JArray(xs) = query \ "indices"
-        val indices = xs.map { case JString(s) => s}
+        //val JArray(xs) = query \ "indices" \ "indices"
+        //val indices = xs.map { case JString(s) => s}
         provide(
-          client.prepareSearch("logs-*")
-                .setQuery(indicesQuery(wrapperQuery(compact(render(query \ "query"))), indices: _*).noMatchQuery("none"))
+          client.prepareSearch()
+                .setQuery(wrapperQuery(compact(render(query))))
                 .setSize(size).setFrom(from)
                 .addField("vtt")
                   .setHighlighterRequireFieldMatch(true)

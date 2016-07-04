@@ -234,15 +234,24 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def conditionSetAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
-    `conditionSet+include`.flatMap { searchSq =>
-      formatHits(searchSq).flatMap { conditionsMap =>
-        parameters('conditionSet.?).flatMap {
-          case Some(ids) if !ids.isEmpty =>
-            val individual = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
-              acc.filter(c.title, wrapperQuery(c.query))
-            }
-            provide(agg.subAggregation(individual))
-          case _ => provide(agg)
+    userFilter.flatMap { filter =>
+      `conditionSet+include`.flatMap { searchSq =>
+        formatHits(searchSq).flatMap { conditionsMap =>
+          parameters('conditionSet.?).flatMap {
+            case Some(ids) if !ids.isEmpty =>
+              val individual = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
+                val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> Set(parse(c.query)))))
+                val withUserFilterQuery = filter merge dd
+                val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
+                val indices = xs.collect { case JString(s) => s}
+                val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
+                //println(s"conditionSetAggregation ${c.title}")
+                //println(s"${pretty(render(withUserFilterQuery))}")
+                acc.filter(c.title, q)
+              }
+              provide(agg.subAggregation(individual))
+            case _ => provide(agg)
+          }
         }
       }
     }
@@ -266,14 +275,15 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def datasourceBuckets(aggf: FiltersAggregationBuilder): Directive1[List[Filters.Bucket]] = {
-    userFilter.flatMap { filter =>
-      onSuccess(client.prepareSearch().setQuery(wrapperQuery(compact(render(filter)))).addAggregation(aggf).execute().future).flatMap { res =>
+    //userFilter.flatMap { filter =>
+      //.setQuery(wrapperQuery(compact(render(filter))))
+      onSuccess(client.prepareSearch().addAggregation(aggf).execute().future).flatMap { res =>
         res.getAggregations.asMap().toMap.get("datasource") match {
           case Some(f: Filters) => provide(f.getBuckets.toList)
           case unknown => reject()
         }
       }
-    }
+    //}
   }
 
   def getBuckets(bucket: Filters.Bucket, name: String):List[Filters.Bucket] = {

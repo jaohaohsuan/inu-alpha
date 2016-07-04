@@ -234,28 +234,28 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def conditionSetAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
-    userFilter.flatMap { filter =>
+    //userFilter.flatMap { filter =>
       `conditionSet+include`.flatMap { searchSq =>
         formatHits(searchSq).flatMap { conditionsMap =>
           parameters('conditionSet.?).flatMap {
             case Some(ids) if !ids.isEmpty =>
               val individual = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
-                val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> Set(parse(c.query)))))
-                val withUserFilterQuery = filter merge dd
-                val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
-                val indices = xs.collect { case JString(s) => s}
-                val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
-                println(s"conditionSetAggregation ${c.title}")
-                println(s"${c.query}")
+                //val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> Set(parse(c.query)))))
+                //val withUserFilterQuery = filter merge dd
+                //val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
+                //val indices = xs.collect { case JString(s) => s}
+                //val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
+                //println(s"conditionSetAggregation ${c.title}")
+                //println(s"${c.query}")
                 //println(s"${pretty(render(withUserFilterQuery))}")
-                acc.filter(c.title, boolQuery().must(wrapperQuery(c.query)))
+                acc.filter(c.title, wrapperQuery(c.query))
               }
               provide(agg.subAggregation(individual))
             case _ => provide(agg)
           }
         }
       }
-    }
+    //}
   }
 
   def includeAggregation(agg: FiltersAggregationBuilder) = {
@@ -289,7 +289,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   def getBuckets(bucket: Filters.Bucket, name: String):List[Filters.Bucket] = {
     bucket.getAggregations.asMap().toMap.get(name) match {
       case Some(f:Filters) => f.getBuckets.toList
-      case _ => Nil
+      case unknown => Nil //println(s"get $name buckets: $unknown")
     }
   }
 

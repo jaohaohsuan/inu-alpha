@@ -4,6 +4,7 @@ kind: Service
 metadata:
   name: storedq-cluster
 spec:
+  clusterIP: None
   ports:
   - name: peer
     port: 2551

@@ -84,18 +84,18 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
       requestUri.flatMap { uri =>
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
         provide(r.getHits.map {
-          case SearchHitHighlightFields(loc, fragments) =>
+          case hit@SearchHitHighlightFields(loc, fragments) =>
             val highlight = "highlight" -> fragments.map { case VttHighlightFragment(start, kw) => s"$start $kw" }
             val keywords = "keywords" -> fragments.flatMap { _.keywords.split("""\s+""") }.toSet.mkString(" ")
             val extractor(year, month, day, id) = loc
             val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${ids.map{ v => uri.withQuery("_id" -> v)}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day")).template
+            ("href" -> s"${ids.map{ v => uri.withQuery("_id" -> v)}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~
+            Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
         } toList)
       }
     }
   }
-
 
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
@@ -104,10 +104,21 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
           case size :: from :: HNil => {
             //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
             onSuccess(
-              client.prepareSearch("logs-*")
+              Seq(
+                "startTime",
+                "endTime",
+                "length",
+                "endStatus",
+                "projectName",
+                "agentPhoneNo",
+                "agentId",
+                "agentName",
+                "callDirection",
+                "customerPhoneNo",
+                "customerGender").foldLeft(client.prepareSearch("logs-*")
                 .setQuery(q)
                 .setSize(size).setFrom(from)
-                .addField("vtt")
+                .addField("vtt")){ (acc, f) => acc.addField(f) }
                 .setHighlighterRequireFieldMatch(true)
                 .setHighlighterNumOfFragments(0)
                 .setHighlighterPreTags("<em>")

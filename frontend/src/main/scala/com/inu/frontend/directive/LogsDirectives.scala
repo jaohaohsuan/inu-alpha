@@ -24,27 +24,46 @@ trait LogsDirectives extends Directives {
     }
   }
 
+  def userFields = {
+    provide(Seq(
+      "startTime",
+      "endTime",
+      "length",
+      "endStatus",
+      "projectName",
+      "agentPhoneNo",
+      "agentId",
+      "agentName",
+      "callDirection",
+      "customerPhoneNo",
+      "customerGender"))
+  }
+
   def prepareSearchLogs(query: JValue): Directive1[SearchRequestBuilder] = {
-    parameter('size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
-      case size :: from :: HNil => {
-        //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
-        //val JArray(xs) = query \ "indices" \ "indices"
-        //val indices = xs.map { case JString(s) => s}
-        provide(
-          client.prepareSearch()
-                .setQuery(wrapperQuery(compact(render(query))))
-                .setSize(size).setFrom(from)
-                .addField("vtt")
-                  .setHighlighterRequireFieldMatch(true)
-                  .setHighlighterNumOfFragments(0)
-                  .setHighlighterPreTags("<em>")
-                  .setHighlighterPostTags("</em>")
-                  .addHighlightedField("agent*")
-                  .addHighlightedField("customer*")
-                  .addHighlightedField("dialogs")
-        )
+    userFields.flatMap { fields =>
+      parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
+        case size :: from :: HNil => {
+          //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+          //val JArray(xs) = query \ "indices" \ "indices"
+          //val indices = xs.map { case JString(s) => s}
+
+
+          provide(
+            fields.foldLeft(client.prepareSearch()
+              .setQuery(wrapperQuery(compact(render(query))))
+              .setSize(size).setFrom(from)
+              .addField("vtt")){ (acc, f) => acc.addField(f) }
+              .setHighlighterRequireFieldMatch(true)
+              .setHighlighterNumOfFragments(0)
+              .setHighlighterPreTags("<em>")
+              .setHighlighterPostTags("</em>")
+              .addHighlightedField("agent*")
+              .addHighlightedField("customer*")
+              .addHighlightedField("dialogs")
+          )
+        }
+        case _ => reject
       }
-      case _ => reject
     }
   }
 

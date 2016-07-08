@@ -76,6 +76,9 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
     //println(s"$id, $res")
    })
 
+  //Sink.fold(Set.empty[String])
+
+
   def receive: Receive = {
     case _ =>
 

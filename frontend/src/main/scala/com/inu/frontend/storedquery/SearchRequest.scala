@@ -4,6 +4,7 @@ import akka.actor.Props
 import akka.pattern._
 import akka.util.Timeout
 import com.inu.frontend.CollectionJsonSupport._
+import com.inu.frontend.directive.StoredQueryDirectives
 import com.inu.frontend.{CollectionJsonSupport, PerRequest}
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.Client
@@ -35,22 +36,22 @@ object SearchRequest {
 
 case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                          qb: QueryBuilder,
-                         size: Int, from: Int) extends PerRequest with CollectionJsonSupport {
+                         size: Int, from: Int) extends PerRequest with CollectionJsonSupport with StoredQueryDirectives {
 
   import com.inu.frontend.elasticsearch.ImplicitConversions._
   import com.inu.frontend.UriImplicitConversions._
-  import context.dispatcher
+  implicit val executionContext = context.dispatcher
 
   implicit val timeout = Timeout(5 seconds)
 
   (for {
-    tags <- Future { "for demo only" }
+   // tags <- Future { "for demo only" }
     searchResponse <- client.prepareSearch("stored-query").setTypes(".percolator")
       .setQuery(qb)
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)
       .execute().future
-  } yield (searchResponse, tags)) pipeTo self
+  } yield searchResponse) pipeTo self
 
   def extractItems(sr: SearchResponse): Directive1[List[JValue]] = {
     requestUri.flatMap { uri =>
@@ -72,32 +73,34 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
   }
 
   def processResult: Receive = {
-    case (r: SearchResponse ,tags: String) =>
+    case r: SearchResponse =>
       response {
         requestUri(implicit uri => {
           pagination(r)(uri) { p =>
             extractItems(r) { items =>
               respondWithMediaType(`application/vnd.collection+json`) {
+                tags { allTags =>
+                  val href = JField("href", JString(s"${uri.withQuery()}"))
+                  val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
+                  val links = JField("links", JArray(temporary :: p.links))
 
-                val href = JField("href", JString(s"${uri.withQuery()}"))
-                val temporary = ("rel" -> "edit") ~~ ("href" -> s"${uri.withQuery() / "temporary"}")
-                val links = JField("links", JArray(temporary :: p.links))
+                  val template = JField("template", "data" -> Set(
+                    ("name" -> "title") ~~ ("value" -> "query0") ~~ ("prompt" -> "title can not be empty"),
+                    ("name" -> "tags") ~~ ("value" -> allTags) ~~ ("prompt" -> "optional")
+                  ))
 
-                val template = JField("template", "data" -> Set(
-                  ("name" -> "title") ~~ ("value" -> "query0") ~~ ("prompt" -> "title can not be empty"),
-                  ("name" -> "tags") ~~ ("value" -> "tag0 tag1") ~~ ("prompt" -> "optional")
-                ))
+                  val queries = JField("queries", JArray(("href" -> s"${uri.withQuery()}") ~~
+                    ("rel" -> "search") ~~
+                    ("data" -> Set(
+                      ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
+                      ("name" -> "tags") ~~ ("prompt" -> ""),
+                      ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
+                      ("name" -> "from") ~~ ("prompt" -> "items display from")
+                    )) :: Nil)
+                  )
+                  complete(OK, href :: links :: JField("items", JArray(items)) :: queries :: template :: Nil)
 
-                val queries = JField("queries", JArray(("href" -> s"${uri.withQuery()}") ~~
-                  ("rel" -> "search") ~~
-                  ("data" -> Set(
-                    ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
-                    ("name" -> "tags") ~~ ("prompt" -> ""),
-                    ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
-                    ("name" -> "from") ~~ ("prompt" -> "items display from")
-                  )) :: Nil)
-                )
-                complete(OK, href :: links :: JField("items", JArray(items)) :: queries :: template :: Nil)
+              }
               }
             }
           }

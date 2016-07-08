@@ -12,8 +12,12 @@ import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
+import org.elasticsearch.search.aggregations.{Aggregation, AggregationBuilders, Aggregations}
 import org.elasticsearch.search.{SearchHit, SearchHits}
 import org.json4s._
+
+import scala.util.Failure
 
 trait StoredQueryDirectives extends Directives {
 
@@ -87,6 +91,18 @@ trait StoredQueryDirectives extends Directives {
             case ids => query.must(QueryBuilders.idsQuery(".percolator").addIds(ids))
           })
           .setFetchSource(Array("query", "title"), null))
+    }
+  }
+
+  def tags: Directive1[String]  = {
+    val f = client.prepareSearch("stored-query").setTypes(".percolator")
+      .setSize(0)
+      .addAggregation(AggregationBuilders.terms("tags").field("tags"))
+        .execute().future.map { res => res.getAggregations.get[StringTerms]("tags").getBuckets.map { bucket => bucket.getKeyAsString }.mkString(" ") }
+
+    onComplete(f).flatMap {
+      case scala.util.Success(value) => provide(value)
+      case scala.util.Failure(ex) => provide("")
     }
   }
 

@@ -93,7 +93,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                     ("rel" -> "search") ~~
                     ("data" -> Set(
                       ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
-                      ("name" -> "tags") ~~ ("prompt" -> ""),
+                      ("name" -> "tags") ~~ ("prompt" -> allTags),
                       ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
                       ("name" -> "from") ~~ ("prompt" -> "items display from")
                     )) :: Nil)

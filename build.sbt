@@ -93,7 +93,7 @@ lazy val frontend = create("frontend").
     buildInfoPackage := s"com.inu.frontend.storedq",
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl", "tzdata"),
       Cmd("ARG", "K8S_VERSION=1.2.4"),
       Cmd("RUN",
         """curl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VERSION/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \
@@ -103,6 +103,7 @@ lazy val frontend = create("frontend").
       Cmd("WORKDIR", "/opt/docker"),
       Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
       Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
+      Cmd("ENV", "TZ Asia/Taipei"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
       Cmd("EXPOSE", "2551", "7879"),
       Cmd("USER", "daemon"),

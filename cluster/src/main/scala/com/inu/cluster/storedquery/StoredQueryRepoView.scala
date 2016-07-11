@@ -43,9 +43,8 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
 
   val changes = Flow[StoredQueries].mapConcat { case StoredQueries(items, _, changes@x :: xs) =>
 
-    //x.flatMap(items.get)
-    x.flatMap{ e => items.get(e).map { x => retrieveDependencies(x, items) } }
-
+    x.reverse.flatMap(items.get).map(retrieveDependencies(_, items))
+    //x.flatMap { e => items.get(e).map { x => retrieveDependencies(x, items) } }
   }
 
   def retrieveDependencies(item: StoredQuery, items: Map[String, StoredQuery]): StoredQuery =

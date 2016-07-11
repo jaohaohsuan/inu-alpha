@@ -58,7 +58,7 @@ lazy val cluster = create("cluster")
     mainClass in Compile := Some("com.inu.cluster.Main"),
     dockerCommands := Seq(
       Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl"),
+      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl", "tzdata"),
       Cmd("ARG", "K8S_VERSION=1.2.4"),
       Cmd("RUN",
         """curl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VERSION/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \
@@ -66,6 +66,7 @@ lazy val cluster = create("cluster")
           | kubectl --help
         """.stripMargin),
       Cmd("WORKDIR", "/opt/docker"),
+      Cmd("ENV", "TZ Asia/Taipei"),
       Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
       Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
       ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),

@@ -15,8 +15,8 @@ object QueryTerms {
 
   def extract(values: Iterable[BoolClause]): List[String] =
     values.flatMap({
-      case MatchClause(query, _, _ , _) => query.split("""\s+""").toList
-      case SpanNearClause(terms, _, _, _, _) => terms.split("""\s+""").toList
+      case MatchClause(query, _, _ , _) =>  """\w+""".r findAllIn query
+      case SpanNearClause(terms, _, _, _, _) =>  """\w+""".r findAllIn terms
       case NamedClause(_, _, _, clauses) => extract(clauses.getOrElse(Map.empty).values)
     }) toList
 }

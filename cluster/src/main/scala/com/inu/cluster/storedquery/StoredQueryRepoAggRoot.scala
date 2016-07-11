@@ -186,7 +186,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case UpdateStoredQuery(_, "", _) => sender() ! RejectAck(s"title can not be blank")
 
     case UpdateStoredQuery(storedQueryId, title, tags) =>
-      doPersist(ItemUpdated(storedQueryId, title, tags.getOrElse("").split("""\s+""").toSet), PersistedAck(sender(),Some(UpdatedAck)))
+      doPersist(ItemUpdated(storedQueryId, title, ("""\w+""".r findAllIn tags.getOrElse("")).toSet), PersistedAck(sender(),Some(UpdatedAck)))
 
     case AddClause(storedQueryId, clause: BoolClause) if !storedQueryId.exist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
 

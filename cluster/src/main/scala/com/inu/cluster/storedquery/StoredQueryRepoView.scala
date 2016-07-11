@@ -73,7 +73,7 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
   })
 
   g.via(put).via(connectionFlow).runWith(Sink.foreach { case (res,id) =>
-    //println(s"$id, $res")
+    println(s"$id, ${res.get.entity.toString}")
    })
 
   //Sink.fold(Set.empty[String])

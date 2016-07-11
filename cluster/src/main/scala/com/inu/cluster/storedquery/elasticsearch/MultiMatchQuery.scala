@@ -11,7 +11,7 @@ object MultiMatchQuery {
       (occur -> Set(
         "multi_match" ->
           ("query"    -> q) ~~
-            ("fields"   -> f.split("""\s+""").toList) ~~
+            ("fields" -> ("""\w+""".r findAllIn f).toSet) ~~
             ("operator" -> o)
       ))
     )

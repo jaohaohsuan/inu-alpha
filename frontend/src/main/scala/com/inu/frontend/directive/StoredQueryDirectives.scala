@@ -1,23 +1,19 @@
 package com.inu.frontend.directive
 
+import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.search.SearchRequestBuilder
+import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import spray.routing._
 import shapeless._
+import spray.routing._
 
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
-import com.inu.frontend.elasticsearch.ImplicitConversions._
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
-import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
-import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
-import org.elasticsearch.search.aggregations.{Aggregation, AggregationBuilders, Aggregations}
-import org.elasticsearch.search.{SearchHit, SearchHits}
-import org.json4s._
-
-import scala.util.Failure
 
 trait StoredQueryDirectives extends Directives {
 
@@ -56,7 +52,7 @@ trait StoredQueryDirectives extends Directives {
   def percolate(gr: GetResponse) = {
     parameters("_id".?).flatMap {
       case _id => {
-        val ids = _id.map{ raw => raw.split("""[\+\s]""").map{ id => s""""$id"""" }.mkString(",") }.getOrElse("")
+        val ids = ("""\w+""".r findAllIn _id.getOrElse("")).toSet.mkString(",")
         provide(client.preparePercolate()
           .setIndices("stored-query")
           .setDocumentType(gr.getType)

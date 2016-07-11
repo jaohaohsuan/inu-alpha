@@ -56,7 +56,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
   def extractItems(sr: SearchResponse): Directive1[List[JValue]] = {
     requestUri.flatMap { uri =>
       import com.inu.frontend.UriImplicitConversions._
-      val dropQuery = uri.drop("q", "size", "from")
+      val dropQuery = uri.drop("q", "size", "from", "tags")
 
       val hits = parse(s"$sr") \ "hits" \ "hits" match {
         case o: JObject => o :: Nil

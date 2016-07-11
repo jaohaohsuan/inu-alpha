@@ -24,13 +24,13 @@ object Percolator {
       ("href"   -> id) ~~
       ("data" -> Set(
         ("name" -> "title") ~~ ("value" -> title),
-        ("name" -> "tags") ~~ ("value" -> tags.mkString(" "))
+        ("name" -> "tags") ~~ ("value" -> tags.filterNot(_.isEmpty).mkString(" "))
       ))
       // ~~ ("links" -> JArray(Nil))
 
     val doc =
       ("title" -> title) ~~
-      ("tags"  -> tags) ~~
+      ("tags"  -> tags.filterNot(_.isEmpty)) ~~
       ("query" -> query) ~~
       ("item"  -> item) ~~
       ("occurs" -> occurs)

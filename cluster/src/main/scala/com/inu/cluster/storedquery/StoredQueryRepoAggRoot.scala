@@ -2,6 +2,7 @@ package com.inu.cluster.storedquery
 
 import akka.actor.Props
 import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.remote.ContainerFormats.ActorRef
 import com.inu.cluster.storedquery.algorithm.TopologicalSort
 import com.inu.protocol.storedquery.messages._
 import messages._
@@ -177,12 +178,12 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case Initial if state.items.contains("temporary") =>
       sender() ! RejectAck("already initialized")
 
-    case CreateNewStoredQuery(_, Some(refId), _) if !refId.exist() => sender() ! RejectAck(s"$refId is not exist.")
+    case CreateNewStoredQuery(_, Some(refId), _) if refId.notExist() => sender() ! RejectAck(s"$refId is not exist.")
 
     case CreateNewStoredQuery(title,refId, tags) =>
       doPersist(ItemCreated(state.newItemId, title, refId, tags), PersistedAck(sender(),Some(StoredQueryCreatedAck(state.newItemId))))
 
-    case UpdateStoredQuery(storedQueryId, _, _) if !storedQueryId.exist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
+    case UpdateStoredQuery(storedQueryId, _, _) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
 
     case UpdateStoredQuery(_, "", _) => sender() ! RejectAck(s"title can not be blank")
 
@@ -206,18 +207,19 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
       }
     }
 
-    case RemoveClauses(id, _) if !id.exist() => sender() ! RejectAck(s"$id is not exist.")
-
+    case RemoveClauses(id, _) if id.notExist() => sender() ! RejectAck(s"$id is not exist.")
     case RemoveClauses(storedQueryId, ids) =>
-      val clauses = (storedQueryId: StoredQuery).clauses
-      doPersist(ClauseRemoved(storedQueryId, clauses.filterKeys(ids.contains)), PersistedAck(sender(), Some(ClausesRemovedAck)))
+        storedQueryId.clauses.filterKeys(ids.contains) match {
+          case filtered if filtered.isEmpty => sender() !  ClausesRemovedAck
+          case clauses                      => doPersist(ClauseRemoved(storedQueryId, clauses), PersistedAck(sender(), Some(ClausesRemovedAck)))
+        }
 
-    case ResetOccurrence(id, _) if !id.exist() => sender() ! RejectAck(s"$id is not exist.")
-
+    case ResetOccurrence(id, _) if id.notExist() => sender() ! RejectAck(s"$id is not exist.")
     case ResetOccurrence(storedQueryId, occurrence) =>
-      val clauses = (storedQueryId: StoredQuery).clauses
-      val removeClauses = clauses.filter{ case (_, BoolClause(occur)) => occur == occurrence }
-      doPersist(ClauseRemoved(storedQueryId, removeClauses), PersistedAck(sender(), Some(ClausesRemovedAck)))
+      storedQueryId.clauses.filter{ case (_, BoolClause(occur)) => occur == occurrence } match {
+        case filtered if filtered.isEmpty => sender() !  ClausesRemovedAck
+        case removeClauses                =>  doPersist(ClauseRemoved(storedQueryId, removeClauses), PersistedAck(sender(), Some(ClausesRemovedAck)))
+      }
   }
 
   val receiveRecover: Receive = {

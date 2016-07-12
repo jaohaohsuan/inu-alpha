@@ -14,9 +14,9 @@ object MultiSpanNearQuery {
         ("slop"             -> slop)
 
   def unapply(arg: SpanNearClause): Option[JValue] = {
-    val SpanNearClause(terms, _, slop, inOrder, occur) = arg
+    val SpanNearClause(query, _, slop, inOrder, occur) = arg
 
-    ("""\w*""".r findAllIn terms).toSet match {
+    ("""[\w\u4e00-\u9fa5]+""".r findAllIn query).toSet match {
       case xs if xs.isEmpty => None
       case xs =>
         val spanNear = spanNearQuery(inOrder, slop, xs)(_)

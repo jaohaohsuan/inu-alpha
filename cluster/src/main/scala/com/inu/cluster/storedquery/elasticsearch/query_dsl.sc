@@ -8,3 +8,5 @@ val MultiSpanNearQuery(json) = spn1
 import org.json4s.native.JsonMethods._
 
 pretty(render(json))
+
+("""[\w\u4e00-\u9fa5]+""".r findAllIn "高興 為您 hello world").toList

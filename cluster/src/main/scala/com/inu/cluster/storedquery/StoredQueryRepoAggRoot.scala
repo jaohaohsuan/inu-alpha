@@ -17,7 +17,8 @@ object StoredQueryRepoAggRoot {
   def props = Props(classOf[StoredQueryRepoAggRoot])
 
   implicit class idValidator(id: String) {
-    def exist()(implicit state: StoredQueries) = state.items.get(id).isDefined
+    def exist()(implicit state: StoredQueries): Boolean = state.items.contains(id)
+    def notExist()(implicit state: StoredQueries): Boolean = !state.items.contains(id)
   }
 
   implicit def getEntity(id: String)(implicit state: StoredQueries): StoredQuery = state.items(id)
@@ -188,8 +189,9 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case UpdateStoredQuery(storedQueryId, title, tags) =>
       doPersist(ItemUpdated(storedQueryId, title, ("""\w+""".r findAllIn tags.getOrElse("")).toSet), PersistedAck(sender(),Some(UpdatedAck)))
 
-    case AddClause(storedQueryId, clause: BoolClause) if !storedQueryId.exist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
-
+    case AddClause(storedQueryId, clause: BoolClause) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
+    case AddClause(_, NamedClause(refId, _, _, _))    if refId.notExist()         => sender() ! RejectAck(s"$refId is not exist.")
+    case AddClause(_, NamedClause("temporary", _, _, _))                          => sender() ! RejectAck(s"temporary stored query cannot be referenced.")
 
     case AddClause(storedQueryId, clause: BoolClause) => {
       def genClauseId(item: StoredQuery): Int = {

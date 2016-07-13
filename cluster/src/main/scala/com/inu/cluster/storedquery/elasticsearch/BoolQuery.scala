@@ -4,8 +4,7 @@ package com.inu.cluster.storedquery.elasticsearch
 import org.json4s.JsonDSL._
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import org.json4s.native.Serialization.{read, write}
-import org.json4s.native.Serialization
+import org.json4s.native.Serialization.{write}
 import com.inu.protocol.storedquery.messages._
 
 import scala.language.implicitConversions
@@ -20,7 +19,14 @@ object BoolQuery {
         val query: JValue = clause match {
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
-          case NamedClause(_, _, occur, innerClauses) => "bool" -> (occur -> Set(build(innerClauses.getOrElse(Map.empty).values)))
+          case NamedClause(_, _, occur, innerClauses) =>
+            "bool" -> (occur -> Set(build(innerClauses.getOrElse(Map.empty).values).filter {
+              case JObject(Nil) => false
+              case JNothing => false
+              case JNull => false
+              case _ => true
+              }))
+          case _ => JNothing
         }
         acc merge query
       }

@@ -15,9 +15,8 @@ object MultiSpanNearQuery {
 
   def unapply(arg: SpanNearClause): Option[JValue] = {
     val SpanNearClause(query, _, slop, inOrder, occur) = arg
-
-    ("""[\w\u4e00-\u9fa5]+""".r findAllIn query).toSet match {
-      case xs if xs.isEmpty => None
+    query.split("""[\s,]+""").toSet match {
+      case xs if xs.isEmpty => Some(JNothing)
       case xs =>
         val spanNear = spanNearQuery(inOrder, slop, xs)(_)
         val clause = "bool" -> ("should" -> arg.fields.map(spanNear).toSet)

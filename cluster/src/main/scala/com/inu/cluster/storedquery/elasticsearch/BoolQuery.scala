@@ -16,18 +16,13 @@ object BoolQuery {
     val empty: JValue = parse("""{ "bool": {} }""")
     def build(clauses: Iterable[BoolClause]): JValue = {
       clauses.foldLeft(empty) { (acc, clause) =>
-        val query: JValue = clause match {
+       val query: JValue = clause match {
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
           case NamedClause(_, _, occur, innerClauses) =>
-            List(build(innerClauses.getOrElse(Map.empty).values).filter {
-              case JObject(Nil) => false
-              case JNothing => false
-              case JNull => false
-              case _ => true
-            }) match {
+            innerClauses.getOrElse(Map.empty).values.toList match {
               case Nil => JNothing
-              case xs => "bool" -> (occur -> xs)
+              case xs => "bool" -> (occur -> build(xs)): JObject
             }
           case _ => JNothing
         }

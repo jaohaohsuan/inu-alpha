@@ -20,7 +20,7 @@ trait StoredQueryDirectives extends Directives {
   implicit def executionContext: ExecutionContext
   implicit def client: org.elasticsearch.client.Client
 
-  implicit def toSeq(p: Option[String]): Seq[String] = ("""\w+""".r findAllIn p.getOrElse("")).toSeq
+  implicit def toSeq(p: Option[String]): Seq[String] =  p.getOrElse("").split("""[\s,]+""").toSeq
 
   implicit class BoolQueryOps(b: BoolQueryBuilder) {
 
@@ -52,7 +52,7 @@ trait StoredQueryDirectives extends Directives {
   def percolate(gr: GetResponse) = {
     parameters("_id".?).flatMap {
       case _id => {
-        val ids = ("""\w+""".r findAllIn _id.getOrElse("")).map{ id => s""""$id"""" }.toSet.mkString(",")
+        val ids = _id.getOrElse("").split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")
         val doc = gr.getSourceAsString
         provide(client.preparePercolate()
           .setIndices("stored-query")

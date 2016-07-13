@@ -83,6 +83,8 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   g.via(put).via(connectionFlow).runWith(Sink.foreach { case (res,id) =>
     res.get.status match {
       case OK => logger.debug("{} -- {}", id, res.get.status)
+      case Created => logger.debug("{} -- {}", id, res.get.status)
+      case Accepted => logger.debug("{} -- {}", id, res.get.status)
       case unexpected => logger.error("{} -- {}", id, res.get.entity.toString)
     }
    })

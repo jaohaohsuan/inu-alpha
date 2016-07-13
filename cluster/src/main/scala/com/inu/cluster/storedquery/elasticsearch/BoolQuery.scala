@@ -20,12 +20,15 @@ object BoolQuery {
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
           case NamedClause(_, _, occur, innerClauses) =>
-            "bool" -> (occur -> Set(build(innerClauses.getOrElse(Map.empty).values).filter {
+            List(build(innerClauses.getOrElse(Map.empty).values).filter {
               case JObject(Nil) => false
               case JNothing => false
               case JNull => false
               case _ => true
-              }))
+            }) match {
+              case Nil => JNothing
+              case xs => "bool" -> (occur -> xs)
+            }
           case _ => JNothing
         }
         acc merge query

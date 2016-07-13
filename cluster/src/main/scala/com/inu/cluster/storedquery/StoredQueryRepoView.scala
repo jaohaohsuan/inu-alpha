@@ -9,6 +9,7 @@ import akka.stream.{ActorMaterializer, SourceShape}
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.language.implicitConversions
 
@@ -17,9 +18,10 @@ object StoredQueryRepoView {
   def props = Props[StoredQueryRepoView]
 }
 
-class StoredQueryRepoView extends Actor with PercolatorWriter {
+class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
 
   import StoredQueryRepoAggRoot._
+  import akka.http.scaladsl.model.StatusCodes._
 
   val config = ConfigFactory.load()
 
@@ -36,7 +38,10 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
-  val states = Flow[EventEnvelope].scan(StoredQueries()){ (acc, e) => acc.update(e.event) }.filter {
+  val states = Flow[EventEnvelope].scan(StoredQueries()){
+    case (acc, EventEnvelope(_, _, _, evt: Event)) => acc.update(evt)
+    case (acc, _) => acc
+  }.filter {
     case StoredQueries(_, _, Nil) => false
     case _ => true
   }
@@ -51,8 +56,12 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
     item.clauses.foldLeft(item) { (acc, e) =>
       e match {
         case (clauseId, n: NamedClause) =>
-          val innerItem = items(n.storedQueryId)
-          acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = Some(retrieveDependencies(innerItem,items).clauses))))
+          items.get(n.storedQueryId) match {
+            case Some(innerItem) => acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = Some(retrieveDependencies(innerItem,items).clauses))))
+            case None =>
+              logger.warn("{} doesn't exist", n)
+              acc
+          }
         case _ => acc
       }
     }
@@ -72,7 +81,10 @@ class StoredQueryRepoView extends Actor with PercolatorWriter {
   })
 
   g.via(put).via(connectionFlow).runWith(Sink.foreach { case (res,id) =>
-    println(s"$id, ${res.get.entity.toString}")
+    res.get.status match {
+      case OK => logger.debug("{} -- {}", id, res.get.status)
+      case unexpected => logger.error("{} -- {}", id, res.get.entity.toString)
+    }
    })
 
   //Sink.fold(Set.empty[String])

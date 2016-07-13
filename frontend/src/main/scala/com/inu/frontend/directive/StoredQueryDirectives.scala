@@ -57,7 +57,6 @@ trait StoredQueryDirectives extends Directives {
         provide(client.preparePercolate()
           .setIndices("stored-query")
           .setDocumentType(gr.getType)
-
           .setSource(s"""{
                          |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ $ids ] } },
                          |    "doc" : $doc,

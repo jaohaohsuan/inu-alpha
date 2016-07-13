@@ -2,10 +2,10 @@ package com.inu.cluster.storedquery
 
 import akka.actor.Props
 import akka.persistence.{PersistentActor, SnapshotOffer}
-import akka.remote.ContainerFormats.ActorRef
 import com.inu.cluster.storedquery.algorithm.TopologicalSort
+import com.inu.cluster.storedquery.messages._
 import com.inu.protocol.storedquery.messages._
-import messages._
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -13,7 +13,7 @@ import scala.util.{Failure, Success, Try}
 case class StoredQueryRepo(items: Map[String, StoredQuery])
 case class CascadingUpdateGuide(guides: List[(String, String)])
 
-object StoredQueryRepoAggRoot {
+object StoredQueryRepoAggRoot extends LazyLogging {
 
   def props = Props(classOf[StoredQueryRepoAggRoot])
 
@@ -56,14 +56,18 @@ object StoredQueryRepoAggRoot {
       arg match {
         case (ClauseAdded(consumer, boolClause), StoredQueryRepo(repo)) => {
           Some(repo.get(consumer) match {
-            case None => Left("oops")
+            case None =>
+              logger.error("Add {} to unknown storedQuery {}", boolClause, consumer)
+              Left("oops")
             case Some(entity) =>
               Right(entity.copy(clauses = entity.clauses + boolClause))
           })
         }
         case (ClauseRemoved(storedQueryId, boolClauses), StoredQueryRepo(repo)) =>
           Some(repo.get(storedQueryId) match {
-            case None => Left("oops")
+            case None =>
+              logger.error("Removing unknown storedQuery {}'s clauses", storedQueryId)
+              Left("oops")
             case Some(entity) =>
               Right(entity.copy(clauses = entity.clauses -- boolClauses.keys))
           })
@@ -103,7 +107,7 @@ object StoredQueryRepoAggRoot {
     }
   }
 
-  object CascadingUpdate {
+  object CascadingUpdateOneByOne {
     def unapply(arg: Any): Option[(List[(String, String)], StoredQueries)] = {
       arg match {
         case (CascadingUpdateGuide(Nil), state: StoredQueries) => Some((Nil, state))
@@ -129,19 +133,22 @@ object StoredQueryRepoAggRoot {
 
     import value._
 
-    def update(evt: Any): StoredQueries = {
-      val x :: xs = Nil :: changes
+    def update(evt: Event): StoredQueries = {
       def proc(arg: Any): StoredQueries = {
         arg match {
-          case CreateStoredQuery(Right(entity)) => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
-          case ApplyStoredQueryUpdate(entity)   => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
-          case UpdateClauses(Right(entity))     => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: x) :: xs)))
-          case BuildDependencies(list, state)   => proc((CascadingUpdateGuide(list), state))
-          case CascadingUpdate(Nil, state)      => state
-          case CascadingUpdate(list, state)     => proc((CascadingUpdateGuide(list), state))
+          // 事件處理, 一次只會進入一個
+          case CreateStoredQuery(Right(entity)) => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: Nil) :: changes)))
+          case ApplyStoredQueryUpdate(entity)   => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: Nil) :: changes)))
+          case UpdateClauses(Right(entity))     => proc((entity, copy(items = items.updated(entity.id, entity), changes = (entity.id :: Nil) :: changes)))
+
+          // 模型引用查找與更新
+          case BuildDependencies(guides, state)     => proc((CascadingUpdateGuide(guides), state))
+          case CascadingUpdateOneByOne(Nil, state)  => state
+          case CascadingUpdateOneByOne(guides, state) => proc((CascadingUpdateGuide(guides), state))
           case _ => throw new Exception("state update condition miss matching")
         }
       }
+      // start from here
       proc((evt, StoredQueryRepo(items)))
     }
 

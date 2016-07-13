@@ -50,6 +50,7 @@ lazy val cluster = create("cluster")
       akkaCluster, akkaClusterTools,akkaClusterMetrics,
       akkaPersistence, akkaPersistenceCassandra,
       akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
+      scalaLogging, sourceCode,
       scalatest,
       kryo
     ),

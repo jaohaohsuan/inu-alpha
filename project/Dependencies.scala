@@ -23,21 +23,22 @@ object Library {
   val akkaHttpXmlExp           = "com.typesafe.akka" %% "akka-http-xml-experimental"          % Version.akka
   val akkaPersistenceCassandra = "com.typesafe.akka" %% "akka-persistence-cassandra"          % "0.16"
 
-  val kubernetes                 = "io.fabric8.forge"           % "kubernetes"                  % "2.2.211"
-  val spray                      = "io.spray"                   %% "spray-can"                  % Version.spray
-  val sprayRouting               = "io.spray"                   %% "spray-routing"              % Version.spray
-  val sprayTestkit               = "io.spray"                   %% "spray-testkit"              % Version.spray                               % "test"
-  val logbackClassic             = "ch.qos.logback"             %  "logback-classic"            % "1.1.7"
-  val scalaLogging               = "com.typesafe.scala-logging" %% "scala-logging"              % "3.4.0"
-  val json4sNative               = "org.json4s"                 %% "json4s-native"              % "3.3.0"
-  val json4sExt                  = "org.json4s"                 %% "json4s-ext"                 % "3.3.0"
-  val elasticsearch              = "org.elasticsearch"          %  "elasticsearch"              % Version.elasticsearch
-  val nscalaTime                 = "com.github.nscala-time"     %% "nscala-time"                % "2.12.0"
-  val scopt                      = "com.github.scopt"           %% "scopt"                      % "3.3.0"
-  val shapeless                  = "com.chuusai"                %% "shapeless"                  % "2.2.5"
-  val scalazCore                 = "org.scalaz"                 %% "scalaz-core"                % "7.2.3"
-  val kryo                       = "com.github.romix.akka"      %% "akka-kryo-serialization"    % "0.4.1"
-  val scalatest                  = "org.scalatest"              %% "scalatest"                  % "2.2.6" % "test"
+  val sourceCode              = "com.lihaoyi"                %% "sourcecode"                 % "0.1.1"
+  val kubernetes               = "io.fabric8.forge"           % "kubernetes"                  % "2.2.211"
+  val spray                    = "io.spray"                   %% "spray-can"                  % Version.spray
+  val sprayRouting             = "io.spray"                   %% "spray-routing"              % Version.spray
+  val sprayTestkit             = "io.spray"                   %% "spray-testkit"              % Version.spray                               % "test"
+  val logbackClassic           = "ch.qos.logback"             %  "logback-classic"            % "1.1.7"
+  val scalaLogging             = "com.typesafe.scala-logging" %% "scala-logging"              % "3.4.0"
+  val json4sNative             = "org.json4s"                 %% "json4s-native"              % "3.3.0"
+  val json4sExt                = "org.json4s"                 %% "json4s-ext"                 % "3.3.0"
+  val elasticsearch            = "org.elasticsearch"          %  "elasticsearch"              % Version.elasticsearch
+  val nscalaTime               = "com.github.nscala-time"     %% "nscala-time"                % "2.12.0"
+  val scopt                    = "com.github.scopt"           %% "scopt"                      % "3.3.0"
+  val shapeless                = "com.chuusai"                %% "shapeless"                  % "2.2.5"
+  val scalazCore               = "org.scalaz"                 %% "scalaz-core"                % "7.2.3"
+  val kryo                     = "com.github.romix.akka"      %% "akka-kryo-serialization"    % "0.4.1"
+  val scalatest                = "org.scalatest"              %% "scalatest"                  % "2.2.6" % "test"
 }
 
 object Dependencies {

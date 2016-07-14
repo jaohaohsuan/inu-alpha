@@ -108,18 +108,20 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
                 onSuccess(srb.execute().future) { sr =>
                   pagination(sr)(uri) { p =>
                     extractSourceItems(sr) { items =>
-                      implicit val withoutSearchParamsUri = uri.drop("q", "tags", "size", "from")
-                      val href = JField("href", JString(s"$withoutSearchParamsUri"))
-                      val links = JField("links", JArray(p.links))
+                      tags { allTags =>
+                        implicit val withoutSearchParamsUri = uri.drop("q", "tags", "size", "from")
+                        val href = JField("href", JString(s"$withoutSearchParamsUri"))
+                        val links = JField("links", JArray(p.links))
 
-                      val searchParams = Template(Map("from" -> 0, "size" -> 10, "q" -> "", "tags" -> ""),
-                        Map("size" -> "size of displayed items",
-                            "from" -> "items display from",
-                            "q"    -> "search title or any terms",
-                            "tags" -> "")).template
+                        val searchParams = Template(Map("from" -> 0, "size" -> 10, "q" -> "", "tags" -> ""),
+                          Map("size" -> "size of displayed items",
+                              "from" -> "items display from",
+                              "q"    -> "search title or any terms",
+                              "tags" -> allTags)).template
 
-                      val queries = JField("queries", JArray(("href" -> s"$withoutSearchParamsUri") ~~ ("rel" -> "search") ~~ searchParams :: Nil))
-                      complete(OK, href :: queries :: links :: JField("items", JArray(items.map { case(_,item) => item })) :: Nil)
+                        val queries = JField("queries", JArray(("href" -> s"$withoutSearchParamsUri") ~~ ("rel" -> "search") ~~ searchParams :: Nil))
+                        complete(OK, href :: queries :: links :: JField("items", JArray(items.map { case(_,item) => item })) :: Nil)
+                      }
                     }
                   }
                 }

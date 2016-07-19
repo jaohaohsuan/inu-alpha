@@ -37,9 +37,15 @@ case class RemoveClauseRequest(ctx: RequestContext, message: Command) extends Pe
       response {
         requestUri { uri =>
           respondWithMediaType(`application/vnd.collection+json`) {
+
+            val itemPrefixHref = message match {
+              case ResetOccurrence(id, occur) => s"${uri.withQuery()}".replaceFirst("""\/\w+$""", "")
+              case RemoveClauses(id, _) => s"${uri.withQuery()}".replaceFirst("""\/\w+\/\w+$""", "")
+              case _ => s"${uri.withQuery()}"
+            }
+
             import org.json4s.JsonDSL._
             val href = JField("href", JString(s"${uri.withQuery()}"))
-            val itemPrefixHref = s"${uri.withQuery()}".replaceFirst("""\/\w+$""", "")
             val items = clauses.map { case (cid,e) => Template(e).template ~~ ("href" -> s"$itemPrefixHref/${e.shortName}/$cid") }.toList
             complete(OK, href :: JField("items", JArray(items)) :: Nil)
           }

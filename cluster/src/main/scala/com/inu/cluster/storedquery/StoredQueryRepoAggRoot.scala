@@ -225,7 +225,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case ResetOccurrence(storedQueryId, occurrence) =>
       storedQueryId.clauses.filter{ case (_, BoolClause(occur)) => occur == occurrence } match {
         case filtered if filtered.isEmpty => sender() !  ClausesRemovedAck
-        case removeClauses                =>  doPersist(ClauseRemoved(storedQueryId, removeClauses), PersistedAck(sender(), Some(ClausesRemovedAck)))
+        case removeClauses                =>  doPersist(ClauseRemoved(storedQueryId, removeClauses), PersistedAck(sender(), Some(ClausesRemovedAck(removeClauses))))
       }
   }
 

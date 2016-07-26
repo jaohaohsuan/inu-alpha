@@ -69,7 +69,7 @@ lazy val cluster = create("cluster").
         //add(classpath.files, "/app/libs/")
         add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
-        //entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+        entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
       }
     },
     imageNames in docker := Seq(
@@ -100,7 +100,7 @@ lazy val frontend = create("frontend").
     dockerfile in docker := {
       val jarFile: File = sbt.Keys.`package`.in(Compile).value
       val classpath = (managedClasspath in Compile).value
-      //val mainclass = mainClass.in(docker).value.getOrElse("")
+      val mainclass = mainClass.in(docker).value.getOrElse("")
       val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
@@ -112,7 +112,7 @@ lazy val frontend = create("frontend").
         //add(classpath.files, "/app/libs/")
         add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
-        //entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+        entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
       }
     },
     imageNames in docker := Seq(

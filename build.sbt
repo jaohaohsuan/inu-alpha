@@ -4,9 +4,11 @@ import sbt.Keys._
 import sbtbuildinfo.BuildInfoPlugin.autoImport._
 import sbtrelease.ReleaseStateTransformations._
 import com.github.nscala_time.time.Imports._
+import xerial.sbt.Pack._
 
 def create(title: String): Project = Project(title, file(title))
     .settings(
+      packAutoSettings ++
       Revolver.settings ++
       Seq(
         scalaVersion          := Version.scala,
@@ -51,14 +53,16 @@ lazy val cluster = create("cluster").
       scalaLogging, sourceCode,
       scalatest,
       kryo
-    ),
+    ) ,
     buildInfoPackage := s"com.inu.cluster.storedq",
     mainClass in docker := Some("com.inu.cluster.Main"),
     dockerfile in docker := {
-      val jarFile: File = sbt.Keys.`package`.in(Compile).value
+      //val jarFile: File = sbt.Keys.`package`.in(Compile, packageBin).value
+      val jarFiles = packLibJars.value.map { case (file, proj) => file }
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(docker).value.getOrElse("")
-      val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
+
+      //val classpathString = packLibJars.value.map{ case (file, _) => "/app/libs/" + file.getName }.mkString(":") + ":" + s"/app/${jarFile.getName}"
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
@@ -66,10 +70,13 @@ lazy val cluster = create("cluster").
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
         }
+
+        packLibJars.value.map { case (file, proj) => add(file, "/app/") }
+
         //add(classpath.files, "/app/libs/")
-        add(jarFile, "/app/")
+        //add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
-        entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+        entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
       }
     },
     imageNames in docker := Seq(
@@ -98,10 +105,10 @@ lazy val frontend = create("frontend").
     mainClass in docker := Some("com.inu.frontend.Main"),
     buildInfoPackage := s"com.inu.frontend.storedq",
     dockerfile in docker := {
-      val jarFile: File = sbt.Keys.`package`.in(Compile).value
+      //val jarFile: File = sbt.Keys.`package`.in(Compile).value
       val classpath = (managedClasspath in Compile).value
       val mainclass = mainClass.in(docker).value.getOrElse("")
-      val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
+      //val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
@@ -110,9 +117,10 @@ lazy val frontend = create("frontend").
           add(files, "/app/libs/")
         }
         //add(classpath.files, "/app/libs/")
-        add(jarFile, "/app/")
+        //add(jarFile, "/app/")
+        packLibJars.value.map { case (file, proj) => add(file, "/app/") }
         //env("JAVA_OPTS", "")
-        entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+        entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
       }
     },
     imageNames in docker := Seq(

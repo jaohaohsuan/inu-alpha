@@ -99,8 +99,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                     )) :: Nil)
                   )
                   complete(OK, href :: links :: JField("items", JArray(items)) :: queries :: template :: Nil)
-
-              }
+                }
               }
             }
           }

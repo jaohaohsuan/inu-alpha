@@ -1,12 +1,11 @@
 package com.inu.frontend.storedquery
 
 import akka.actor.Props
-import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
-import spray.routing.RequestContext
 import com.inu.frontend.PerRequest
 import com.inu.protocol.storedquery.messages._
 import spray.http.HttpHeaders.RawHeader
 import spray.http.StatusCodes._
+import spray.routing.RequestContext
 
 case class NewTemplate(title: String, tags: Option[String]){
   require( title.nonEmpty )
@@ -19,12 +18,7 @@ object NewTemplateRequest {
 
 case class NewTemplateRequest(ctx: RequestContext, e: NewTemplate, referredId: Option[String] = None) extends PerRequest {
 
-  context.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-    settings = ClusterSingletonProxySettings(context.system)
-  )) ! CreateNewStoredQuery(e.title, referredId, e.tags)
-
-  //context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! CreateNewStoredQuery(e.title, referredId, e.tags)
+  context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! CreateNewStoredQuery(e.title, referredId, e.tags)
 
   def processResult = {
     case StoredQueryCreatedAck(id)  =>

@@ -39,11 +39,12 @@ class BoolQueryTest extends FlatSpec with Matchers {
 
     val BoolQuery(json) = List(namedClause)
 
+    info(pretty(render(json)))
     json \ "bool" \ "should" match {
       case  JArray(list) => list should have size 1
-      case _ => fail("unexpected matching")
+      case unexpected => fail(s"unexpected matching ${unexpected}")
     }
-    //info(pretty(render(json)))
+
   }
 
   "boolQuery" should "be empty if NamedClause's cluases empty" in {

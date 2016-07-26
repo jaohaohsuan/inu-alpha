@@ -12,19 +12,18 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import com.typesafe.config.ConfigFactory
 import com.inu.frontend.NodeConfigurator._
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._
 
 
-object Main extends App {
+object Main extends App with LazyLogging {
 
   val config = ConfigFactory.load().onboard()
 
   implicit val timeout = Timeout(10 seconds)
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
   implicit val executionContext = system.dispatcher
-
-  //system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
   val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
     .put("cluster.name", config.getString("elasticsearch.cluster-name"))
@@ -36,7 +35,7 @@ object Main extends App {
     .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
 
   val status = client.admin().cluster().prepareHealth().get().getStatus
-  println(status)
+  logger.info(s"elasticsearch status: $status")
 
   val listener = system.actorOf(Props(classOf[ServiceActor], client), "service")
 
@@ -47,6 +46,11 @@ object Main extends App {
     client.close()
     system.terminate()
   }
+
+  system.actorOf(ClusterSingletonProxy.props(
+    singletonManagerPath = "/user/StoredQueryRepoAggRoot",
+    settings = ClusterSingletonProxySettings(system).withRole("backend")
+  ))
 
   IO(Http).ask(Http.Bind(listener, interface = host, port = port))
     .mapTo[Http.Event]

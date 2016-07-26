@@ -39,7 +39,7 @@ object NodeConfigurator {
       val host: String = getHostname.orElse(getHostLocalAddress)(ifac).trim
 
       val init: PartialFunction[String, Array[String]] = { case "" => Array(s"$host:$port") }
-      val join: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim) }
+      val join: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim).filterNot(_.isEmpty) }
 
       val `akka.cluster.seed-nodes` = init.orElse(join)(seedNodes).map {
         addr => s"""akka.cluster.seed-nodes += "akka.tcp://$clusterName@$addr""""

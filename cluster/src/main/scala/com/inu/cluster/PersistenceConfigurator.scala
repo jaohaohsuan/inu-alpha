@@ -14,7 +14,7 @@ object PersistenceConfigurator {
       val cassandra_nodes = config.getString("storedq.cassandra-nodes")
 
       val not_found: PartialFunction[String, Array[String]] = { case "" => Array("127.0.0.1") }
-      val found: PartialFunction[String, Array[String]] = { case x: String => x.split(",").map(_.trim) }
+      val found: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim).filterNot(_.isEmpty) }
 
       val content0 =
         """akka.persistence.journal.plugin = "cassandra-journal"

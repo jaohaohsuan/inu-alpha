@@ -82,6 +82,7 @@ lazy val frontend = create("frontend").
   dependsOn(protocol).
   settings(
   libraryDependencies ++= Seq(
+    scalaLogging,
     akkaCluster, akkaClusterTools,akkaClusterMetrics,
     elasticsearch,
     json4sExt,

@@ -1,7 +1,6 @@
 package com.inu.frontend.storedquery
 
 import akka.actor.Props
-import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
 import com.inu.frontend.PerRequest
 import com.inu.protocol.storedquery.messages._
 import spray.http.StatusCodes._
@@ -18,12 +17,7 @@ object ApplyUpdateRequest {
 
 case class ApplyUpdateRequest(ctx: RequestContext, update: Command)  extends PerRequest {
 
-  context.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-    settings = ClusterSingletonProxySettings(context.system)
-  )) ! update
-
-  //context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! update
+  context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! update
 
   def processResult = {
     case UpdatedAck =>

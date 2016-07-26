@@ -1,11 +1,10 @@
 package com.inu.frontend.storedquery
 
 import akka.actor.Props
-import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
 import com.inu.frontend.PerRequest
 import com.inu.protocol.storedquery.messages.{Command, RejectAck, StoredQueryCreatedAck}
-import spray.routing.RequestContext
 import spray.http.StatusCodes._
+import spray.routing.RequestContext
 
 /**
   * Created by henry on 6/15/16.
@@ -19,13 +18,7 @@ case class AdminRequest(ctx: RequestContext, message: Command) extends PerReques
 
   println(s"Admin Request $message")
 
-
-  context.actorOf(ClusterSingletonProxy.props(
-    singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-    settings = ClusterSingletonProxySettings(context.system)
-  )) ! message
-
-  //context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! message
+  context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! message
 
   def processResult: Receive = {
     case StoredQueryCreatedAck("temporary") =>

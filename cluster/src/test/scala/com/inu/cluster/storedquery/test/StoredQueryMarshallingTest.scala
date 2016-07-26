@@ -24,7 +24,7 @@ class StoredQueryMarshallingTest  extends FlatSpec with Matchers {
     val sq0 = StoredQuery("123", "query0", Map(c0, c1, c2, c3, c5))
 
     val QueryTerms(_,terms) = sq0
-    info(s"$terms")
+    //info(s"$terms")
     terms should contain allOf ("a","b", "c", "d", "y", "z", "g", "h")
   }
 
@@ -50,5 +50,4 @@ class StoredQueryMarshallingTest  extends FlatSpec with Matchers {
     countOf("must_not", 1)
     //info(s"${pretty(render(json))}")
   }
-
 }

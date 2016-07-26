@@ -1,9 +1,9 @@
 import Library._
-import com.typesafe.sbt.packager.docker._
 import org.clapper.sbt.editsource.EditSourcePlugin.autoImport._
 import sbt.Keys._
 import sbtbuildinfo.BuildInfoPlugin.autoImport._
 import sbtrelease.ReleaseStateTransformations._
+import com.github.nscala_time.time.Imports._
 
 def create(title: String): Project = Project(title, file(title))
     .settings(
@@ -14,10 +14,7 @@ def create(title: String): Project = Project(title, file(title))
         resolvers            ++= Dependencies.resolvers,
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
         shellPrompt           := { state => ">> " },
-        maintainer            := "Henry Jao",
-        organization          := "com.inu",
         git.useGitDescribe    := true,
-        dockerRepository      := Some("127.0.0.1:5000/inu"),
         buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
         ): _*
     )
@@ -43,9 +40,10 @@ lazy val protocol = create("protocol")
   .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)
 )
 
-lazy val cluster = create("cluster")
-  .dependsOn(protocol)
-  .settings(
+lazy val cluster = create("cluster").
+  enablePlugins(DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin).
+  dependsOn(protocol).
+  settings(
     libraryDependencies ++= Seq(
       akkaCluster, akkaClusterTools,akkaClusterMetrics,
       akkaPersistence, akkaPersistenceCassandra,
@@ -55,30 +53,36 @@ lazy val cluster = create("cluster")
       kryo
     ),
     buildInfoPackage := s"com.inu.cluster.storedq",
-    packageName in Docker := "storedq-cluster",
-    mainClass in Compile := Some("com.inu.cluster.Main"),
-    dockerCommands := Seq(
-      Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl", "tzdata"),
-      Cmd("ARG", "K8S_VERSION=1.2.4"),
-      Cmd("RUN",
-        """curl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VERSION/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \
-          | chmod +x /usr/local/bin/kubectl && \
-          | kubectl --help
-        """.stripMargin),
-      Cmd("WORKDIR", "/opt/docker"),
-      Cmd("ENV", "TZ Asia/Taipei"),
-      Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
-      Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
-      ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
-      Cmd("EXPOSE", "2551"),
-      Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", s"bin/${name.value}")
+    mainClass in docker := Some("com.inu.cluster.Main"),
+    dockerfile in docker := {
+      val jarFile: File = sbt.Keys.`package`.in(Compile).value
+      val classpath = (managedClasspath in Compile).value
+      val mainclass = mainClass.in(docker).value.getOrElse("")
+      val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
+      val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
+
+      new Dockerfile {
+        from("java:8-jre-alpine")
+        classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
+          add(files, "/app/libs/")
+        }
+        //add(classpath.files, "/app/libs/")
+        add(jarFile, "/app/")
+        //env("JAVA_OPTS", "")
+        //entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+      }
+    },
+    imageNames in docker := Seq(
+      ImageName(
+        namespace = Some("127.0.0.1:5000/inu"),
+        repository = "storedq-cluster",
+        tag = Some(version.value)
+      )
     )
-    ,bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
-    ).enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)
+    )
 
 lazy val frontend = create("frontend").
+  enablePlugins(DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin).
   dependsOn(protocol).
   settings(
   libraryDependencies ++= Seq(
@@ -91,27 +95,33 @@ lazy val frontend = create("frontend").
     scalazCore,
     kryo
   ),
-    mainClass in Compile := Some("com.inu.frontend.Main"),
-    packageName in Docker := "storedq-api",
+    mainClass in docker := Some("com.inu.frontend.Main"),
     buildInfoPackage := s"com.inu.frontend.storedq",
-    dockerCommands := Seq(
-      Cmd("FROM", "java:8-jdk-alpine"),
-      ExecCmd("RUN", "apk", "add", "--no-cache", "bash", "curl", "tzdata"),
-      Cmd("ARG", "K8S_VERSION=1.2.4"),
-      Cmd("RUN",
-        """curl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VERSION/bin/linux/amd64/kubectl > /usr/local/bin/kubectl && \
-           | chmod +x /usr/local/bin/kubectl && \
-           | kubectl --help
-        """.stripMargin),
-      Cmd("WORKDIR", "/opt/docker"),
-      Cmd("ADD", "opt/docker/lib /opt/docker/lib"),
-      Cmd("ADD", "opt/docker/bin /opt/docker/bin"),
-      Cmd("ENV", "TZ Asia/Taipei"),
-      ExecCmd("RUN", "chown", "-R", "daemon:daemon", "."),
-      Cmd("EXPOSE", "2551", "7879"),
-      Cmd("USER", "daemon"),
-      Cmd("ENTRYPOINT", s"bin/${name.value}")
-    ),
-    bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
-  ).
-  enablePlugins(JavaAppPackaging, DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin)
+    dockerfile in docker := {
+      val jarFile: File = sbt.Keys.`package`.in(Compile).value
+      val classpath = (managedClasspath in Compile).value
+      //val mainclass = mainClass.in(docker).value.getOrElse("")
+      val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
+      val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
+
+      new Dockerfile {
+        from("java:8-jre-alpine")
+        classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
+          add(files, "/app/libs/")
+        }
+        //add(classpath.files, "/app/libs/")
+        add(jarFile, "/app/")
+        //env("JAVA_OPTS", "")
+        //entryPoint("java","${JAVA_OPTS}", "-cp", classpathString, mainclass)
+      }
+    },
+    imageNames in docker := Seq(
+      ImageName(
+        namespace = Some("127.0.0.1:5000/inu"),
+        repository = "storedq-api",
+        tag = Some(version.value)
+      )
+    )
+
+    //,bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
+  )

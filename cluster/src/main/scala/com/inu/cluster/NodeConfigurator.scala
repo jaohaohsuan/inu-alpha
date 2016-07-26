@@ -4,49 +4,48 @@ import java.net.{InetAddress, NetworkInterface}
 
 import scala.collection.JavaConversions._
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.scalalogging.LazyLogging
+
+import scala.util.Try
 
 /**
   * Created by henry on 4/1/16.
   */
 object NodeConfigurator {
 
-  val getHostLocalAddress: PartialFunction[String, String] = {
-    case ifac =>
-      NetworkInterface.getNetworkInterfaces
-        .find(_.getName equals ifac)
-        .flatMap { interface =>
-          interface.getInetAddresses.find(_.isSiteLocalAddress).map(_.getHostAddress)
-        }
-        .getOrElse("")
-  }
+  implicit class SelfRegister(config: Config) extends LazyLogging {
 
-  val getHostname: PartialFunction[String, String] = {
-    case "" => InetAddress.getLocalHost.getHostName
-  }
+    lazy val PEER_DISCOVERY_SERVICE = Option(System.getenv("PEER_DISCOVERY_SERVICE"))
+    lazy val host = InetAddress.getLocalHost.getHostAddress
 
-  implicit class SelfRegister(config: Config) {
+    private def getSeedNodes: List[String] = {
+      Try(
+        PEER_DISCOVERY_SERVICE match {
+          case Some(value) if value.matches("""[\w.]+\.\w+""") =>
+            java.net.InetAddress.getAllByName(value).map(_.getHostAddress).toList
+          case _ => host :: Nil
+        }) match  {
+        case scala.util.Failure(ex) =>
+          logger.warn(s"$PEER_DISCOVERY_SERVICE is unavailable", ex)
+          logger.info(s"$host become the first seed")
+          InetAddress.getLocalHost.getHostAddress :: Nil
+        case scala.util.Success(Nil) =>
+          logger.error("$PEER_DISCOVERY_SERVICE doesn't have any endpoints")
+          sys.exit(1)
+        case scala.util.Success(seeds) => seeds
+      }
+    }
 
     def onboard(): Config = {
 
       val storedqPart = config.getConfig("storedq")
       val clusterName = storedqPart.getString("cluster-name")
-      val port = storedqPart.getString("port")
-      val ifac = storedqPart.getString("ifac")
-      val seedNodes = storedqPart.getString("seed-nodes")
 
-      val roles = storedqPart.getString("roles")
-
-      val host: String = getHostname.orElse(getHostLocalAddress)(ifac).trim
-
-      val init: PartialFunction[String, Array[String]] = { case "" => Array(s"$host:$port") }
-      val join: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim).filterNot(_.isEmpty) }
-
-      val `akka.cluster.seed-nodes` = init.orElse(join)(seedNodes).map {
-        addr => s"""akka.cluster.seed-nodes += "akka.tcp://$clusterName@$addr""""
+      val `akka.cluster.seed-nodes` = getSeedNodes.map {
+        addr => s"""akka.cluster.seed-nodes += "akka.tcp://$clusterName@$addr:2551""""
       }.mkString("\n")
 
-      ConfigFactory.parseString(`akka.cluster.seed-nodes` + s"\nakka.cluster.roles = $roles")
-        .withValue("akka.remote.netty.tcp.hostname", ConfigValueFactory.fromAnyRef(host))
+      ConfigFactory.parseString(`akka.cluster.seed-nodes`)
         .withFallback(config)
         .resolve()
     }

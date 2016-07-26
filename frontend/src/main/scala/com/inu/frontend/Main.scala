@@ -47,10 +47,12 @@ object Main extends App with LazyLogging {
     system.terminate()
   }
 
+  system.actorOf(Props[SeedMonitor])
+
   system.actorOf(ClusterSingletonProxy.props(
     singletonManagerPath = "/user/StoredQueryRepoAggRoot",
     settings = ClusterSingletonProxySettings(system).withRole("backend")
-  ))
+  ), name = "StoredQueryRepoAggRoot-Proxy")
 
   IO(Http).ask(Http.Bind(listener, interface = host, port = port))
     .mapTo[Http.Event]

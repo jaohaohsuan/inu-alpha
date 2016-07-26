@@ -15,9 +15,18 @@ spec:
         image: 127.0.0.1:5000/inu/storedq-cluster:${version}
         ports:
         - containerPort: 2551
+        command:
+          - "java"
+          - "-Dakka.cluster.roles.0=compute"
+          - "-Dakka.cluster.roles.1=queryside"
+          - "-Dakka.cluster.roles.2=backend"
+          - "-Dakka.remote.netty.tcp.port=2551"
+          - "-Dcassandra-snapshot-store.contact-points.0=cassandra3.default.svc.cluster.local"
+          - "-Dcassandra-journal.contact-points.0=cassandra3.default.svc.cluster.local"
+          - "-cp"
+          - "/app/libs/*:/app/*"
+          - "com.inu.cluster.Main"
         env:
-          - name: IFAC
-            value: eth0
           - name: ES_TRANSPORT_ADDRESS
             value: elasticsearch-discovery.default.svc.cluster.local
           - name: ES_CLIENT_ADDRESS
@@ -25,13 +34,9 @@ spec:
           - name: ES_CLUSTER_NAME
             value: myesdb
           - name: PEER_DISCOVERY_SERVICE
-            value: storedq-cluster
-          - name: AKKA_PERSISTENCE_SERVICE
-            value: cassandra3.default.svc.cluster.local
+            value: storedq-cluster.default.svc.cluster.local
           - name: CASSANDRA_DC
             value: DC1
-          - name: CLUSTER_ROLES
-            value: "[compute,queryside,backend]"
 #---
 #apiVersion: extensions/v1beta1
 #kind: Deployment

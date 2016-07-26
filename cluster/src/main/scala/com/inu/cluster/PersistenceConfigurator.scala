@@ -11,7 +11,7 @@ object PersistenceConfigurator {
 
     def enableCassandraPlugin(): Config = {
 
-      val cassandra_nodes = config.getString("storedq.cassandra-nodes")
+      val cassandra_nodes = Option(System.getenv("AKKA_PERSISTENCE_SERVICE")).getOrElse("")
 
       val not_found: PartialFunction[String, Array[String]] = { case "" => Array("127.0.0.1") }
       val found: PartialFunction[String, Array[String]] = { case x: String => x.split("""[\s,]+""").map(_.trim).filterNot(_.isEmpty) }

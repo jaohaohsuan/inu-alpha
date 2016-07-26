@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 
 object Main extends App {
 
-  val config: Config = ConfigFactory.load().onboard().enableCassandraPlugin()
+  val config: Config = ConfigFactory.load().onboard()
 
   implicit val timeout = Timeout(5.seconds)
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)

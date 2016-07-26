@@ -13,14 +13,20 @@ spec:
       containers:
       - name: api
         image: 127.0.0.1:5000/inu/storedq-api:${version}
+        command:
+          - "java"
+          - "-Dakka.cluster.roles.0=frontend"
+          - "-Dakka.remote.netty.tcp.port=2552"
+          - "-cp"
+          - "/app/libs/*:/app/*"
+          - "com.inu.frontend.Main"
         ports:
         - containerPort: 7879
-        - containerPort: 2551
+        - containerPort: 2552
+
         env:
-          - name: IFAC
-            value: eth0
           - name: PEER_DISCOVERY_SERVICE
-            value: storedq-cluster
+            value: storedq-cluster.default.svc.cluster.local
           - name: ES_TRANSPORT_ADDRESS
             value: elasticsearch-discovery.default.svc.cluster.local
           - name: ES_CLUSTER_NAME

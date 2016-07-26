@@ -23,7 +23,7 @@ object NodeConfigurator {
       def getSeedNodes: List[String] = {
         Try(
           PEER_DISCOVERY_SERVICE match {
-            case Some(value) if value.matches("""[\w.]+\.\w+""") =>
+            case Some(value) if value.matches("""^\w[\w.-]+\.[\w.-]+""") =>
               java.net.InetAddress.getAllByName(value).map(_.getHostAddress).toList
             case _ => InetAddress.getLocalHost.getHostAddress :: Nil
           }) match  {

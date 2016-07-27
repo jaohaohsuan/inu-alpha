@@ -67,6 +67,7 @@ lazy val cluster = create("cluster").
 
       new Dockerfile {
         from("java:8-jre-alpine")
+        runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
         }
@@ -76,6 +77,8 @@ lazy val cluster = create("cluster").
         //add(classpath.files, "/app/libs/")
         //add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
+        env("TZ", "Asia/Taipei")
+
         entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
       }
     },
@@ -113,12 +116,15 @@ lazy val frontend = create("frontend").
 
       new Dockerfile {
         from("java:8-jre-alpine")
+        runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
         }
         //add(classpath.files, "/app/libs/")
         //add(jarFile, "/app/")
         packLibJars.value.map { case (file, proj) => add(file, "/app/") }
+
+        env("TZ", "Asia/Taipei")
         //env("JAVA_OPTS", "")
         entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
       }

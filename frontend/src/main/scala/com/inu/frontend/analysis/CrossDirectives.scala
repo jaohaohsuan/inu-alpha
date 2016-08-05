@@ -115,7 +115,11 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                 "agentName",
                 "callDirection",
                 "customerPhoneNo",
-                "customerGender").foldLeft(client.prepareSearch("logs-*")
+                "customerGender",
+                "mixLongestSilence",
+                "r0TotalInterruption",
+                "r1TotalInterruption",
+                "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
                 .setQuery(q)
                 .setSize(size).setFrom(from)
                 .addField("vtt")){ (acc, f) => acc.addField(f) }

@@ -70,9 +70,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
               actorRefFactory.actorOf(InitialTemporaryRequest.props(uid))
             }
           } ~
-          path(Segment) { id =>
-            replaceTemporaryId(id) { implicit storedQueryId =>
-                item(storedQueryId) { source =>
+          path(Segment) {  implicit storedQueryId =>
+            item(storedQueryId) { source =>
                   pathEnd {
                     val links: JObject = "links" -> Set(
                       ("rel" -> "edit") ~~ ("href" -> s"${uri / "match"}"),
@@ -93,34 +92,33 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
                     val template = JField("template", "data" -> (source \ "item" \ "data"))
                     complete(OK, href :: items :: template :: Nil)
                   } ~
-                    path("""^must$|^must_not$|^should$""".r) { occur =>
-                      val items = source \ "occurs" \ occur transformField {
-                        case JField("href", JString(p)) => ("href", JString(s"""/$occur""".r.replaceFirstIn(s"$uri", p)))
-                      } match {
-                        case JNothing => JArray(Nil)
-                        case arr => arr
-                      }
-                      complete(OK, JField("href", JString(s"$uri")) :: JField("items", items) :: Nil)
-                    } ~
-                    clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
-                    clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~
-                    clausePath("named")(NamedClause("temporary", "query", "should")) ~
-                    pathPrefix("preview") {
-                      userFilter { filter =>
-                        import org.json4s.JsonDSL._
-                        val withUserFilterQuery: JValue = source \ "query" match {
-                          case q: JObject => {
-                            val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> (q :: Nil))))
-                            filter merge dd
-                          }
-                          case _ => filter
-                        }
-                        preview(storedQueryId)(withUserFilterQuery)
-                      }
+                  path("""^must$|^must_not$|^should$""".r) { occur =>
+                    val items = source \ "occurs" \ occur transformField {
+                      case JField("href", JString(p)) => ("href", JString(s"""/$occur""".r.replaceFirstIn(s"$uri", p)))
+                    } match {
+                      case JNothing => JArray(Nil)
+                      case arr => arr
                     }
+                    complete(OK, JField("href", JString(s"$uri")) :: JField("items", items) :: Nil)
+                  } ~
+                  clausePath("near")(SpanNearClause("hello inu", "dialogs", 10, false, "must"), ("query", "it must contain at least two words")) ~
+                  clausePath("match")(MatchClause("hello inu", "dialogs", "OR", "must_not")) ~
+                  clausePath("named")(NamedClause("temporary", "query", "should")) ~
+                  pathPrefix("preview") {
+                    userFilter { filter =>
+                      import org.json4s.JsonDSL._
+                      val withUserFilterQuery: JValue = source \ "query" match {
+                        case q: JObject => {
+                          val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> (q :: Nil))))
+                          filter merge dd
+                        }
+                        case _ => filter
+                      }
+                      preview(storedQueryId)(withUserFilterQuery)
+                    }
+                  }
                 }
-              }
-            }
+          }
         }
       } ~
       post {

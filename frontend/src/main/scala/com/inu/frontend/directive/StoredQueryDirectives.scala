@@ -51,7 +51,8 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def item (id: String): Directive1[JValue] = {
-      val f = client.prepareGet("stored-query", ".percolator", id).setFetchSource(Array("item", "occurs", "query"), null).execute().future
+    replaceTemporaryId(id).flatMap { _id =>
+      val f = client.prepareGet("stored-query", ".percolator", _id).setFetchSource(Array("item", "occurs", "query"), null).execute().future
       onComplete(f).flatMap {
         case scala.util.Success(res) if res.isExists =>
           provide(parse(res.getSourceAsString()))
@@ -59,10 +60,11 @@ trait StoredQueryDirectives extends Directives {
           import org.json4s.JsonDSL._
           import com.inu.protocol.media.CollectionJson._
           val blank = ("item"   -> Template(Map("title" -> "user-temporary", "tags" -> "")).template ~~ ("href" -> "temporary")) ~~
-                      ("occurs" -> JObject(List.empty)) ~~
-                      ("query"  -> JObject(List.empty))
+            ("occurs" -> JObject(List.empty)) ~~
+            ("query"  -> JObject(List.empty))
           provide(blank)
       }
+    }
   }
 
   def percolate(gr: GetResponse) = {

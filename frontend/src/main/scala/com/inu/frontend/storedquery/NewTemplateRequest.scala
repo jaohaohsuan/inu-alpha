@@ -31,3 +31,27 @@ case class NewTemplateRequest(ctx: RequestContext, e: NewTemplate, referredId: O
       }
   }
 }
+
+object InitialTemporaryRequest {
+  def props(uid: String)(implicit ctx: RequestContext) = Props(classOf[InitialTemporaryRequest], ctx, uid)
+}
+
+case class InitialTemporaryRequest(ctx: RequestContext, uid: String) extends PerRequest {
+
+  context.actorSelection("/user/StoredQueryRepoAggRoot-Proxy") ! InitialTemporary(uid)
+
+  def processResult = {
+    case RejectAck(msg) =>
+      response {
+        reject
+      }
+    case StoredQueryCreatedAck(id)  =>
+      response {
+        reject
+      }
+    case _ =>
+      response {
+        reject
+      }
+  }
+}

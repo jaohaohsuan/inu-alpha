@@ -48,15 +48,17 @@ trait StoredQueryDirectives extends Directives {
       val (_id, ifNotFound: Directive1[JValue]) = id match {
         case "temporary" =>
           val blank = ("item"   -> Template(Map("title" -> "user-temporary", "tags" -> "")).template ~~ ("href" -> "temporary")) ~~
-                      ("occurs" -> JObject()) ~~
-                      ("query"  -> JObject())
+                      ("occurs" -> JObject(List.empty)) ~~
+                      ("query"  -> JObject(List.empty))
           (uid, provide(blank))
         case _ => (id, reject)
       }
       val f = client.prepareGet("stored-query", ".percolator", _id).setFetchSource(Array("item", "occurs", "query"), null).execute().future
       onComplete(f).flatMap {
-        case scala.util.Success(res) => provide(parse(res.getSourceAsString()))
-        case _ => ifNotFound
+        case scala.util.Success(res) if res.isExists =>
+          provide(parse(res.getSourceAsString()))
+        case _ =>
+          ifNotFound
       }
     }
   }

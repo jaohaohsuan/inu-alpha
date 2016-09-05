@@ -70,7 +70,7 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
               actorRefFactory.actorOf(InitialTemporaryRequest.props(uid))
             }
           } ~
-          path(Segment) {  implicit storedQueryId =>
+          pathPrefix(Segment) {  implicit storedQueryId =>
             item(storedQueryId) { source =>
                   pathEnd {
                     val links: JObject = "links" -> Set(

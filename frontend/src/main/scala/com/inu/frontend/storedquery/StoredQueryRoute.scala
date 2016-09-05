@@ -138,10 +138,12 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
               actorRefFactory.actorOf(NewTemplateRequest.props)
             }
           } ~
-          pathPrefix(Segment) { implicit id =>
-            addClause[NamedClause]("named") ~
-            addClause[MatchClause]("match") ~
-            addClause[SpanNearClause]("near")
+          pathPrefix(Segment) { rawId =>
+            replaceTemporaryId(rawId) { implicit storedQueryId =>
+              addClause[NamedClause]("named") ~
+              addClause[MatchClause]("match") ~
+              addClause[SpanNearClause]("near")
+            }
           }
         }
       } ~

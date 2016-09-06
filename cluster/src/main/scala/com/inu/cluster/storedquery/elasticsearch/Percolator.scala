@@ -9,6 +9,14 @@ import com.inu.protocol.media.CollectionJson.Template
   * Created by henry on 6/9/16.
   */
 object Percolator {
+
+  def markAsTemporary(doc: JObject, src: StoredQuery): JObject = {
+    if(!src.id.matches("\\d+") && src.title == "temporary")
+      doc ~~ ("temporary" -> src.id)
+    else
+      doc
+  }
+
   def unapply(arg: StoredQuery): Option[(String,JObject)] = {
     val StoredQuery(id, title, clauses, tags) = arg
     val BoolQuery(query) = clauses.values
@@ -34,6 +42,7 @@ object Percolator {
       ("query" -> query) ~~
       ("item"  -> item) ~~
       ("occurs" -> occurs)
-    Some((id, doc))
+
+    Some((id, markAsTemporary(doc, arg)))
   }
 }

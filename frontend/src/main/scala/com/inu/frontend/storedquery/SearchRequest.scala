@@ -27,7 +27,10 @@ object SearchRequest {
     Seq(
       queryString.map { queryStringQuery(_).field("_all") },
       queryTags.map { matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
-    ).flatten.foldLeft(boolQuery().mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary")))(_ must _)
+    ).flatten.foldLeft(
+        boolQuery()
+          .mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary"))
+          .mustNot(QueryBuilders.existsQuery("temporary")))(_ must _)
   }
 
   def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =

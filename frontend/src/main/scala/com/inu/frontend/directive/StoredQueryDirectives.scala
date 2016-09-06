@@ -25,6 +25,7 @@ trait StoredQueryDirectives extends Directives {
   implicit class BoolQueryOps(b: BoolQueryBuilder) {
 
     def excludeTemporary: BoolQueryBuilder = b.mustNot(QueryBuilders.idsQuery(".percolator").addIds("temporary"))
+                                              .mustNot(QueryBuilders.existsQuery("temporary"))
 
     def search_all(value: Option[String]): BoolQueryBuilder = {
       value match {

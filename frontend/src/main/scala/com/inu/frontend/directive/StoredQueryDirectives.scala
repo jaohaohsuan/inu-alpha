@@ -69,28 +69,30 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def percolate(gr: GetResponse) = {
-    parameters("_id".?).flatMap {
-      case _id => {
-        val ids = _id.getOrElse("").split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")
-        val doc = gr.getSourceAsString
-        provide(client.preparePercolate()
-          .setIndices("stored-query")
-          .setDocumentType(gr.getType)
-          .setSource(s"""{
-                         |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ $ids ] } },
-                         |    "doc" : $doc,
-                         |    "size" : 10,
-                         |    "highlight" : {
-                         |        "pre_tags" : ["<c>"],
-                         |        "post_tags" : ["</c>"],
-                         |        "require_field_match" : true,
-                         |        "fields" : {
-                         |            "agent*" :    { "number_of_fragments" : 0},
-                         |            "customer*" : { "number_of_fragments" : 0},
-                         |            "dialogs" :   { "number_of_fragments" : 0}
-                         |        }
-                         |    }
-                         |}""".stripMargin))
+    headerValueByName("uid").flatMap { uid =>
+      parameters("_id".?).flatMap {
+        case _id => {
+          val ids = _id.getOrElse("").replace("temporary", uid).split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")
+          val doc = gr.getSourceAsString
+          provide(client.preparePercolate()
+            .setIndices("stored-query")
+            .setDocumentType(gr.getType)
+            .setSource(s"""{
+                           |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ $ids ] } },
+                           |    "doc" : $doc,
+                           |    "size" : 10,
+                           |    "highlight" : {
+                           |        "pre_tags" : ["<c>"],
+                           |        "post_tags" : ["</c>"],
+                           |        "require_field_match" : true,
+                           |        "fields" : {
+                           |            "agent*" :    { "number_of_fragments" : 0},
+                           |            "customer*" : { "number_of_fragments" : 0},
+                           |            "dialogs" :   { "number_of_fragments" : 0}
+                           |        }
+                           |    }
+                           |}""".stripMargin))
+        }
       }
     }
   }

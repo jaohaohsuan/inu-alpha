@@ -32,6 +32,7 @@ class KryoInit {
     kryo.register(classOf[AddClause], 5002)
     kryo.register(classOf[RemoveClauses], 5003)
     kryo.register(classOf[ResetOccurrence], 5004)
+    kryo.register(classOf[InitialTemporary], 5005)
 
 
     // ack

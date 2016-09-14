@@ -11,7 +11,7 @@ spec:
   selector:
     app: storedq-cluster
 ---
-apiVersion: apps/v1alpha1
+apiVersion: "apps/v1alpha1"
 kind: PetSet
 metadata:
   name: seed

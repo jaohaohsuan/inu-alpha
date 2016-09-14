@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 
 object Main extends App with LazyLogging {
 
-  val config = ConfigFactory.load().onboard()
+  val config = ConfigFactory.load()
 
   implicit val timeout = Timeout(10 seconds)
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)

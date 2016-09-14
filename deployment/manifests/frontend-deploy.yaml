@@ -1,4 +1,16 @@
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storedq-api
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 7879
+  selector:
+    storedq: api
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -17,6 +29,7 @@ spec:
           - "java"
           - "-Dakka.cluster.roles.0=frontend"
           - "-Dakka.remote.netty.tcp.port=2552"
+          - "-Dakka.cluster.seed-nodes.0=akka.tcp://storedq@seed-0.storedq-cluster.default.svc.cluster.local:2551"
           - "-cp"
           - "/app/libs/*:/app/*"
           - "com.inu.frontend.Main"

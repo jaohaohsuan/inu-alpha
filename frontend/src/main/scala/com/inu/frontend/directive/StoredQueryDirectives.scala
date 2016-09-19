@@ -4,7 +4,7 @@ import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.{BoolQueryBuilder, MatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query.{BoolQueryBuilder, IdsQueryBuilder, MatchQueryBuilder, QueryBuilders}
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 import org.json4s._
@@ -99,14 +99,19 @@ trait StoredQueryDirectives extends Directives {
 
   def `conditionSet+include`: Directive1[SearchRequestBuilder] = {
     import QueryBuilders._
-    parameters('conditionSet.?, 'include.?).hflatMap {
-      case conditionSet :: include :: HNil =>
+    parameters('conditionSet.?, 'include.?, 'must_not.?).hflatMap {
+      case conditionSet :: include :: must_not :: HNil =>
+        implicit def percolatorIdsQuery(ids: Seq[String]): IdsQueryBuilder = QueryBuilders.idsQuery(".percolator").addIds(ids)
+        implicit def toSeq2(p: String): Seq[String] = p.split("""[\s,]+""").toSeq
         val noReturnQuery = boolQuery().mustNot(matchAllQuery())
         val query = boolQuery().excludeTemporary
+        val subQuery = conditionSet ++ (include : Seq[String]) match {
+          case Nil => query.should(noReturnQuery)
+          case ids => query.must(ids)
+        }
         provide(client.prepareSearch("stored-query").setTypes(".percolator")
-          .setQuery(conditionSet ++ (include : Seq[String]) match {
-            case Nil => query.should(noReturnQuery)
-            case ids => query.must(QueryBuilders.idsQuery(".percolator").addIds(ids))
+          .setQuery(must_not.filterNot(_.isEmpty).foldLeft(subQuery){ (acc,ids) =>
+            acc.mustNot(ids: Seq[String])
           })
           .setFetchSource(Array("query", "title"), null))
     }

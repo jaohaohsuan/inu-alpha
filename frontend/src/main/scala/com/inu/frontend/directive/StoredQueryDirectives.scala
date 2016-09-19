@@ -102,17 +102,15 @@ trait StoredQueryDirectives extends Directives {
     parameters('conditionSet.?, 'include.?, 'must_not.?).hflatMap {
       case conditionSet :: include :: must_not :: HNil =>
         implicit def percolatorIdsQuery(ids: Seq[String]): IdsQueryBuilder = QueryBuilders.idsQuery(".percolator").addIds(ids)
-        implicit def toSeq2(p: String): Seq[String] = p.split("""[\s,]+""").toSeq
+
         val noReturnQuery = boolQuery().mustNot(matchAllQuery())
         val query = boolQuery().excludeTemporary
-        val subQuery = conditionSet ++ (include : Seq[String]) match {
+        val idsQuery = conditionSet ++ (include : Seq[String]) ++ (must_not : Seq[String]) match {
           case Nil => query.should(noReturnQuery)
-          case ids => query.must(ids)
+          case ids => query.must(ids.distinct)
         }
         provide(client.prepareSearch("stored-query").setTypes(".percolator")
-          .setQuery(must_not.filterNot(_.isEmpty).foldLeft(subQuery){ (acc,ids) =>
-            acc.mustNot(ids: Seq[String])
-          })
+          .setQuery(idsQuery)
           .setFetchSource(Array("query", "title"), null))
     }
   }

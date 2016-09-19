@@ -185,12 +185,21 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   val withUserFilterQuery = query merge dd
                   val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
                   val indices = xs.collect { case JString(s) => s}
+                  val queryField =  uri.query.get("must_not") match {
+                    case Some(value) if value.contains(c.storedQueryId) => "query" -> "must_not"
+                    case _ => "query" -> "must"
+                  }
                   val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
                   client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
-                    Template(Map("title" -> c.title, "state" -> "excludable", "hits" -> res.getHits.totalHits)).template ~~
+                    Template(Map("title" -> c.title,
+                                 "id" -> c.storedQueryId,
+                                 "state" -> "excludable",
+                                 queryField,
+                                 "hits" -> res.getHits.totalHits)).template ~~
                       ("links" -> Set(
                         parse(links.action0("excludable")),
-                        parse(links.action1("excludable"))
+                        parse(links.action1("excludable")),
+                        parse(links.action2)
                       ))
                   }
               }
@@ -218,11 +227,20 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
                   val indices = xs.collect { case JString(s) => s}
                   val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
+                  val queryField =  uri.query.get("must_not") match {
+                    case Some(value) if value.contains(c.storedQueryId) => "query" -> "must_not"
+                    case _ => "query" -> "none"
+                  }
                   client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
-                    Template(Map("title" -> c.title, "state" -> "includable", "hits" -> res.getHits.totalHits)).template ~~
+                    Template(Map("title" -> c.title,
+                                 "id" -> c.storedQueryId,
+                                 "state" -> "includable",
+                                 queryField,
+                                 "hits" -> res.getHits.totalHits)).template ~~
                       ("links" -> Set(
                         parse(links.action0("includable")),
-                        parse(links.action1("includable"))
+                        parse(links.action1("includable")),
+                        parse(links.action2)
                       ))
                   }
               }} yield items

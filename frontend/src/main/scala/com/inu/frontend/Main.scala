@@ -11,7 +11,6 @@ import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import com.typesafe.config.ConfigFactory
-import com.inu.frontend.NodeConfigurator._
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._

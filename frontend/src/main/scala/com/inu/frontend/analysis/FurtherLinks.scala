@@ -25,9 +25,20 @@ case class FurtherLinks(uri: Uri, storedQueryId: String) {
     }
 
   def action2: String = {
+
+    val queryField = List(uri.query.get("conditionSet") match {
+      case Some(value) if value.contains(storedQueryId) => s""", "query" : "must" """
+      case _ => ""
+    },
+    uri.query.get("include") match {
+      case Some(value) if value.contains(storedQueryId) => s""", "query" : "none" """
+      case _ => ""
+    }).filterNot(_.isEmpty).headOption.getOrElse("")
+
     uri.query.get("must_not") match {
       case Some(value) if value.contains(storedQueryId) =>
-        s"""{"rel" : "action", "href" : "${uri.withQuery(remove("must_not", must_not).toSeq: _*)}", "query" : "must" }"""
+
+        s"""{"rel" : "action", "href" : "${uri.withQuery(remove("must_not", must_not).toSeq: _*)}" $queryField }"""
       case _ =>
         s"""{"rel" : "action", "href" : "${uri.withQuery(must_not.toSeq: _*)}", "query" : "must_not" }"""
     }

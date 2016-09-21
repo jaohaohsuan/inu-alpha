@@ -87,7 +87,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
           } ~
           pathPrefix("cross") {
             pathEnd {
-              `conditionSet+include` { searchSq =>
+              `conditionSet+include+must_not` { searchSq =>
                 formatHits(searchSq) { conditionsMap =>
                   set(conditionsMap) { set =>
                     include(conditionsMap) { includes =>
@@ -128,7 +128,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
               }
             } ~
             path("logs") {
-              `conditionSet+include` { searchSq =>
+              `conditionSet+include+must_not` { searchSq =>
                 formatHits(searchSq) { conditionsMap =>
                   logs(conditionsMap) { res =>
                     extractHighlights(res) { items =>

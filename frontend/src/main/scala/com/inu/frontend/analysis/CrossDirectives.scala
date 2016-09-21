@@ -99,50 +99,52 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
-      queryWithUserFilter(clauses.values.toList).flatMap { q =>
-        parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
-          case size :: from :: HNil => {
-            //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
-            onSuccess(
-              Seq(
-                "startTime",
-                "endTime",
-                "length",
-                "endStatus",
-                "projectName",
-                "agentPhoneNo",
-                "agentId",
-                "agentName",
-                "callDirection",
-                "customerPhoneNo",
-                "customerGender",
-                "mixLongestSilence",
-                "r0TotalInterruption",
-                "r1TotalInterruption",
-                "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
-                .setQuery(q)
-                .setSize(size).setFrom(from)
-                .addField("vtt")){ (acc, f) => acc.addField(f) }
-                .setHighlighterRequireFieldMatch(true)
-                .setHighlighterNumOfFragments(0)
-                .setHighlighterPreTags("<em>")
-                .setHighlighterPostTags("</em>")
-                .addHighlightedField("agent*")
-                .addHighlightedField("customer*")
-                .addHighlightedField("dialogs").execute().future).flatMap { res =>
-              provide(res)
+      parameters('must_not.?).flatMap { ids =>
+        queryWithUserFilter(clauses.values.toList, (ids : Seq[String]).filterNot(_ == "").map{ k => clauses(k) }.toList).flatMap { q =>
+          parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
+            case size :: from :: HNil => {
+              //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+              onSuccess(
+                Seq(
+                  "startTime",
+                  "endTime",
+                  "length",
+                  "endStatus",
+                  "projectName",
+                  "agentPhoneNo",
+                  "agentId",
+                  "agentName",
+                  "callDirection",
+                  "customerPhoneNo",
+                  "customerGender",
+                  "mixLongestSilence",
+                  "r0TotalInterruption",
+                  "r1TotalInterruption",
+                  "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
+                  .setQuery(q)
+                  .setSize(size).setFrom(from)
+                  .addField("vtt")) { (acc, f) => acc.addField(f) }
+                  .setHighlighterRequireFieldMatch(true)
+                  .setHighlighterNumOfFragments(0)
+                  .setHighlighterPreTags("<em>")
+                  .setHighlighterPostTags("</em>")
+                  .addHighlightedField("agent*")
+                  .addHighlightedField("customer*")
+                  .addHighlightedField("dialogs").execute().future).flatMap { res =>
+                provide(res)
+              }
             }
+            case _ => reject
           }
-          case _ => reject
         }
       }
     }
   }
 
-  def queryWithUserFilter(clauses: List[JValue]): Directive1[QueryBuilder] = {
+  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue]): Directive1[QueryBuilder] = {
     userFilter.flatMap { query =>
       import org.json4s.JsonDSL._
-      val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> clauses)))
+      val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> must_clauses) ~~ ("must_not" -> must_not_clauses)))
       val withUserFilterQuery = query merge dd
       val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
       val indices = xs.collect { case JString(s) => s }
@@ -152,20 +154,22 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def set(map: Map[String, Condition]): Directive1[JObject] = {
     conditionSet(map).flatMap { q =>
-      queryWithUserFilter(q.values.toList).flatMap { qb =>
-        onSuccess(client.prepareSearch("logs-*")
-          .setQuery(qb)
-          .setSize(0)
-          .execute().future).flatMap { res =>
-          requestUri.flatMap { uri =>
-            // TODO: 生成用户可以查询的type进行分类
-            // val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
-            // typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
-            //            .getOrElse(List(logsLink.format("*", uri.withPath(uri.path / "logs"))))
-            provide(
-              Template(Map("title" -> "set", "state" -> "set", "hits" -> res.getHits.totalHits)).template ~~
-                ("links" -> JArray(("rel" -> "logs") ~~ ("render" -> "grid") ~~ ("name" -> "*") ~~ ("href" -> s"${uri.withPath(uri.path / "logs")}") :: Nil))
-            )
+      parameters('must_not.?).flatMap { ids =>
+        queryWithUserFilter(q.values.toList, (ids : Seq[String]).filterNot(_ == "").map{ k => parse(map(k).query) }.toList).flatMap { qb =>
+          onSuccess(client.prepareSearch("logs-*")
+            .setQuery(qb)
+            .setSize(0)
+            .execute().future).flatMap { res =>
+            requestUri.flatMap { uri =>
+              // TODO: 生成用户可以查询的type进行分类
+              // val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
+              // typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
+              //            .getOrElse(List(logsLink.format("*", uri.withPath(uri.path / "logs"))))
+              provide(
+                Template(Map("title" -> "set", "state" -> "set", "hits" -> res.getHits.totalHits)).template ~~
+                  ("links" -> JArray(("rel" -> "logs") ~~ ("render" -> "grid") ~~ ("name" -> "*") ~~ ("href" -> s"${uri.withPath(uri.path / "logs")}") :: Nil))
+              )
+            }
           }
         }
       }
@@ -268,7 +272,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def conditionSetAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
     //userFilter.flatMap { filter =>
-      `conditionSet+include`.flatMap { searchSq =>
+      `conditionSet+include+must_not`.flatMap { searchSq =>
         formatHits(searchSq).flatMap { conditionsMap =>
           parameters('conditionSet.?).flatMap {
             case Some(ids) if !ids.isEmpty =>
@@ -292,7 +296,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def includeAggregation(agg: FiltersAggregationBuilder) = {
-    `conditionSet+include`.flatMap { searchSq =>
+    `conditionSet+include+must_not`.flatMap { searchSq =>
       formatHits(searchSq).flatMap { map =>
         parameters('conditionSet.?).flatMap { param0 =>
           val conditionSetQuery = map.filterKeys(param0.getOrElse("").contains).values.foldLeft(boolQuery()){ (bool, el) =>  bool.must(wrapperQuery(el.query))}

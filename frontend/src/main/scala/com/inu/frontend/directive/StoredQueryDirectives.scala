@@ -97,7 +97,7 @@ trait StoredQueryDirectives extends Directives {
     }
   }
 
-  def `conditionSet+include`: Directive1[SearchRequestBuilder] = {
+  def `conditionSet+include+must_not`: Directive1[SearchRequestBuilder] = {
     import QueryBuilders._
     parameters('conditionSet.?, 'include.?, 'must_not.?).hflatMap {
       case conditionSet :: include :: must_not :: HNil =>

@@ -100,7 +100,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
       parameters('must_not.?).flatMap { ids =>
-        queryWithUserFilter(clauses.values.toList, (ids : Seq[String]).filterNot(_ == "").map{ k => clauses(k) }.toList).flatMap { q =>
+        queryWithUserFilter(clauses.filterKeys{ k => !ids.contains(k) }.values.toList, (ids: Seq[String]).flatMap(clauses.get).toList).flatMap { q =>
           parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
             case size :: from :: HNil => {
               //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
@@ -155,7 +155,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   def set(map: Map[String, Condition]): Directive1[JObject] = {
     conditionSet(map).flatMap { q =>
       parameters('must_not.?).flatMap { ids =>
-        queryWithUserFilter(q.values.toList, (ids : Seq[String]).filterNot(_ == "").map{ k => parse(map(k).query) }.toList).flatMap { qb =>
+        queryWithUserFilter(q.filterKeys{ k => !ids.contains(k) }.values.toList, (ids : Seq[String]).flatMap(map.get).flatMap{ c => parseOpt(c.query) }.toList).flatMap { qb =>
           onSuccess(client.prepareSearch("logs-*")
             .setQuery(qb)
             .setSize(0)

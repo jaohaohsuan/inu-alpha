@@ -13,7 +13,7 @@ object BoolQuery {
 
   def unapply(arg: Iterable[BoolClause]): Option[JValue] = {
 
-    val empty: JValue = parse("""{ "bool": {} }""")
+    val empty: JValue = parse("""{ "bool": { "minimum_should_match": 1 } }""")
     def build(clauses: Iterable[BoolClause]): JValue = {
       clauses.foldLeft(empty) { (acc, clause) =>
        val query: JValue = clause match {

@@ -47,17 +47,20 @@ class BoolQueryTest extends FlatSpec with Matchers {
 
   }
 
-//  "boolQuery" should "be empty if NamedClause's cluases empty" in {
-//    val clause1 = NamedClause("r0", "r0", "must")
-//    val BoolQuery(json) = List(clause1)
-//    val JObject(xs) = json \ "bool"
-//    xs should have size 1
-//  }
-//
-//  "boolQuery" should "be empty if storedQuery's clauses empty" in {
-//    val BoolQuery(json2) = StoredQuery("0", "0").clauses.values
-//    val JObject(yx) = json2 \ "bool"
-//    yx should have size 1
-//  }
+  "boolQuery" should "be empty if NamedClause's cluases empty" in {
+    val clause1 = NamedClause("r0", "r0", "must")
+    val BoolQuery(json) = List(clause1)
+    val JObject(xs) = json \ "bool"
+
+    xs.filterNot { case ("minimum_should_match",v) => true  } should have size 0
+
+  }
+
+  "boolQuery" should "be empty if storedQuery's clauses empty" in {
+    val BoolQuery(json2) = StoredQuery("0", "0").clauses.values
+    val JObject(yx) = json2 \ "bool"
+
+    yx.filterNot { case ("minimum_should_match",v) => true  } should have size 0
+  }
 
 }

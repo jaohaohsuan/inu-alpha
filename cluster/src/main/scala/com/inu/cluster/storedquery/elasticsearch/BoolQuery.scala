@@ -22,7 +22,7 @@ object BoolQuery {
           case NamedClause(_, _, occur, innerClauses) =>
             innerClauses.getOrElse(Map.empty).values.toList match {
               case Nil => JNothing
-              case xs => ("bool" -> (occur -> Set(build(xs))): JObject)
+              case xs => "bool" -> (occur -> Set(build(xs))): JObject
             }
           case _ => JNothing
         }

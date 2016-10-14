@@ -50,7 +50,7 @@ trait LogsDirectives extends Directives {
 
           provide(
             fields.foldLeft(client.prepareSearch()
-              .setQuery(wrapperQuery(compact(render(query))))
+              .setQuery(constantScoreQuery(wrapperQuery(compact(render(query)))))
               .setSize(size).setFrom(from)
               .addField("vtt")){ (acc, f) => acc.addField(f) }
               .setHighlighterRequireFieldMatch(true)

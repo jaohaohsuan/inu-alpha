@@ -2,9 +2,14 @@
 
 set -x
 
-#kubectl apply -f target/deployment/manifests/svc.yaml
+PETSET_NAME=seed
 
-kubectl apply -f target/deployment/manifests/seed-petset.yaml --record
+if kubectl get petset ${PETSET_NAME} >/dev/nul 2>&1; then
+  kubectl delete petset ${PETSET_NAME}
+  kubectl delete po -l app=storedq-cluster
+fi
+
+kubectl apply -f target/deployment/manifests/seed-petset.yaml
 
 sleep 20
 

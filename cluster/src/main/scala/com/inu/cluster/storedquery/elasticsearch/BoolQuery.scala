@@ -14,6 +14,7 @@ object BoolQuery {
   def unapply(arg: Iterable[BoolClause]): Option[JValue] = {
 
     val empty: JValue = parse("""{ "bool": { "minimum_should_match": 1 } }""")
+
     def build(clauses: Iterable[BoolClause]): JValue = {
       clauses.foldLeft(empty) { (acc, clause) =>
        val query: JValue = clause match {
@@ -22,7 +23,7 @@ object BoolQuery {
           case NamedClause(_, _, occur, innerClauses) =>
             innerClauses.getOrElse(Map.empty).values.toList match {
               case Nil => JNothing
-              case xs => "bool" -> (occur -> Set(build(xs))): JObject
+              case xs => "bool" -> (("minimum_should_match" -> 1) ~~ (occur -> Set(build(xs)))): JObject
             }
           case _ => JNothing
         }

@@ -20,7 +20,7 @@ class BoolQueryTest extends FlatSpec with Matchers {
       case _ => fail("unexpected matching")
     }
 
-    //info(pretty(render(json)))
+    info(pretty(render(json)))
   }
 
   "Convert clause to bool query" should "like" in {
@@ -30,7 +30,7 @@ class BoolQueryTest extends FlatSpec with Matchers {
       case JString(q) => assert(q == clause.query)
       case _ => fail("unexpected matching")
     }
-    //info(pretty(render(json)))
+    info(pretty(render(json)))
   }
 
   "boolQuery" should "" in {
@@ -39,7 +39,7 @@ class BoolQueryTest extends FlatSpec with Matchers {
 
     val BoolQuery(json) = List(namedClause)
 
-    info(pretty(render(json)))
+    //info(pretty(render(json)))
     json \ "bool" \ "should" match {
       case  JArray(list) => list should have size 1
       case unexpected => fail(s"unexpected matching ${unexpected}")

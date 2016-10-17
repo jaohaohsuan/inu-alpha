@@ -19,8 +19,8 @@ object MultiSpanNearQuery {
       case xs if xs.isEmpty => Some(JNothing)
       case xs =>
         val spanNear = spanNearQuery(inOrder, slop, xs)(_)
-        val clause = "bool" -> ("should" -> arg.fields.map(spanNear).toSet)
-        Some("bool" -> (occur -> Set(clause)))
+        val clause = "bool" -> (("minimum_should_match" -> 1) ~~ ("should" -> arg.fields.map(spanNear).toSet))
+        Some("bool" -> (("minimum_should_match" -> 1) ~~ (occur -> Set(clause))))
     }
   }
 }

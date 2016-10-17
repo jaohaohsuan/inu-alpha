@@ -11,12 +11,15 @@ object MultiMatchQuery {
       case Nil => Some(JNothing)
       case fields =>
         Some("bool" ->
-          (occur -> Set(
-            "multi_match" ->
-              ("query"    -> q) ~~
-                ("fields" -> fields) ~~
-                ("operator" -> o)
-          ))
+          (
+            ("minimum_should_match" -> 1) ~~
+            (occur -> Set(
+              "multi_match" ->
+                ("query"    -> q) ~~
+                  ("fields" -> fields) ~~
+                  ("operator" -> o))
+            )
+          )
         )
 
     }

@@ -185,7 +185,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case Initial if state.items.contains("temporary") =>
       sender() ! RejectAck("already initialized")
 
-    case InitialTemporary(uid) if uid.matches("""[^\w]+""") =>
+    case InitialTemporary(uid) if """[^\w]+""".r.findFirstIn(uid).nonEmpty =>
       sender() ! RejectAck("illegal uid")
 
     case InitialTemporary(uid) if state.items.contains(uid) =>

@@ -20,10 +20,11 @@ trait PercolatorWriter  {
 
   val put = Flow[JValue].filterNot{ json =>
     val JString(id) = json \ "_id"
-    id.matches("""[^\w]+""")
+    """[^\w]+""".r.findFirstIn(id).nonEmpty
    }.map { json =>
     val JString(id) = json \ "_id"
     val doc = json \ "doc"
+    println("id:-----> " + id)
     HttpRequest(method = HttpMethods.PUT, uri = s"/stored-query/.percolator/$id", entity = HttpEntity(`application/json`, compact(render(doc)))) -> id }
 
   val query: Flow[StoredQuery, org.json4s.JValue, NotUsed] = Flow[StoredQuery].map {

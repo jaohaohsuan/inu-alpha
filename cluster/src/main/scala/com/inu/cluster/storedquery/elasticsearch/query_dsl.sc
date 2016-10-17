@@ -2,6 +2,8 @@ import com.inu.cluster.storedquery.elasticsearch.MultiSpanNearQuery
 import com.inu.protocol.storedquery.messages.SpanNearClause
 import org.json4s._
 
+"""[^\w]+""".r.findFirstIn("3838").nonEmpty
+
 val spn1 = SpanNearClause("h w", "agent*", 3, false, "must")
 
 val MultiSpanNearQuery(json) = spn1

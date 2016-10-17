@@ -2,10 +2,8 @@
 
 set -x
 
-PETSET_NAME=seed
-
-if kubectl get petset ${PETSET_NAME} >/dev/nul 2>&1; then
-  kubectl delete petset ${PETSET_NAME}
+if kubectl get petset seed >/dev/nul 2>&1; then
+  kubectl delete petset seed
   kubectl delete po -l app=storedq-cluster
 fi
 

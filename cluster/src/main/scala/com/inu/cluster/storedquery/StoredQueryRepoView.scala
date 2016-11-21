@@ -39,8 +39,8 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
   val states = Flow[EventEnvelope].scan(StoredQueries()){
-    case (acc, EventEnvelope(_,_,_, evt: ItemCreated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {}", evt.toString)
+    case (acc, ee @ EventEnvelope(_,_,_, evt: ItemCreated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
+      logger.warn("illegal id found: {} \nEventEnvelope: {}", evt.toString, ee.toString())
       acc
     case (acc, EventEnvelope(_,_,_, evt: ItemUpdated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
       logger.warn("illegal id found: {}", evt.toString)

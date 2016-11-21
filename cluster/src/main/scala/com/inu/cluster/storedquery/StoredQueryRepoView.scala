@@ -45,7 +45,9 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
     case (acc, EventEnvelope(_,_,_, evt: ItemUpdated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
       logger.warn("illegal id found: {}", evt.toString)
       acc
-    case (acc, EventEnvelope(_, _, _, evt: Event)) => acc.update(evt)
+    case (acc, EventEnvelope(_, _, _, evt: Event)) => 
+      acc.update(evt)
+      logger.info("playback: {}", evt.toString)
     case (acc, _) => acc
   }.filter {
     case StoredQueries(_, _, Nil) => false

@@ -34,19 +34,20 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
 
   val address = config.getString("elasticsearch.client-address")
   val port = config.getInt("elasticsearch.client-http")
-  val connectionFlow = Http().cachedHostConnectionPool[String](address, port)
+  val esConnectionFlow = Http().cachedHostConnectionPool[String](address, port)
+  logger.info(s"StoredQueryRepoView's elasticsearch endpoint: $address:$port")
 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
   val states = Flow[EventEnvelope].scan(StoredQueries()){
-    case (acc, ee @ EventEnvelope(_,_,_, evt: ItemCreated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {} \nEventEnvelope: {}", evt.toString, ee.toString())
+    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemCreated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
+      logger.warn("illegal id found: {}", evl.toString)
       acc
-    case (acc, ee @ EventEnvelope(_,_,_, evt: ItemUpdated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {} \nEventEnvelope: {}", evt.toString, ee.toString())
+    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemUpdated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
+      logger.warn("illegal id found: {}", evl.toString)
       acc
-    case (acc, EventEnvelope(_, _, _, evt: Event)) => 
-      // logger.info("playback: {}", evt.toString)
+    case (acc, evl @ EventEnvelope(_, _, _, evt: Event)) =>
+      logger.debug("replaying: {}", evl.toString)
       acc.update(evt)
     case (acc, _) => acc
   }.filter {
@@ -88,12 +89,12 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
     SourceShape(zipW.out)
   })
 
-  g.via(put).via(connectionFlow).runWith(Sink.foreach { case (res,id) =>
+  g.via(put).via(esConnectionFlow).runWith(Sink.foreach { case (res,id) =>
     res.get.status match {
       case OK => logger.debug("{} -- {}", id, res.get.status)
       case Created => logger.debug("{} -- {}", id, res.get.status)
       case Accepted => logger.debug("{} -- {}", id, res.get.status)
-      case unexpected => logger.error("{} -- {}", id, res.get.entity.toString)
+      case unexpected => logger.error("{} -- {} -- {}", id, res.get.entity.toString, unexpected)
     }
    })
 

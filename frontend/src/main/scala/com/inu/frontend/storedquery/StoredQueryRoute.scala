@@ -1,22 +1,19 @@
 package com.inu.frontend.storedquery
 
 import com.inu.frontend.CollectionJsonSupport
-import spray.routing._
-import spray.http.StatusCodes._
-import spray.httpx.unmarshalling._
-import com.inu.protocol.storedquery.messages._
-import org.elasticsearch.action.get.GetResponse
-import org.json4s.JsonAST.{JArray, JField, JString}
-import org.json4s._
-import org.json4s.native.JsonMethods._
-import org.json4s.JsonDSL._
 import com.inu.frontend.UriImplicitConversions._
 import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives, UserProfileDirectives}
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
+import com.inu.protocol.storedquery.messages._
+import org.json4s.JsonAST.{JArray, JField, JString}
+import org.json4s.JsonDSL._
+import org.json4s._
+import spray.http.StatusCodes._
+import spray.httpx.unmarshalling._
+import spray.routing._
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContext
 
 trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsDirectives with StoredQueryDirectives with UserProfileDirectives {
 

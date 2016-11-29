@@ -1,7 +1,7 @@
 logLevel := Level.Error
 
 libraryDependencies ++= Seq(
-  "ch.qos.logback" % "logback-classic" % "1.1.3",
+  "ch.qos.logback" % "logback-classic" % "1.1.7",
   "com.github.nscala-time" %% "nscala-time" % "2.12.0"
 )
 

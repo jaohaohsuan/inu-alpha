@@ -17,6 +17,7 @@ def create(title: String): Project = Project(title, file(title))
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
         shellPrompt           := { state => ">> " },
         git.useGitDescribe    := false,
+        git.formattedShaVersion := git.gitHeadCommit.value map { sha => s"${sha.take(7)}" },
         buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
         ): _*
     )

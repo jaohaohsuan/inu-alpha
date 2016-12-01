@@ -16,7 +16,7 @@ def create(title: String): Project = Project(title, file(title))
         resolvers            ++= Dependencies.resolvers,
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
         shellPrompt           := { state => ">> " },
-        git.useGitDescribe    := true,
+        git.useGitDescribe    := false,
         buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
         ): _*
     )

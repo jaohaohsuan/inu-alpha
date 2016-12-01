@@ -87,6 +87,11 @@ lazy val cluster = create("cluster").
         namespace = Some("127.0.0.1:5000/inu"),
         repository = "storedq-cluster",
         tag = Some(version.value)
+      ),
+      ImageName(
+        namespace = Some("127.0.0.1:5000/inu"),
+        repository = "storedq-cluster",
+        tag = Some("latest")
       )
     )
     )
@@ -134,6 +139,11 @@ lazy val frontend = create("frontend").
         namespace = Some("127.0.0.1:5000/inu"),
         repository = "storedq-api",
         tag = Some(version.value)
+      ),
+      ImageName(
+        namespace = Some("127.0.0.1:5000/inu"),
+        repository = "storedq-api",
+        tag = Some("latest")
       )
     )
 

@@ -205,7 +205,7 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
     case UpdateStoredQuery(storedQueryId, title, tags) =>
       doPersist(ItemUpdated(storedQueryId, title, tags.getOrElse("").split("""[\s,]+""").toSet), PersistedAck(sender(),Some(UpdatedAck)))
 
-    case AddClause(storedQueryId, clause: BoolClause) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
+    case AddClause(storedQueryId, _) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
     case AddClause(_, NamedClause(refId, _, _, _))    if refId.notExist()         => sender() ! RejectAck(s"$refId is not exist.")
     case AddClause(_, NamedClause("temporary", _, _, _))                          => sender() ! RejectAck(s"temporary stored query cannot be referenced.")
 

@@ -5,10 +5,6 @@ import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerS
 import akka.util.Timeout
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
-import NodeConfigurator._
-import PersistenceConfigurator._
-import akka.cluster.Cluster
-import akka.cluster.client.ClusterClientReceptionist
 
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
@@ -22,6 +18,7 @@ object Main extends App {
 
   system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
   system.log.info("Configured cassandra nodes: " + config.getStringList("cassandra-journal.contact-points").mkString(", "))
+
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
   implicit class clustering(props: Props) {

@@ -25,12 +25,12 @@ trait PercolatorWriter  {
 
   val query: Flow[StoredQuery, org.json4s.JValue, NotUsed] = Flow[StoredQuery].map {
     case Percolator(id, body) => ("_id", id) ~~ ("doc", body)
-    case unmatched => JObject()
+    case _ => JObject()
   }
 
   val keywords: Flow[StoredQuery, org.json4s.JValue, NotUsed] = Flow[StoredQuery].map {
     case QueryTerms(id,terms) => ("_id", id) ~~ ("doc", "keywords" -> terms)
-    case unmatched => JObject()
+    case _ => JObject()
   }
 
 }

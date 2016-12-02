@@ -23,31 +23,33 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   import StoredQueryRepoAggRoot._
   import akka.http.scaladsl.model.StatusCodes._
 
-  val config = ConfigFactory.load()
-
   implicit val system: ActorSystem = context.system
   implicit val mat = ActorMaterializer()
-  implicit val executor = context.dispatcher
-
+  implicit val ec = context.dispatcher
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 
-  val address = config.getString("elasticsearch.client-address")
-  val port = config.getInt("elasticsearch.client-http")
-  val esConnectionFlow = Http().cachedHostConnectionPool[String](address, port)
-  logger.info(s"StoredQueryRepoView's elasticsearch endpoint: $address:$port")
+  lazy val esConnectionFlow = {
+    val config = ConfigFactory.load()
+    val address = config.getString("elasticsearch.client-address")
+    val port = config.getInt("elasticsearch.client-http")
+    logger.info(s"StoredQueryRepoView's elasticsearch endpoint: $address:$port")
+    Http().cachedHostConnectionPool[String](address, port)
+  }
 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
+  val illegalIdRegx = """[^\w]+""".r
+
   val states = Flow[EventEnvelope].scan(StoredQueries()){
-    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemCreated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {}", evl.toString)
+    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemCreated)) if illegalIdRegx.findFirstIn(evt.id).nonEmpty =>
+      logger.warn("illegal id found: {}", evl)
       acc
-    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemUpdated)) if """[^\w]+""".r.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {}", evl.toString)
+    case (acc, evl @ EventEnvelope(_,_,_, evt: ItemUpdated)) if illegalIdRegx.findFirstIn(evt.id).nonEmpty =>
+      logger.warn("illegal id found: {}", evl)
       acc
     case (acc, evl @ EventEnvelope(_, _, _, evt: Event)) =>
-      logger.debug("replaying: {}", evl.toString)
+      logger.debug("replaying: {}", evl)
       acc.update(evt)
     case (acc, _) => acc
   }.filter {
@@ -89,17 +91,15 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
     SourceShape(zipW.out)
   })
 
+  //g.runWith(Sink.ignore)
   g.via(put).via(esConnectionFlow).runWith(Sink.foreach { case (res,id) =>
     res.get.status match {
-      case OK => logger.debug("{} -- {}", id, res.get.status)
-      case Created => logger.debug("{} -- {}", id, res.get.status)
-      case Accepted => logger.debug("{} -- {}", id, res.get.status)
+      case OK =>
+      case Created =>
+      case Accepted =>
       case unexpected => logger.error("{} -- {} -- {}", id, res.get.entity.toString, unexpected)
     }
    })
-
-  //Sink.fold(Set.empty[String])
-
 
   def receive: Receive = {
     case _ =>

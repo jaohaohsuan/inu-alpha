@@ -28,8 +28,8 @@ object StoredQueryRepoAggRoot extends LazyLogging {
     def unapply(arg: Any): Option[Either[String, StoredQuery]] = {
       arg match {
         case (ItemCreated(id, title, refId, tags), StoredQueryRepo(repo)) => {
-          implicit def getItem2(referredId: Option[String]): Option[Option[StoredQuery]] = referredId.map(repo.get)
-          implicit def fill(src: StoredQuery): Either[String, StoredQuery] = Right(src.copy(id = id, title = title, tags = tags.toSet))
+          implicit def getItem2(referredId: Option[String]): Option[Option[StoredQuery]] = referredId.filterNot(_ == "temporary").map(repo.get)
+          implicit def fill(src: StoredQuery): Either[String, StoredQuery] = Right(src.copy(id = id, title = title, tags = tags))
           type StoredQueryRef = Option[StoredQuery]
           Some((refId: Option[StoredQueryRef]) match {
             case Some(None) => Left(refId.get) // bad refId

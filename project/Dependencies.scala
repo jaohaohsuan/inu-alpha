@@ -38,7 +38,7 @@ object Library {
   val scopt                    = "com.github.scopt"            %% "scopt"                                % "3.5.0"
   val shapeless                = "com.chuusai"                 %% "shapeless"                            % "2.3.2"
   val scalazCore               = "org.scalaz"                  %% "scalaz-core"                          % "7.2.7"
-  val kryo                     = "com.github.romix.akka"       %% "akka-kryo-serialization"              % "0.5.0"
+  val kryo                     = "com.github.romix.akka"       %% "akka-kryo-serialization"              % "0.4.2"
   val scalatest                = "org.scalatest"               %% "scalatest"                            % "3.0.1"        % "test"
 }
 

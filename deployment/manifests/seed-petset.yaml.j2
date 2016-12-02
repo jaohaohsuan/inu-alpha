@@ -26,6 +26,12 @@ spec:
       containers:
       - name: domain
         image: 127.0.0.1:5000/inu/storedq-cluster:{{tag_name}}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 2Gi
+          requests:
+            memory: 512Mi
         ports:
         - containerPort: 2551
           name: seed

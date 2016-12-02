@@ -25,6 +25,12 @@ spec:
       containers:
       - name: api
         image: 127.0.0.1:5000/inu/storedq-api:${version}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 2Gi
+          requests:
+            memory: 256Mi
         command:
           - "java"
           - "-Dakka.cluster.roles.0=frontend"

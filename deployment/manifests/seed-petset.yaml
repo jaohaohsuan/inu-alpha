@@ -28,9 +28,9 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 2Gi
+            memory: 1Gi
           requests:
-            memory: 512Mi
+            memory: 256Mi
         image: 127.0.0.1:5000/inu/storedq-cluster:${version}
         ports:
         - containerPort: 2551

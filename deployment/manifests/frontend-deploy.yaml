@@ -28,7 +28,7 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 2Gi
+            memory: 1Gi
           requests:
             memory: 256Mi
         command:

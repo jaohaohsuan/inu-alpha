@@ -149,7 +149,10 @@ object StoredQueryRepoAggRoot extends LazyLogging {
           case BuildDependencies(guides, state)     => proc((CascadingUpdateGuide(guides), state))
           case CascadingUpdateOneByOne(Nil, state)  => state
           case CascadingUpdateOneByOne(guides, state) => proc((CascadingUpdateGuide(guides), state))
-          case _ => throw new Exception("state update condition miss matching")
+          case _ =>
+            logger.debug(s"while update agg state abandoned event found: $evt")
+            value
+            //throw new Exception("state update condition miss matching")
         }
       }
       // start from here

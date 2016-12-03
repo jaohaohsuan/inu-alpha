@@ -27,6 +27,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
   object CreateStoredQuery {
     def unapply(arg: Any): Option[Either[String, StoredQuery]] = {
       arg match {
+        case (ItemCreated("temporary", _, _, _), _) => None
         case (ItemCreated(id, title, refId, tags), StoredQueryRepo(repo)) => {
           implicit def getItem2(referredId: Option[String]): Option[Option[StoredQuery]] = referredId.filterNot(_ == "temporary").map(repo.get)
           implicit def fill(src: StoredQuery): Either[String, StoredQuery] = Right(src.copy(id = id, title = title, tags = tags))
@@ -45,6 +46,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
   object ApplyStoredQueryUpdate {
     def unapply(arg: Any): Option[StoredQuery] = {
       arg match {
+        case (ItemUpdated("temporary", _, _), _) => None
         case (ItemUpdated(id, newTitle, newTags), StoredQueryRepo(repo)) => repo.get(id).map(_.copy(title = newTitle, tags = newTags))
         case _ => None
       }
@@ -54,6 +56,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
   object UpdateClauses {
     def unapply(arg: Any): Option[Either[String, StoredQuery]] = {
       arg match {
+        case (ClauseAdded("temporary", _), _) => None
         case (ClauseAdded(consumer, boolClause), StoredQueryRepo(repo)) => {
           Some(repo.get(consumer) match {
             case None =>
@@ -63,6 +66,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
               Right(entity.copy(clauses = entity.clauses + boolClause))
           })
         }
+        case (ClauseRemoved("temporary", _), _) => None
         case (ClauseRemoved(storedQueryId, boolClauses), StoredQueryRepo(repo)) =>
           Some(repo.get(storedQueryId) match {
             case None =>

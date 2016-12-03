@@ -43,9 +43,9 @@ class StoredQueryAggRootTest extends FlatSpec with Matchers {
     val stage3 = stage2.update(ClauseAdded("0", (100, NamedClause("1", "query1", "must"))))
 
     val cycleClauseAdded = ClauseAdded("1", (100, NamedClause("0", "query0", "must")))
-//    an [Exception] should be thrownBy {     // Ensure a particular exception type is thrown
-//      stage3.update(cycleClauseAdded)
-//    }
+    an [Exception] should be thrownBy {     // Ensure a particular exception type is thrown
+      stage3.update(cycleClauseAdded)
+    }
 
     stage3.testCycleInDirectedGraph(cycleClauseAdded) should equal (Left("CycleInDirectedGraphError"))
 

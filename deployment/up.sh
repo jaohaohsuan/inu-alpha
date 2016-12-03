@@ -9,7 +9,9 @@ fi
 
 kubectl apply -f target/deployment/manifests/seed-petset.yaml
 
-sleep 20
+sleep 10
+
+kubectl delete po seed-0
 
 kubectl apply -f target/deployment/manifests/frontend-deploy.yaml --record
 

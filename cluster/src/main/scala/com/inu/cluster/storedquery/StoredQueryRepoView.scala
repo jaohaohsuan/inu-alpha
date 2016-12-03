@@ -6,6 +6,7 @@ import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
 import akka.stream.scaladsl._
 import akka.stream.{ActorMaterializer, SourceShape}
+import com.inu.cluster.ElasticsearchExtension
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
 import com.typesafe.config.ConfigFactory
@@ -15,7 +16,7 @@ import scala.language.implicitConversions
 
 object StoredQueryRepoView {
 
-  def props = Props[StoredQueryRepoView]
+  def props: Props = Props[StoredQueryRepoView]
 }
 
 class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
@@ -28,14 +29,6 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   implicit val ec = context.dispatcher
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
-
-  lazy val esConnectionFlow = {
-    val config = ConfigFactory.load()
-    val address = config.getString("elasticsearch.client-address")
-    val port = config.getInt("elasticsearch.client-http")
-    logger.info(s"StoredQueryRepoView's elasticsearch endpoint: $address:$port")
-    Http().cachedHostConnectionPool[String](address, port)
-  }
 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
@@ -92,17 +85,14 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   })
 
   //g.runWith(Sink.ignore)
-  g.via(put).via(esConnectionFlow).runWith(Sink.foreach { case (res,id) =>
+  g.via(put).via(ElasticsearchExtension(system).httpConnectionPool).runWith(Sink.foreach { case (res,id) =>
     res.get.status match {
-      case OK =>
-      case Created =>
-      case Accepted =>
-      case unexpected => logger.error("{} -- {} -- {}", id, res.get.entity.toString, unexpected)
+      case s if 400 <= s.intValue => logger.error("{} -- {} -- {}", id, res.get.entity)
+      case _ => // no errors
     }
    })
 
   def receive: Receive = {
     case _ =>
-
   }
 }

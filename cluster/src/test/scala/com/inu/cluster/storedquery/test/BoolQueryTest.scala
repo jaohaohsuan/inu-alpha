@@ -52,7 +52,10 @@ class BoolQueryTest extends FlatSpec with Matchers {
     val BoolQuery(json) = List(clause1)
     val JObject(xs) = json \ "bool"
 
-    xs.filterNot { case ("minimum_should_match",v) => true  } should have size 0
+    xs.filterNot {
+      case ("minimum_should_match",v) => true
+      case _ => false
+    } should have size 0
 
   }
 
@@ -60,7 +63,10 @@ class BoolQueryTest extends FlatSpec with Matchers {
     val BoolQuery(json2) = StoredQuery("0", "0").clauses.values
     val JObject(yx) = json2 \ "bool"
 
-    yx.filterNot { case ("minimum_should_match",v) => true  } should have size 0
+    yx.filterNot {
+      case ("minimum_should_match",v) => true
+      case _ => false
+    } should have size 0
   }
 
 }

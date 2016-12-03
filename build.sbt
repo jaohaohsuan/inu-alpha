@@ -67,7 +67,7 @@ lazy val cluster = create("cluster").
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
-        from("java:8-jre-alpine")
+        from("openjdk:8-jre-alpine")
         runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
@@ -121,7 +121,7 @@ lazy val frontend = create("frontend").
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
-        from("java:8-jre-alpine")
+        from("openjdk:8-jre-alpine")
         runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")

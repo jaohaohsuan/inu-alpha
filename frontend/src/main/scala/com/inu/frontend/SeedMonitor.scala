@@ -20,12 +20,12 @@ class SeedMonitor extends  Actor with ActorLogging {
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
       if(member.roles.contains("backend"))
-        system.terminate()
+        sys.exit(1)
 
     case MemberRemoved(member, previousStatus) =>
       log.info("Member is Removed: {} after {}", member.address, previousStatus)
       if(member.roles.contains("backend"))
-       system.terminate()
+       sys.exit(1)
     case _: MemberEvent =>
 
   }

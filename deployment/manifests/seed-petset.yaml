@@ -28,14 +28,14 @@ spec:
         resources:
           limits:
             memory: 1Gi
-          requests:
-            memory: 256Mi
         image: 127.0.0.1:5000/inu/storedq-cluster:${version}
         ports:
         - containerPort: 2551
           name: seed
         command:
           - "java"
+          - -Xms512m
+          - -Xmx512m
           - "-Dakka.cluster.roles.0=compute"
           - "-Dakka.cluster.roles.1=queryside"
           - "-Dakka.cluster.roles.2=backend"

@@ -26,7 +26,7 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
 
   implicit val system: ActorSystem = context.system
   implicit val mat = ActorMaterializer()
-  implicit val ec = context.dispatcher
+  implicit val ec = system.dispatchers.lookup("view-thread-pool-dispatcher")
 
   val readJournal = PersistenceQuery(system).readJournalFor[CassandraReadJournal](CassandraReadJournal.Identifier)
 

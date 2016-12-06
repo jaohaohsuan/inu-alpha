@@ -27,7 +27,6 @@ spec:
         image: 127.0.0.1:5000/inu/storedq-api:${version}
         resources:
           limits:
-            cpu: 500m
             memory: 1Gi
           requests:
             memory: 256Mi

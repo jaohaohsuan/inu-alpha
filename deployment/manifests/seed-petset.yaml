@@ -27,7 +27,6 @@ spec:
       - name: domain
         resources:
           limits:
-            cpu: 500m
             memory: 1Gi
           requests:
             memory: 256Mi

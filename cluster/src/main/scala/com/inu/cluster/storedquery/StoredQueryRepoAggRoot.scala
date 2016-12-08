@@ -1,11 +1,14 @@
 package com.inu.cluster.storedquery
 
-import akka.actor.Props
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.actor.{ActorLogging, PoisonPill, Props}
+import akka.pattern.{Backoff, BackoffSupervisor}
+import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import com.inu.cluster.storedquery.algorithm.TopologicalSort
 import com.inu.cluster.storedquery.messages._
 import com.inu.protocol.storedquery.messages._
 import com.typesafe.scalalogging.LazyLogging
+import scala.concurrent.duration._
+
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
@@ -16,6 +19,15 @@ case class CascadingUpdateGuide(guides: List[(String, String)])
 object StoredQueryRepoAggRoot extends LazyLogging {
 
   def props = Props(classOf[StoredQueryRepoAggRoot])
+
+  def propsWithBackoff = BackoffSupervisor.props(
+    Backoff.onStop(
+      childProps = StoredQueryRepoAggRoot.props,
+      childName = "StoredQueryRepoAggRoot",
+      minBackoff = 3.seconds,
+      maxBackoff = 30.seconds,
+      randomFactor = 0.2
+    ))
 
   implicit class idValidator(id: String) {
     def exist()(implicit state: StoredQueries): Boolean = state.items.contains(id)
@@ -169,7 +181,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
   }
 }
 
-class StoredQueryRepoAggRoot extends PersistentActor  {
+class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
   import StoredQueryRepoAggRoot._
 
@@ -238,9 +250,17 @@ class StoredQueryRepoAggRoot extends PersistentActor  {
   }
 
   val receiveRecover: Receive = {
+    case RecoveryCompleted =>
+      log.info(s"RecoveryCompleted")
     case evt: Event =>
       state = state.update(evt)
     case SnapshotOffer(_, snapshot: State) =>
+  }
+
+
+  override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
+    super.onRecoveryFailure(cause, event)
+    throw cause
   }
 
   def afterPersisted(ack: PersistedAck)(evt: Event) = {

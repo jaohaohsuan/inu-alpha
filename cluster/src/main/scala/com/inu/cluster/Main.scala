@@ -28,7 +28,7 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system).withRole("backend"))
   }
 
-  system.actorOf(StoredQueryRepoAggRoot.props.singleton(), "StoredQueryRepoAggRoot")
+  system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
 
   system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
 

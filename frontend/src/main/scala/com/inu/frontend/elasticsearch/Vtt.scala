@@ -1,10 +1,12 @@
 package com.inu.frontend.elasticsearch
 
+import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.common.text.Text
 import org.elasticsearch.search.SearchHit
-import scala.collection.JavaConversions._
+import org.joda.time.IllegalFieldValueException
 
-import scala.util.Try
+import scala.collection.JavaConversions._
+import scala.util.{Failure, Success, Try}
 
 case class VttHighlightFragment(start: String, keywords: String)
 
@@ -41,7 +43,7 @@ object VttField {
     }
   }
 
-object SearchHitHighlightFields {
+object SearchHitHighlightFields extends LazyLogging {
 
     object Path {
       def unapply(h: SearchHit): Option[String] = Some(s"${h.index}/${h.`type`}/${h.id}")
@@ -76,8 +78,23 @@ object SearchHitHighlightFields {
           } yield VttHighlightFragment(time, keywords)
       }).flatten
 
-  def intStartTime(value: VttHighlightFragment): Int = {
-    org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS").parseDateTime(value.start).getMillisOfDay
+  def intStartTime(path: String)(value: VttHighlightFragment): Int = {
+
+    Try(org.joda.time.format.DateTimeFormat.forPattern("HH:mm:ss.SSS").parseDateTime(value.start).getMillisOfDay) match {
+      case Success(v) => v
+      case Failure(ex: IllegalFieldValueException) =>
+        val `HH:>60:ss.SSS` = """(\d+):(\d+):(.*)""".r
+        value.start match {
+          case `HH:>60:ss.SSS`(hour, min, sec) => intStartTime(path)(value.copy(start = s"$hour:${min.toInt % 60}:$sec"))
+          case _ =>
+            logger.error(s"Vtt highlighting fail while parsing vtt start time '${value.start} from source path '$path'", ex)
+            Int.MaxValue
+        }
+
+      case Failure(ex) =>
+        logger.error(s"Vtt highlighting fail while parsing vtt start time '${value.start} from source path '$path'", ex)
+        Int.MaxValue
+    }
   }
 
   def unapply(value: AnyRef): Option[(String, List[VttHighlightFragment])]= {
@@ -86,9 +103,10 @@ object SearchHitHighlightFields {
           val VttField(map) = h
           val Path(path) = h
 
-          Some((path, h.highlightFields.values
-                        .flatMap(_.fragments().flatMap(splitFragment))
-                        .flatMap(substitute(map)(_).toOption).toList.sortBy(intStartTime)))
+          val startTime = intStartTime(path)(_)
+          Some(path, h.highlightFields.values
+            .flatMap(_.fragments().flatMap(splitFragment))
+            .flatMap(substitute(map)(_).toOption).toList.sortBy(startTime))
         case _ => None
       }
     }

@@ -1,0 +1,27 @@
+---
+- hosts: all
+  vars:
+    es_address: "http://{{ lookup('env','ELASTICSEARCH_SERVICE_HOST') }}:9200"
+  tasks:
+    - uri: |
+        url={{ es_address }}/stored-query
+        method=HEAD
+        status_code=200,404
+      register: api_result
+      name: HEAD stored-query index
+
+    - uri: |
+        url={{ es_address }}/stored-query
+        method=PUT
+        body_format=json
+        HEADER_Content-Type=application/json
+        body={{ lookup('file', 'stored-query.index.settings.json') }}
+        status_code=200,201
+      name: Create stored-query Index
+      when: api_result.status == 404
+
+    - uri: |
+        url={{ es_address }}/stored-query/_close
+        method=POST
+        status_code=200
+      name: Close stored-query

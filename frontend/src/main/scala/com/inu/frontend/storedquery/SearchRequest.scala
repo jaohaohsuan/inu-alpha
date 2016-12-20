@@ -30,7 +30,7 @@ object SearchRequest {
     ).flatten.foldLeft(
         boolQuery()
           .mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary"))
-          .mustNot(QueryBuilders.matchQuery("title","temporary"))
+          .mustNot(QueryBuilders.regexpQuery("title", ".+temporary"))
           .mustNot(QueryBuilders.existsQuery("temporary"))
       )(_ must _)
   }

@@ -60,7 +60,7 @@ trait StoredQueryDirectives extends Directives {
         case _ =>
           import org.json4s.JsonDSL._
           import com.inu.protocol.media.CollectionJson._
-          val blank = ("item"   -> Template(Map("title" -> "user-temporary", "tags" -> "")).template ~~ ("href" -> "temporary")) ~~
+          val blank = ("item"   -> Template(Map("title" -> "untitled", "tags" -> "")).template ~~ ("href" -> "temporary")) ~~
             ("occurs" -> JObject(List.empty)) ~~
             ("query"  -> JObject(List.empty))
           provide(blank)

@@ -72,7 +72,14 @@ object StoredQueryRepoAggRoot extends LazyLogging {
               logger.error("Add {} to unknown storedQuery {}", boolClause, consumer)
               Left("oops")
             case Some(entity) =>
-              Right(entity.copy(clauses = entity.clauses + boolClause))
+              boolClause match {
+                case (_, NamedClause(refId,_, _, _)) if !refId.matches("\\d+") =>
+                  logger.warn(s"prevent to add temporary of NamedClause on $consumer")
+                  Right(entity.copy(clauses = entity.clauses))
+                case _ =>
+                  Right(entity.copy(clauses = entity.clauses + boolClause))
+              }
+
           })
         }
         case (ClauseRemoved(storedQueryId, boolClauses), StoredQueryRepo(repo)) =>

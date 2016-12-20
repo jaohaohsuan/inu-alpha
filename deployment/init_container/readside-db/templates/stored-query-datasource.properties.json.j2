@@ -1,0 +1,16 @@
+{
+    "properties": {
+{% set comma = joiner(",") %}
+{% for property in item.properties %}
+{{ comma() }}"{{ property.name }}": {
+	"type": "{{property.type}}",
+	"index": "{{property.index}}"
+}
+{% endfor %},
+      "dialogs":         { "type": "string", "analyzer": "{{ item.analyzer }}" }
+{% for n in range(3) %}
+     ,"agent{{ n }}":    { "type": "string", "analyzer": "{{ item.analyzer }}" }
+     ,"customer{{ n }}": { "type": "string", "analyzer": "{{ item.analyzer }}"}
+{% endfor %}
+    }
+}

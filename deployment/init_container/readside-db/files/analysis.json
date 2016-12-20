@@ -1,0 +1,16 @@
+{
+  "analyzer": {
+      "stt_analyzer": {
+          "type":"custom",
+          "tokenizer": "whitespace",
+          "char_filter": ["role_normalizer"]
+      }
+  },
+  "char_filter": {
+      "role_normalizer": {
+          "type": "pattern_replace",
+          "pattern": "(agent|customer)(\\d+-\\d+)\\b",
+          "replacement": "$1"
+      }
+  }
+}

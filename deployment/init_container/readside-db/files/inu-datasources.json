@@ -1,0 +1,119 @@
+[
+  {
+    "type": "amiast",
+    "analyzer": "stt_analyzer",
+    "properties": [
+      
+            {
+                "name": "startTime",
+                "type": "date",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "year",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "quarter",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "month",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "weekYear",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "weekDay",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+                        {
+                "name": "weekNum",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "monthDay",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "endTime",
+                "type": "date",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "length",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "agentId",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "agentName",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "callDirection",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "agentPhoneNo",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "customerPhoneNo",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "customerGender",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "endStatus",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "projectName",
+                "type": "string",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "mixLongestSilence",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "r0TotalInterruption",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "r1TotalInterruption",
+                "type": "integer",
+                "index": "not_analyzed"
+            },
+            {
+                "name": "sumTotalInterruption",
+                "type": "integer",
+                "index": "not_analyzed"
+            }
+    ]
+  }
+]

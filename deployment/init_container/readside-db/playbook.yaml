@@ -2,6 +2,8 @@
 - hosts: all
   vars:
     es_address: "http://{{ lookup('env','ELASTICSEARCH_SERVICE_HOST') }}:9200"
+    inu_datasources: "{{ lookup('file','inu-datasources.json') }}"
+    es_analysis: "{{ lookup('file','analysis.json') }}"
   tasks:
     - uri: |
         url={{ es_address }}/stored-query
@@ -25,3 +27,36 @@
         method=POST
         status_code=200
       name: Close stored-query
+
+    - uri: |
+        url={{ es_address }}/stored-query/_settings
+        method=PUT
+        body_format=json
+        HEADER_Content-Type=application/json
+        body={{ lookup('template', 'stored-query.settings.json.j2') }}
+        status_code=200
+      name: Update stored-query settings
+
+    - uri: |
+        url={{ es_address }}/stored-query/_open
+        method=POST
+        status_code=200
+      name: Open stored-query
+
+    - uri: |
+        url={{ es_address }}/stored-query/_mapping/.percolator
+        method=PUT
+        body_format=json
+        HEADER_Content-Type=application/json
+        body={{ lookup('template','stored-query-percolator.properties.json.j2') }}
+        status_code=200
+      name: .percolator properties update
+
+    - uri: |
+        url={{ es_address }}/stored-query/_mapping/{{ item.type }}
+        method=PUT
+        body_format=json
+        HEADER_Content-Type=application/json
+        body={{ lookup('template','stored-query-datasource.properties.json.j2') }}
+        status_code=200
+      with_items: "{{ inu_datasources }}"

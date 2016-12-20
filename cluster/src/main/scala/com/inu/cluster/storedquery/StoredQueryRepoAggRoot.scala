@@ -220,6 +220,7 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
     case AddClause(storedQueryId, _) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
     case AddClause(_, NamedClause(refId, _, _, _))    if refId.notExist()         => sender() ! RejectAck(s"$refId is not exist.")
     case AddClause(_, NamedClause("temporary", _, _, _))                          => sender() ! RejectAck(s"temporary stored query cannot be referenced.")
+    case AddClause(_, NamedClause(uid, _, _, _))      if !uid.matches("\\d+")     => sender() ! RejectAck(s"user temporary stored query cannot be referenced.")
 
     case AddClause(storedQueryId, clause: BoolClause) => {
       def genClauseId(item: StoredQuery): Int = {

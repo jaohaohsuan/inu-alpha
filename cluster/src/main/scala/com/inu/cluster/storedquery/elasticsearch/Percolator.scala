@@ -11,7 +11,7 @@ import com.inu.protocol.media.CollectionJson.Template
 object Percolator {
 
   def markAsTemporary(doc: JObject, src: StoredQuery): JObject = {
-    if(!src.id.matches("\\d+") && src.title == "temporary")
+    if(!src.id.matches("\\d+") && src.title.matches(".*temporary"))
       doc ~~ ("temporary" -> src.id)
     else
       doc

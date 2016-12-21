@@ -26,10 +26,11 @@ spec:
       containers:
       - name: domain
         image: 127.0.0.1:5000/inu/storedq-cluster:{{tag_name}}
+        imagePullPolicy: IfNotPresent
         resources:
           limits:
             cpu: 500m
-            memory: 2Gi
+            memory: 4Gi
           requests:
             memory: 256Mi
         ports:

@@ -25,10 +25,11 @@ spec:
       containers:
       - name: api
         image: 127.0.0.1:5000/inu/storedq-api:{{tag_name}}
+        imagePullPolicy: IfNotPresent
         resources:
           limits:
             cpu: 500m
-            memory: 2Gi
+            memory: 4Gi
           requests:
             memory: 256Mi
         command:

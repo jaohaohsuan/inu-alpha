@@ -58,12 +58,7 @@ trait StoredQueryDirectives extends Directives {
         case scala.util.Success(res) if res.isExists =>
           provide(parse(res.getSourceAsString()))
         case _ =>
-          import org.json4s.JsonDSL._
-          import com.inu.protocol.media.CollectionJson._
-          val blank = ("item"   -> Template(Map("title" -> "untitled", "tags" -> "")).template ~~ ("href" -> "temporary")) ~~
-            ("occurs" -> JObject(List.empty)) ~~
-            ("query"  -> JObject(List.empty))
-          provide(blank)
+          throw new Exception(s"StoredQuery resource $id is not exist.")
       }
     }
   }

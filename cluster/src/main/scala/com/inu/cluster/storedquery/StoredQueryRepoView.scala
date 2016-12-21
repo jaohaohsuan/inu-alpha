@@ -1,7 +1,7 @@
 package com.inu.cluster.storedquery
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.http.scaladsl.Http
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
 import akka.stream.scaladsl._
@@ -9,20 +9,27 @@ import akka.stream.{ActorMaterializer, SourceShape}
 import com.inu.cluster.ElasticsearchExtension
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
-import com.typesafe.config.ConfigFactory
-import com.typesafe.scalalogging.LazyLogging
 
 import scala.language.implicitConversions
+import scala.util.Failure
+import scala.concurrent.duration._
 
 object StoredQueryRepoView {
 
   def props: Props = Props[StoredQueryRepoView]
+  def propsWithBackoff = BackoffSupervisor.props(
+    Backoff.onStop(
+      childProps = StoredQueryRepoView.props,
+      childName = "StoredQueryRepoView",
+      minBackoff = 3.seconds,
+      maxBackoff = 30.seconds,
+      randomFactor = 0.2
+    ))
 }
 
-class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
+class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging {
 
   import StoredQueryRepoAggRoot._
-  import akka.http.scaladsl.model.StatusCodes._
 
   implicit val system: ActorSystem = context.system
   implicit val mat = ActorMaterializer()
@@ -36,13 +43,13 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
 
   val states = Flow[EventEnvelope].scan(StoredQueries()){
     case (acc, evl @ EventEnvelope(_,_,_, evt: ItemCreated)) if illegalIdRegx.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {}", evl)
+      log.warning("illegal id found: {}", evl)
       acc
     case (acc, evl @ EventEnvelope(_,_,_, evt: ItemUpdated)) if illegalIdRegx.findFirstIn(evt.id).nonEmpty =>
-      logger.warn("illegal id found: {}", evl)
+      log.warning("illegal id found: {}", evl)
       acc
     case (acc, evl @ EventEnvelope(_, _, _, evt: Event)) =>
-      logger.debug("replaying: {}", evl)
+      log.debug("replaying: {}", evl)
       acc.update(evt)
     case (acc, _) => acc
   }.filter {
@@ -63,7 +70,7 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
           items.get(n.storedQueryId) match {
             case Some(innerItem) => acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = Some(retrieveDependencies(innerItem,items).clauses))))
             case None =>
-              logger.warn("{} doesn't exist", n)
+              log.warning("{} doesn't exist", n)
               acc
           }
         case _ => acc
@@ -85,11 +92,15 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with LazyLogging {
   })
 
   //g.runWith(Sink.ignore)
-  g.via(put).via(ElasticsearchExtension(system).httpConnectionPool).runWith(Sink.foreach { case (res,id) =>
-    res.get.status match {
-      case s if 400 <= s.intValue => logger.error("{} -- {} -- {}", id, res.get.entity)
-      case _ => // no errors
-    }
+  g.via(put).via(ElasticsearchExtension(system).httpConnectionPool).runWith(Sink.foreach {
+    case (scala.util.Success(res),id) =>
+      res.discardEntityBytes(mat).future().onComplete{ _ =>
+        res.status match {
+          case s if 400 <= s.intValue => log.error("{} ResponseCode:{}", id, s)
+          case _ => // no errors
+        }
+      }
+    case (Failure(ex), _) => log.error(ex, "Unable to send request to es")
    })
 
   def receive: Receive = {

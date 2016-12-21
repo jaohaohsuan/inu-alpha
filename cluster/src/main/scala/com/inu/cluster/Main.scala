@@ -22,15 +22,15 @@ object Main extends App {
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
   implicit class clustering(props: Props) {
-    def singleton()(implicit system: ActorSystem) = ClusterSingletonManager.props(
+    def singleton(role: String = "backend")(implicit system: ActorSystem) = ClusterSingletonManager.props(
       singletonProps = props,
       terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(system).withRole("backend"))
+      settings = ClusterSingletonManagerSettings(system).withRole(role))
   }
 
   system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
 
-  system.actorOf(StoredQueryRepoView.props.singleton(), "StoredQueryRepoView")
+  system.actorOf(StoredQueryRepoView.propsWithBackoff)
 
   system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 

@@ -2,10 +2,10 @@
 
 set -x
 
-if kubectl get petset seed >/dev/nul 2>&1; then
-  kubectl delete petset seed
-  kubectl delete po -l app=storedq-cluster
-fi
+#if kubectl get petset seed >/dev/nul 2>&1; then
+#  kubectl delete petset seed
+#  kubectl delete po -l app=storedq-cluster
+#fi
 
 kubectl apply -f target/deployment/manifests/seed-petset.yaml
 

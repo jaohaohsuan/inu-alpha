@@ -18,7 +18,7 @@ def create(title: String): Project = Project(title, file(title))
         shellPrompt           := { state => ">> " },
         git.useGitDescribe    := false,
         git.formattedShaVersion := git.gitHeadCommit.value map { sha =>
-          sys.props.get("BUILD_NUMBER") match {
+          sys.env.get("BUILD_NUMBER") match {
             case Some(nu) => s"$nu-${sha.take(7)}"
             case _ => s"${sha.take(7)}"
           }

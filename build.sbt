@@ -17,7 +17,12 @@ def create(title: String): Project = Project(title, file(title))
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
         shellPrompt           := { state => ">> " },
         git.useGitDescribe    := false,
-        git.formattedShaVersion := git.gitHeadCommit.value map { sha => s"${sha.take(7)}" },
+        git.formattedShaVersion := git.gitHeadCommit.value map { sha =>
+          sys.props.get("BUILD_NUMBER") match {
+            case Some(nu) => s"$nu-${sha.take(7)}"
+            case _ => s"${sha.take(7)}"
+          }
+        },
         buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
         ): _*
     )
@@ -42,6 +47,8 @@ lazy val root = project.in(file(".")).settings(
 lazy val protocol = create("protocol")
   .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)
 )
+
+//lazy val buildNumber = sys.props.getOrElse("BUILD_NUMBER", default = "0")
 
 lazy val cluster = create("cluster").
   enablePlugins(DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin).

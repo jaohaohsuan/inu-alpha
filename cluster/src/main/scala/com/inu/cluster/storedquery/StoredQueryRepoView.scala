@@ -5,7 +5,7 @@ import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
 import akka.stream.scaladsl._
-import akka.stream.{ActorMaterializer, SourceShape}
+import akka.stream.{ActorAttributes, ActorMaterializer, SourceShape, Supervision}
 import com.inu.cluster.ElasticsearchExtension
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
@@ -77,6 +77,11 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
       }
     }
 
+  val decider : Supervision.Decider = { e =>
+    log.error(s"Unexpected",e)
+    Supervision.restart
+  }
+
   val g = Source.fromGraph(GraphDSL.create() { implicit builder =>
     import GraphDSL.Implicits._
     import org.json4s.JValue
@@ -92,7 +97,10 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
   })
 
   //g.runWith(Sink.ignore)
-  g.via(put).via(ElasticsearchExtension(system).httpConnectionPool).runWith(Sink.foreach {
+  g.via(put).via(
+      ElasticsearchExtension(system).httpConnectionPool
+        .withAttributes(ActorAttributes.supervisionStrategy(decider)))
+   .runWith(Sink.foreach {
     case (scala.util.Success(res),id) =>
       res.discardEntityBytes(mat).future().onComplete{ _ =>
         res.status match {

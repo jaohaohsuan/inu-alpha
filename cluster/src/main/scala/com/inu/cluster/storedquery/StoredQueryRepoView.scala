@@ -1,6 +1,9 @@
 package com.inu.cluster.storedquery
 
+import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.http.scaladsl.Http.HostConnectionPool
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{EventEnvelope, PersistenceQuery}
@@ -10,8 +13,9 @@ import com.inu.cluster.ElasticsearchExtension
 import com.inu.cluster.storedquery.elasticsearch.PercolatorWriter
 import com.inu.protocol.storedquery.messages._
 
+import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
-import scala.util.Failure
+import scala.util.{Failure, Success, Try}
 import scala.concurrent.duration._
 
 object StoredQueryRepoView {
@@ -95,21 +99,55 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
 
     SourceShape(zipW.out)
   })
-
   //g.runWith(Sink.ignore)
-  g.via(put).via(
-      ElasticsearchExtension(system).httpConnectionPool
-        .withAttributes(ActorAttributes.supervisionStrategy(decider)))
-   .runWith(Sink.foreach {
-    case (scala.util.Success(res),id) =>
-      res.discardEntityBytes(mat).future().onComplete{ _ =>
-        res.status match {
-          case s if 400 <= s.intValue => log.error("{} ResponseCode:{}", id, s)
-          case _ => // no errors
-        }
+
+  def retry[T](f: => Future[T], delay: FiniteDuration, c: Int): Future[T] =
+    f.recoverWith {
+      // you may want to only handle certain exceptions here...
+      case _: Exception if c > 0 =>
+        log.info(s"failed - will retry ${c - 1} more times")
+        akka.pattern.after(delay, system.scheduler)(retry(f, delay, c - 1))
+    }
+
+
+  val httpResponseFlow = ElasticsearchExtension(system).httpConnectionPool.mapAsync(1) {
+    case (Success(res), id) =>
+      res.discardEntityBytes(mat).future().map[String] { _ =>
+          res.status match {
+            case s if 400 <= s.intValue =>
+              val message = s"$id ResponseCode:$s"
+              log.error(message)
+              throw new Exception(message)
+            case _ => "OK"// no errors
+          }
       }
-    case (Failure(ex), _) => log.error(ex, "Unable to send request to es")
-   })
+
+    case (Failure(e), _) =>
+      log.error("Unable to send request to elasticsearch",e)
+      Future.failed[String](e)
+  }
+
+  val putWithRetry = put.mapAsync[Either[Throwable, String]](1) { req =>
+    retry(
+    Source.single(req).via(httpResponseFlow).runWith(Sink.head[String]),
+    3.seconds, Int.MaxValue).map { ok => Right(ok)}.recover { case ex => Left(ex) }
+  }
+
+  g.via(putWithRetry).withAttributes(ActorAttributes.supervisionStrategy(decider)).runWith(Sink.ignore)
+
+//  g.via(put).via(
+//      ElasticsearchExtension(system).httpConnectionPool
+//        )
+//   .runWith(Sink.foreach {
+//    case (scala.util.Success(res),id) =>
+//      res.discardEntityBytes(mat).future().onComplete{ _ =>
+//        res.status match {
+//          case s if 400 <= s.intValue => log.error("{} ResponseCode:{}", id, s)
+//          case _ => // no errors
+//        }
+//      }
+//    case (Failure(ex), _) => log.error(ex, "Unable to send request to es")
+//   })
 
   def receive: Receive = {
     case _ =>

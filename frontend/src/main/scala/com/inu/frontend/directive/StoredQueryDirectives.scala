@@ -112,9 +112,11 @@ trait StoredQueryDirectives extends Directives {
 
   def tags: Directive1[String]  = {
     val f = client.prepareSearch("stored-query").setTypes(".percolator")
-      .setSize(0)
-      .addAggregation(AggregationBuilders.terms("tags").field("tags"))
-        .execute().future.map { res => res.getAggregations.get[StringTerms]("tags").getBuckets.map { bucket => bucket.getKeyAsString }.mkString(" ") }
+                  .setQuery(boolQuery().mustNot(QueryBuilders.existsQuery("temporary")))
+                  .setSize(0)
+                  .addAggregation(AggregationBuilders.terms("tags").field("tags"))
+                  .execute()
+                  .future.map { res => res.getAggregations.get[StringTerms]("tags").getBuckets.map { bucket => bucket.getKeyAsString }.mkString(" ") }
 
     onComplete(f).flatMap {
       case scala.util.Success(value) => provide(value)

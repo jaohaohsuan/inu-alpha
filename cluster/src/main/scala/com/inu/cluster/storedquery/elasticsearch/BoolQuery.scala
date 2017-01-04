@@ -18,6 +18,7 @@ object BoolQuery {
     def build(clauses: Iterable[BoolClause]): JValue = {
       clauses.foldLeft(empty) { (acc, clause) =>
        val query: JValue = clause match {
+          case SynonymBoolQuery(json) => json
           case MultiMatchQuery(json) => json
           case MultiSpanNearQuery(json) => json
           case NamedClause(_, _, occur, innerClauses) =>

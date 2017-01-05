@@ -4,7 +4,7 @@ import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.index.query.{BoolQueryBuilder, IdsQueryBuilder, MatchQueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query._
 import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 import org.json4s._
@@ -64,7 +64,7 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def percolate(gr: GetResponse) = {
-    headerValueByName("uid").flatMap { uid =>
+    headerValueByName("x").flatMap { uid =>
       parameters("_id".?).flatMap {
         case _id => {
           val ids = _id.getOrElse("").replace("temporary", uid).split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")
@@ -111,16 +111,24 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def tags: Directive1[String]  = {
-    val f = client.prepareSearch("stored-query").setTypes(".percolator")
-                  .setQuery(boolQuery().mustNot(QueryBuilders.existsQuery("temporary")))
-                  .setSize(0)
-                  .addAggregation(AggregationBuilders.terms("tags").field("tags"))
-                  .execute()
-                  .future.map { res => res.getAggregations.get[StringTerms]("tags").getBuckets.map { bucket => bucket.getKeyAsString }.mkString(" ") }
+    headerValueByName("uid").flatMap { uid =>
 
-    onComplete(f).flatMap {
-      case scala.util.Success(value) => provide(value)
-      case scala.util.Failure(ex) => provide("")
+      def fetchTags(query: QueryBuilder = QueryBuilders.matchAllQuery()) = client.prepareSearch("stored-query").setTypes(".percolator")
+        .setQuery(query)
+        .setSize(0)
+        .addAggregation(AggregationBuilders.terms("tags").field("tags"))
+        .execute()
+        .future.map { res => res.getAggregations.get[StringTerms]("tags").getBuckets.map { bucket => bucket.getKeyAsString }.toList }
+
+      val fc = for {
+        fullTags <- fetchTags()
+        untouched <- fetchTags(QueryBuilders.boolQuery().mustNot(QueryBuilders.idsQuery(".percolator").ids(uid)))
+      } yield fullTags.filterNot(untouched.contains)
+
+      onComplete(fc).flatMap {
+        case scala.util.Success(value) => provide(value.mkString(" "))
+        case scala.util.Failure(ex) => provide("")
+      }
     }
   }
 

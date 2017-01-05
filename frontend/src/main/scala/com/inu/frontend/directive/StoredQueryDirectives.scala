@@ -64,7 +64,7 @@ trait StoredQueryDirectives extends Directives {
   }
 
   def percolate(gr: GetResponse) = {
-    headerValueByName("x").flatMap { uid =>
+    headerValueByName("uid").flatMap { uid =>
       parameters("_id".?).flatMap {
         case _id => {
           val ids = _id.getOrElse("").replace("temporary", uid).split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")

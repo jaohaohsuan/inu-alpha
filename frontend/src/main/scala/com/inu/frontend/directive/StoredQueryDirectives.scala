@@ -113,7 +113,7 @@ trait StoredQueryDirectives extends Directives {
   def tags: Directive1[String]  = {
     headerValueByName("uid").flatMap { uid =>
 
-      def fetchTags(query: QueryBuilder = QueryBuilders.matchAllQuery()) = client.prepareSearch("stored-query").setTypes(".percolator")
+      def fetchTags(query: QueryBuilder = QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery("temporary"))) = client.prepareSearch("stored-query").setTypes(".percolator")
         .setQuery(query)
         .setSize(0)
         .addAggregation(AggregationBuilders.terms("tags").field("tags"))
@@ -122,11 +122,11 @@ trait StoredQueryDirectives extends Directives {
 
       val fc = for {
         fullTags <- fetchTags()
-        untouched <- fetchTags(QueryBuilders.boolQuery().mustNot(QueryBuilders.idsQuery(".percolator").ids(uid)))
-      } yield fullTags.filterNot(untouched.contains)
+        mine <- fetchTags(QueryBuilders.idsQuery(".percolator").ids(uid))
+      } yield (fullTags,mine)
 
       onComplete(fc).flatMap {
-        case scala.util.Success(value) => provide(value.mkString(" "))
+        case scala.util.Success((fullTags,mine)) => provide((mine ++ fullTags).mkString(" "))
         case scala.util.Failure(ex) => provide("")
       }
     }

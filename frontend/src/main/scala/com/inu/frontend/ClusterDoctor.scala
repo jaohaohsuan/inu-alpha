@@ -12,6 +12,6 @@ class ClusterDoctor extends  Actor with ActorLogging {
       log.error(s"$msg")
       sys.exit(1)
     case DeadLetter(msg, from, to) =>
-      log.warning(s"$msg")
+      //log.warning(s"$msg")
   }
 }

@@ -100,6 +100,9 @@ class SeedMonitor extends  Actor with ActorLogging {
 
   private def readyToServe(): Future[Unit] = {
 
+    if (elasticsearchReadinessProbe.isCancelled)
+      Future.successful(()=>{})
+
     implicit val timeout = Timeout(10 seconds)
 
     val host = Config.host

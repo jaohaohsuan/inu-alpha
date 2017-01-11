@@ -43,7 +43,7 @@ class SeedMonitor extends  Actor with ActorLogging {
       .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
   }
 
-  private val elasticsearchReadinessProbe = context.system.scheduler.schedule(0.seconds, 3.seconds, self, ProbeElasticsearch)
+  private val elasticsearchReadinessProbe = context.system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
@@ -51,7 +51,7 @@ class SeedMonitor extends  Actor with ActorLogging {
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
-  def joined : Actor.Receive= {
+  def joined : Actor.Receive = {
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
       if(member.roles.contains("backend"))
@@ -82,20 +82,19 @@ class SeedMonitor extends  Actor with ActorLogging {
       log.error("join to cluster timeout")
       sys.exit(1)
 
-    case MemberJoined(member) =>
+    case MemberJoined(_) =>
       context.become(joined)
+      system.actorOf(ClusterSingletonProxy.props(
+        singletonManagerPath = "/user/StoredQueryRepoAggRoot",
+        settings = ClusterSingletonProxySettings(system).withRole("backend")
+      ), name = "StoredQueryRepoAggRoot-Proxy")
+
     case _ =>
   }
 
   private def readyToServe(): Future[Unit] = {
 
     implicit val timeout = Timeout(10 seconds)
-
-    system.actorOf(ClusterSingletonProxy.props(
-      singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-      settings = ClusterSingletonProxySettings(system).withRole("backend")
-    ), name = "StoredQueryRepoAggRoot-Proxy")
-
 
     val host = Config.host
     val port = Config.port

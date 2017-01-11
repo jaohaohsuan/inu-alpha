@@ -89,6 +89,7 @@ class SeedMonitor extends  Actor with ActorLogging {
     case MemberJoined(member) =>
       log.info(s"$member joined")
       log.info(s"${member.address} / $localAddress")
+      context.setReceiveTimeout(Duration.Undefined)
       if (member.address == localAddress) {
         system.actorOf(ClusterSingletonProxy.props(
           singletonManagerPath = "/user/StoredQueryRepoAggRoot",

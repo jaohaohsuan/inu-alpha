@@ -28,7 +28,7 @@ class SeedMonitor extends  Actor with ActorLogging {
   implicit val system: ActorSystem = context.system
   implicit val ec = system.dispatcher
 
-  private val elasticsearchReadinessProbe = system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
+  //private val elasticsearchReadinessProbe = system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
 
   private lazy val localAddress = {
     val tcp = config.getConfig("akka.remote.netty.tcp")
@@ -74,16 +74,16 @@ class SeedMonitor extends  Actor with ActorLogging {
       if(member.roles.contains("backend"))
         sys.exit(1)
 
-    case ProbeElasticsearch =>
-      client.admin().cluster().prepareHealth().get().getStatus match {
-        case ClusterHealthStatus.RED =>
-          log.warning("elasticsearch unavailable to connect")
-        case ClusterHealthStatus.GREEN =>
-          elasticsearchReadinessProbe.cancel()
-          log.info(s"elasticsearch status: GREEN")
-          readyToServe()
-        case _ =>
-      }
+//    case ProbeElasticsearch =>
+//      client.admin().cluster().prepareHealth().get().getStatus match {
+//        case ClusterHealthStatus.RED =>
+//          log.warning("elasticsearch unavailable to connect")
+//        case ClusterHealthStatus.GREEN =>
+//          elasticsearchReadinessProbe.cancel()
+//          log.info(s"elasticsearch status: GREEN")
+//          readyToServe()
+//        case _ =>
+//      }
 
     case MemberJoined(member) =>
       log.info(s"$member joined")
@@ -93,6 +93,8 @@ class SeedMonitor extends  Actor with ActorLogging {
           singletonManagerPath = "/user/StoredQueryRepoAggRoot",
           settings = ClusterSingletonProxySettings(system).withRole("backend")
         ), name = "StoredQueryRepoAggRoot-Proxy")
+
+        readyToServe()
       }
 
     case _ =>

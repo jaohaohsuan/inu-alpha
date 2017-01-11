@@ -32,7 +32,8 @@ class SeedMonitor extends  Actor with ActorLogging {
 
   private lazy val localAddress = {
     val tcp = config.getConfig("akka.remote.netty.tcp")
-    Address("akka.tcp",system.name,Some(tcp.getString("hostname")), Some(tcp.getInt("port")))
+
+    Address("akka.tcp",system.name,Some(InetAddress.getLocalHost.getHostAddress), Some(tcp.getInt("port")))
     //s"${system.name}@${tcp.getString("hostname")}:${tcp.getString("port")}"
   }
 

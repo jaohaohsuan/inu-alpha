@@ -8,7 +8,10 @@ import akka.actor.{Actor, ActorLogging, DeadLetter}
 class ClusterDoctor extends  Actor with ActorLogging {
 
   override def receive: Receive = {
+    case DeadLetter(msg, from, to) if s"$msg" == "InitJoin" =>
+      log.error(s"$msg")
+      sys.exit(1)
     case DeadLetter(msg, from, to) =>
-      context.system.terminate()
+      log.warning(s"$msg")
   }
 }

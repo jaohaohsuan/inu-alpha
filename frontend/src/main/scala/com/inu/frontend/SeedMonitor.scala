@@ -32,7 +32,7 @@ class SeedMonitor extends  Actor with ActorLogging {
   }
 
   val cluster = Cluster(system)
-  context.setReceiveTimeout(10.seconds)
+  //context.setReceiveTimeout(10.seconds)
 
   private val config = system.settings.config
 
@@ -61,7 +61,7 @@ class SeedMonitor extends  Actor with ActorLogging {
     case MemberJoined(member) =>
       log.info(s"$member joined")
       log.info(s"${member.address} / $localAddress")
-      context.setReceiveTimeout(Duration.Undefined)
+      //context.setReceiveTimeout(Duration.Undefined)
 //      if (member.address == localAddress && member.hasRole("frontend")) {
 //      }
 

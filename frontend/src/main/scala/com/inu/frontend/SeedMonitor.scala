@@ -66,7 +66,7 @@ class SeedMonitor extends  Actor with ActorLogging {
       client.admin().cluster().prepareHealth().get().getStatus match {
         case ClusterHealthStatus.RED =>
           log.warning("elasticsearch unavailable to connect")
-        case greenOrYellow =>
+        case greenOrYellow : ClusterHealthStatus =>
           elasticsearchReadinessProbe.cancel()
           log.info(s"elasticsearch status: $greenOrYellow")
           readyToServe()
@@ -82,7 +82,7 @@ class SeedMonitor extends  Actor with ActorLogging {
       log.error("join to cluster timeout")
       sys.exit(1)
 
-    case MemberJoined(_) =>
+    case MemberJoined(member) if member.hasRole("frontend") =>
       context.become(joined)
       system.actorOf(ClusterSingletonProxy.props(
         singletonManagerPath = "/user/StoredQueryRepoAggRoot",

@@ -28,7 +28,7 @@ class SeedMonitor extends  Actor with ActorLogging {
   implicit val system: ActorSystem = context.system
   implicit val ec = system.dispatcher
 
-  private val elasticsearchReadinessProbe = context.system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
+  private val elasticsearchReadinessProbe = system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
 
   private lazy val localAddress = {
     val tcp = config.getConfig("akka.remote.netty.tcp")

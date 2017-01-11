@@ -1,7 +1,7 @@
 import sbt._
 
 object Version {
-  val akka          = "2.4.14"
+  val akka          = "2.4.16"
   val akkaHttp      = "10.0.0"
   val scala         = "2.11.8"
   val spray         = "1.3.4"

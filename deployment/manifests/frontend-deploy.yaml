@@ -26,6 +26,12 @@ spec:
       - name: api
         image: 127.0.0.1:5000/inu/storedq-api:${version}
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /hello
+            port: 7880
+          initialDelaySeconds: 30
+          timeoutSeconds: 1
         resources:
           limits:
             cpu: 500m

@@ -2,7 +2,7 @@ package com.inu.frontend
 
 import java.net.InetAddress
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, DeadLetter, Props}
 import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.io.IO
 import akka.pattern.ask
@@ -36,7 +36,7 @@ object Main extends App with LazyLogging {
   val status = client.admin().cluster().prepareHealth().get().getStatus
   logger.info(s"elasticsearch status: $status")
 
-  val listener = system.actorOf(Props(classOf[ServiceActor], client), "service")
+  lazy val listener = system.actorOf(Props(classOf[ServiceActor], client), "service")
 
   val host = Config.host
   val port = Config.port
@@ -62,6 +62,8 @@ object Main extends App with LazyLogging {
         println("river service could not bind to " +  s"$host:$port, ${cmd.failureMessage}")
         sys.exit(1)
     }
+
+  system.eventStream.subscribe(system.actorOf(Props[ClusterDoctor]), classOf[DeadLetter])
 
   sys.addShutdownHook(release())
 }

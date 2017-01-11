@@ -28,7 +28,8 @@ class SeedMonitor extends  Actor with ActorLogging {
   implicit val system: ActorSystem = context.system
   implicit val ec = system.dispatcher
 
-  private val localIpAddress = s"${InetAddress.getLocalHost.getHostAddress}"
+  private val elasticsearchReadinessProbe = context.system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
+
   private lazy val localAddress = {
     val tcp = config.getConfig("akka.remote.netty.tcp")
     Address("akka.tcp",system.name,Some(tcp.getString("hostname")), Some(tcp.getInt("port")))
@@ -49,8 +50,6 @@ class SeedMonitor extends  Actor with ActorLogging {
      TransportClient.builder().settings(settings).build()
       .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
   }
-
-  private val elasticsearchReadinessProbe = context.system.scheduler.schedule(2.seconds, 5.seconds, self, ProbeElasticsearch)
 
   override def preStart(): Unit = {
     cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
@@ -79,10 +78,11 @@ class SeedMonitor extends  Actor with ActorLogging {
       client.admin().cluster().prepareHealth().get().getStatus match {
         case ClusterHealthStatus.RED =>
           log.warning("elasticsearch unavailable to connect")
-        case greenOrYellow : ClusterHealthStatus =>
+        case ClusterHealthStatus.GREEN =>
           elasticsearchReadinessProbe.cancel()
-          log.info(s"elasticsearch status: $greenOrYellow")
+          log.info(s"elasticsearch status: GREEN")
           readyToServe()
+        case _ =>
       }
 
     case MemberJoined(member) =>

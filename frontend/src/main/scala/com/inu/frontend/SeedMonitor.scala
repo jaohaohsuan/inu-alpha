@@ -2,8 +2,8 @@ package com.inu.frontend
 
 import java.net.InetAddress
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props, ReceiveTimeout}
-import akka.cluster.Cluster
+import akka.actor.{Actor, ActorLogging, ActorSystem, Address, Props, ReceiveTimeout}
+import akka.cluster.{Cluster, UniqueAddress}
 import akka.cluster.ClusterEvent._
 import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
 import akka.io.IO
@@ -28,6 +28,13 @@ class SeedMonitor extends  Actor with ActorLogging {
   implicit val system: ActorSystem = context.system
   implicit val ec = system.dispatcher
 
+  private val localIpAddress = s"${InetAddress.getLocalHost.getHostAddress}"
+  private lazy val localAddress = {
+    val tcp = config.getConfig("akka.remote.netty.tcp")
+    Address("akka.tcp",system.name,Some(tcp.getString("hostname")), Some(tcp.getInt("port")))
+    //s"${system.name}@${tcp.getString("hostname")}:${tcp.getString("port")}"
+  }
+
   val cluster = Cluster(system)
   context.setReceiveTimeout(10.seconds)
 
@@ -51,7 +58,13 @@ class SeedMonitor extends  Actor with ActorLogging {
 
   override def postStop(): Unit = cluster.unsubscribe(self)
 
-  def joined : Actor.Receive = {
+
+  override def receive: Receive = {
+
+    case ReceiveTimeout =>
+      log.error("join to cluster timeout")
+      sys.exit(1)
+
     case UnreachableMember(member) =>
       log.info("Member detected as unreachable: {}", member)
       if(member.roles.contains("backend"))
@@ -72,22 +85,15 @@ class SeedMonitor extends  Actor with ActorLogging {
           readyToServe()
       }
 
-    case _ : MemberEvent =>
-    case _ =>
-  }
-
-  override def receive: Receive = {
-
-    case ReceiveTimeout =>
-      log.error("join to cluster timeout")
-      sys.exit(1)
-
-    case MemberJoined(member) if member.hasRole("frontend") =>
-      context.become(joined)
-      system.actorOf(ClusterSingletonProxy.props(
-        singletonManagerPath = "/user/StoredQueryRepoAggRoot",
-        settings = ClusterSingletonProxySettings(system).withRole("backend")
-      ), name = "StoredQueryRepoAggRoot-Proxy")
+    case MemberJoined(member) =>
+      log.info(s"$member joined")
+      log.info(s"${member.address} / $localAddress")
+      if (member.address == localAddress) {
+        system.actorOf(ClusterSingletonProxy.props(
+          singletonManagerPath = "/user/StoredQueryRepoAggRoot",
+          settings = ClusterSingletonProxySettings(system).withRole("backend")
+        ), name = "StoredQueryRepoAggRoot-Proxy")
+      }
 
     case _ =>
   }

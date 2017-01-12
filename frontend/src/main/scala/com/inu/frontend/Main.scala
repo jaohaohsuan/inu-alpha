@@ -19,12 +19,11 @@ object Main extends App with LazyLogging {
 
   val config = ConfigFactory.load()
 
-
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
   implicit val executionContext = system.dispatcher
 
   val release = () => {
-    //client.close()
+    client.close()
     system.terminate()
   }
 

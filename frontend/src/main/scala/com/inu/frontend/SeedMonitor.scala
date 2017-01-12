@@ -2,20 +2,9 @@ package com.inu.frontend
 
 import java.net.InetAddress
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Address, Props, ReceiveTimeout}
-import akka.cluster.{Cluster, UniqueAddress}
+import akka.actor.{Actor, ActorLogging, ActorSystem, Address, ReceiveTimeout}
+import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
-import akka.cluster.singleton.{ClusterSingletonProxy, ClusterSingletonProxySettings}
-import akka.io.IO
-import akka.pattern.ask
-import akka.util.Timeout
-import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.cluster.health.ClusterHealthStatus
-import org.elasticsearch.common.transport.InetSocketTransportAddress
-import spray.can.Http
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
 
 class SeedMonitor extends  Actor with ActorLogging {
 

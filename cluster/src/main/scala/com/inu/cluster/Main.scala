@@ -2,13 +2,11 @@ package com.inu.cluster
 
 import akka.actor._
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
-import akka.dispatch.sysmsg.Recreate
 import akka.util.Timeout
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionException
 import scala.concurrent.duration._
 
 object Main extends App {
@@ -24,7 +22,7 @@ object Main extends App {
   system.actorOf(Props[ClusterMonitor], "cluster-monitor")
 
   implicit class clustering(props: Props) {
-    def singleton(role: String = "backend")(implicit system: ActorSystem) = ClusterSingletonManager.props(
+    def singleton(role: String = "backend")(implicit system: ActorSystem): Props = ClusterSingletonManager.props(
       singletonProps = props,
       terminationMessage = PoisonPill,
       settings = ClusterSingletonManagerSettings(system).withRole(role))
@@ -34,7 +32,7 @@ object Main extends App {
 
   system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
 
-  system.actorOf(StoredQueryRepoView.propsWithBackoff)
+  //system.actorOf(StoredQueryRepoView.propsWithBackoff)
 
   system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 

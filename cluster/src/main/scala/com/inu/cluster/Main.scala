@@ -32,7 +32,7 @@ object Main extends App {
 
   system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
 
-  //system.actorOf(StoredQueryRepoView.propsWithBackoff)
+  system.actorOf(StoredQueryRepoView.propsWithBackoff)
 
   system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
 

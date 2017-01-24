@@ -1,6 +1,7 @@
 package com.inu.cluster
 
 import akka.actor._
+import akka.cluster.Cluster
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.util.Timeout
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
@@ -26,10 +27,15 @@ object Main extends App {
       settings = ClusterSingletonManagerSettings(system).withRole(role))
   }
 
-  system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
+  val cluster = Cluster(system)
 
-  system.actorOf(StoredQueryRepoView.propsWithBackoff)
+  cluster.registerOnMemberUp {
 
-  system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+    system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
+
+    system.actorOf(StoredQueryRepoView.propsWithBackoff)
+
+    system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+  }
 
 }

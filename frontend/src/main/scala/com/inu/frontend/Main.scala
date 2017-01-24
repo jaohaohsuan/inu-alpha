@@ -22,15 +22,6 @@ object Main extends App with LazyLogging {
   implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
   implicit val executionContext = system.dispatcher
 
-  val release = () => {
-    client.close()
-    system.terminate()
-  }
-
-  system.actorOf(Props[SeedMonitor])
-
-  system.eventStream.subscribe(system.actorOf(Props[ClusterDoctor]), classOf[DeadLetter])
-
   system.actorOf(ClusterSingletonProxy.props(
     singletonManagerPath = "/user/StoredQueryRepoAggRoot",
     settings = ClusterSingletonProxySettings(system).withRole("backend")
@@ -69,6 +60,4 @@ object Main extends App with LazyLogging {
         println("dig service could not bind to " +  s"$host:7880, ${cmd.failureMessage}")
         sys.exit(1)
     }
-
-  sys.addShutdownHook(release())
 }

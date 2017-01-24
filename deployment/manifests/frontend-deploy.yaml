@@ -53,8 +53,6 @@ spec:
           value: elasticsearch.default.svc.cluster.local
         - name: ES_CLUSTER_NAME
           value: myesdb
-        - name: CASSANDRA_DC
-          value: DC1
         - name: POD_NAME
           valueFrom:
             fieldRef:

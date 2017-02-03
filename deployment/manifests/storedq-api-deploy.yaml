@@ -29,8 +29,8 @@ spec:
             "command": [
               "bash",
               "-c",
-              "/usr/bin/nodetool -h cassandra3.default.svc.cluster.local -p 7199 status | grep -E 'UN\s+'"
-            ]
+              "/usr/bin/nodetool -h cassandra3.default.svc.cluster.local -p 7199"
+            ],
             "imagePullPolicy": "IfNotPresent"
           }
         ]'

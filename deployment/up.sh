@@ -1,3 +1,3 @@
 #!/bin/bash -ex
 
-kubectl apply -f target/deployment/manifests/frontend-deploy.yaml --record
+kubectl apply -f target/deployment/manifests/storedq-api.yaml --record

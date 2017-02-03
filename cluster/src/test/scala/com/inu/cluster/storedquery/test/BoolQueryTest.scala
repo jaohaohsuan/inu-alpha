@@ -16,7 +16,7 @@ class BoolQueryTest extends FlatSpec with Matchers {
     val MultiSpanNearQuery(json) = clause
 
     (json \ "bool" \ "must")(0) \ "bool" \ "should" match {
-      case JArray(list) => list should have size 3 // agent0, agent1, agent2
+      case JArray(list) => list should have size 1 // agent0
       case _ => fail("unexpected matching")
     }
 

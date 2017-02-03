@@ -1,4 +1,5 @@
-import com.inu.cluster.storedquery.elasticsearch.{MultiSpanNearQuery, SynonymBoolQuery}
+import com.inu.cluster.storedquery.algorithm.ListOfListCombination
+import com.inu.cluster.storedquery.elasticsearch.{MultiSpanNearQuery, SynonymBoolQuery, SynonymMultiSpanNearQuery}
 import com.inu.protocol.storedquery.messages.{MatchClause, SpanNearClause}
 import org.json4s._
 
@@ -32,9 +33,16 @@ pretty(render(json2))
 
 """\/""".r.findFirstMatchIn("a/bc/cc a")
 
+import ListOfListCombination._
+ListOfListCombination.divideBySlash("a/b c").gen
+
 
 MatchClause("临时/暂时 额度/信用/金额", "agent*","or", "must") match {
   case SynonymBoolQuery(json) => println(compact(render(json)))
   case _ => println("opps")
 }
 
+
+val SynonymMultiSpanNearQuery(es_query) = SpanNearClause("a/b c", "agent*", 10, true, "must_not")
+
+compact(render(es_query))

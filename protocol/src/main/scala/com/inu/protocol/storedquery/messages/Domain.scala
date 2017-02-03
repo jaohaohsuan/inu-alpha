@@ -66,7 +66,7 @@ case class SpanNearClause(query: String, field: String, slop: Int, inOrder: Bool
 
   lazy val fields: Seq[String] = {
     """(agent|customer)""".r.findFirstIn(field) match {
-      case Some(prefix) =>  (0 to 2).map { n => s"$prefix$n" }
+      case Some(prefix) =>  Seq(s"${prefix}0")
       case None => Seq("dialogs")
     }
   }

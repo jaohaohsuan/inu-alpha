@@ -9,12 +9,13 @@ import org.json4s.JsonAST.JObject
 object SynonymBoolQuery {
   def unapply(arg: MatchClause): Option[JValue] = {
     val MatchClause(q,f,o,occur) = arg
+    import ListOfListCombination._
     f.split("""[\s,]+""").toList match {
       case Nil => Some(JNothing)
       case fields =>
-        """\/""".r.findFirstMatchIn(q) match {
+        SlashRegex.findFirstMatchIn(q) match {
           case Some(_) =>
-            val matches: Seq[JObject] = ListOfListCombination.generator(q.split("""[\s,]+""").map(_.split("\\/").toList).toList).map { el =>
+            val matches: Seq[JObject] = ListOfListCombination.divideBySlash(q).gen.map { el =>
               JObject("multi_match" ->
                 ("query"    -> el.mkString(" ")) ~~
                 ("fields"   -> fields) ~~

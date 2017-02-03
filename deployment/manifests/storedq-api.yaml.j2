@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storedq-api
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 7879
+  selector:
+    storedq: api
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: storedq-api
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        storedq: api
+    spec:
+      containers:
+      - name: domain
+        resources:
+          limits:
+            memory: 2Gi
+        image: 127.0.0.1:5000/inu/storedq-cluster:{{tag_name}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 2551
+          name: seed
+        command:
+          - "java"
+          - -Xms512m
+          - -Xmx512m
+          - "-Dakka.cluster.roles.0=compute"
+          - "-Dakka.cluster.roles.1=queryside"
+          - "-Dakka.cluster.roles.2=backend"
+          - "-Dakka.remote.netty.tcp.port=2551"
+          - "-Dakka.cluster.seed-nodes.0=akka.tcp://storedq@127.0.0.1:2551"
+          - "-Dcassandra-snapshot-store.contact-points.0=10.254.83.159"
+          - "-Dcassandra-journal.contact-points.0=10.254.83.159"
+          - "-cp"
+          - "/app/libs/*:/app/*"
+          - "com.inu.cluster.Main"
+        env:
+        - name: ES_TRANSPORT_ADDRESS
+          value: elasticsearch-discovery.default.svc.cluster.local
+        - name: ES_CLIENT_ADDRESS
+          value: elasticsearch.default.svc.cluster.local
+        - name: ES_CLUSTER_NAME
+          value: myesdb
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      - name: api
+        image: 127.0.0.1:5000/inu/storedq-api:{{tag_name}}
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            cpu: 500m
+            memory: 2Gi
+          requests:
+            memory: 256Mi
+        command:
+          - "java"
+          - "-Dakka.cluster.roles.0=frontend"
+          - "-Dakka.remote.netty.tcp.port=2552"
+          - "-Dakka.cluster.seed-nodes.0=akka.tcp://storedq@127.0.0.1:2551"
+          - "-cp"
+          - "/app/libs/*:/app/*"
+          - "com.inu.frontend.Main"
+        ports:
+        - containerPort: 7879
+        - containerPort: 2552
+
+        env:
+          - name: PEER_DISCOVERY_SERVICE
+            value: storedq-cluster.default.svc.cluster.local
+          - name: ES_TRANSPORT_ADDRESS
+            value: elasticsearch-discovery.default.svc.cluster.local
+          - name: ES_CLUSTER_NAME
+            value: myesdb
+          - name: USER_PROFILE_HOST
+            value: http://deployd.default.svc.cluster.local:2403

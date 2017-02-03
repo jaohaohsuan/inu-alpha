@@ -11,6 +11,13 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
 
   implicit def executionContext: ExecutionContext
 
+  /*
+  url sample:
+
+  http://192.168.1.100:31115/sapi/logs-2016.07.01/amiast/wqidhfuehuhqw?_id=1775285775
+
+  _id is 模型的id
+   */
   lazy val `logs-*`: Route = {
     get {
       prepareGetVtt { q =>

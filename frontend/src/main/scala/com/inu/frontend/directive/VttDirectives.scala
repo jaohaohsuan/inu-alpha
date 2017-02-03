@@ -17,10 +17,19 @@ trait VttDirectives extends Directives {
   type VttSubtitles = Map[String, String]
 
   def format(gf: GetField): Directive1[VttSubtitles] = {
+    /*
+    input sample:
+
+    customer0-1394 00:00:01.394 --> 00:00:01.506 <v R0>是 </v>
+
+     */
     val split: Regex = """(.+-\d+)\s([\s\S]+)\s$""".r
     val subs = gf.getValues.foldLeft(Map.empty[String, String]){ (acc, s) =>
       s.toString match {
-        case split(cueid, content) => acc + (cueid -> content)
+        case split(cueid, content) =>
+          //cueid:   customer0-1394
+          //content: 00:00:01.394 --> 00:00:01.506 <v R0>是 </v>
+          acc + (cueid -> content)
         case _ => acc
       }
     }

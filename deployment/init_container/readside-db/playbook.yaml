@@ -50,7 +50,17 @@
         HEADER_Content-Type=application/json
         body={{ lookup('template','stored-query-percolator.properties.json.j2') }}
         status_code=200
-      name: .percolator properties update
+      name: "2.3.x percolator properties update"
+
+    - uri: |
+        url={{ es_address }}/stored-query/_mapping/queries
+        method=PUT
+        body_format=json
+        HEADER_Content-Type=application/json
+        body={{ lookup('template','stored-query-percolator5.properties.json.j2') }}
+        status_code=200
+      name: "5.x percolator properties update"
+
 
     - uri: |
         url={{ es_address }}/stored-query/_mapping/{{ item.type }}

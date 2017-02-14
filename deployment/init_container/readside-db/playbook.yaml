@@ -1,7 +1,7 @@
 ---
 - hosts: all
   vars:
-    es_address: "http://{{ lookup('env','ELASTICSEARCH_SERVICE_HOST') }}:9200"
+    es_address: "http://{{ lookup('env','ELASTICSEARCH_ADDR') }}"
     inu_datasources: "{{ lookup('file','inu-datasources.json') }}"
     es_analysis: "{{ lookup('file','analysis.json') }}"
   tasks:
@@ -51,6 +51,7 @@
         body={{ lookup('template','stored-query-percolator.properties.json.j2') }}
         status_code=200
       name: "2.3.x percolator properties update"
+      ignore_errors: True
 
     - uri: |
         url={{ es_address }}/stored-query/_mapping/queries

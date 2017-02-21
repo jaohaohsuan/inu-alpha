@@ -5,7 +5,11 @@ import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives, VttDir
 import spray.routing.{HttpService, Route}
 import spray.http.StatusCodes._
 import com.inu.frontend.elasticsearch.ImplicitConversions._
+import org.json4s.JsonAST.JString
+
 import scala.concurrent.ExecutionContext
+import org.json4s._
+import org.json4s.native.JsonMethods._
 
 trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with VttDirectives with StoredQueryDirectives {
 
@@ -22,10 +26,10 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
     get {
       prepareGetVtt { q =>
         onSuccess(q.execute().future) { gr =>
-          format(gr.getField("vtt")) { vttMap =>
+          format(parse(gr.json) \\ "vtt" \\ classOf[JString]) { vttMap =>
             percolate(gr) { p =>
               onSuccess(p.execute().future) { pr =>
-                extractFragments(pr.getMatches) { segments =>
+                extractFragments(parse(pr.json) \\ classOf[JString]) { segments =>
                   respondWithMediaType(`text/vtt`) {
                     complete(OK, vttMap.highlightWith(segments))
                   }

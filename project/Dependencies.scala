@@ -5,7 +5,8 @@ object Version {
   val akkaHttp      = "10.0.0"
   val scala         = "2.11.8"
   val spray         = "1.3.4"
-  val elasticsearch = "2.3.5"
+  val elasticsearch = "2.3.3"
+  val elasticsearch5 = "5.2.1"
 }
 
 object Library {

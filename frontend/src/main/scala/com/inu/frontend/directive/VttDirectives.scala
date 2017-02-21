@@ -7,6 +7,7 @@ import scala.collection.JavaConversions._
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.percolate.PercolateResponse.Match
 import org.elasticsearch.index.get.GetField
+import org.json4s.JsonAST.JString
 import spray.routing._
 
 import scala.util.{Success, Try}
@@ -36,12 +37,9 @@ trait VttDirectives extends Directives {
     provide(subs)
   }
 
-  def extractFragments(matches: Iterable[Match]): Directive1[VttSubtitles] = {
+  def extractFragments(matches: Iterable[String]): Directive1[VttSubtitles] = {
     import SearchHitHighlightFields._
-     provide(matches.flatMap { m =>
-       Try(m.getHighlightFields.toMap).getOrElse(Map.empty)
-      }
-      .flatMap { case (_, hf) => hf.fragments().flatMap(splitFragment) }
+     provide(matches
       .flatMap {
         case highlightedSentence(cueid, highlight) => Some(cueid -> highlight)
         case _ => None

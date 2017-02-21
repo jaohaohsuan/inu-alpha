@@ -5,6 +5,8 @@ import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives, VttDir
 import spray.routing.{HttpService, Route}
 import spray.http.StatusCodes._
 import com.inu.frontend.elasticsearch.ImplicitConversions._
+import org.elasticsearch.common.xcontent.{ToXContent, XContentFactory, XContentType}
+
 import scala.concurrent.ExecutionContext
 
 trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with VttDirectives with StoredQueryDirectives {
@@ -18,6 +20,7 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
 
   _id is 模型的id
    */
+
   lazy val `logs-*`: Route = {
     get {
       prepareGetVtt { q =>
@@ -25,7 +28,8 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
           format(gr.getField("vtt")) { vttMap =>
             percolate(gr.getType(), gr.getSourceAsString()) { p =>
               onSuccess(p.execute().future) { pr =>
-                extractFragments(pr.getMatches) { segments =>
+                pr.json
+                extractFragments(List.empty[String]) { segments =>
                   respondWithMediaType(`text/vtt`) {
                     complete(OK, vttMap.highlightWith(segments))
                   }

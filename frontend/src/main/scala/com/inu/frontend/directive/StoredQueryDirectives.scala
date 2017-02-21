@@ -2,6 +2,7 @@ package com.inu.frontend.directive
 
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.percolate.PercolateRequestBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query._
@@ -63,7 +64,7 @@ trait StoredQueryDirectives extends Directives {
     }
   }
 
-  def percolate(docType: String, doc: String) = {
+  def percolate(docType: String, doc: String): Directive1[PercolateRequestBuilder] = {
     headerValueByName("uid").flatMap { uid =>
       parameters("_id".?).flatMap {
         case _id => {

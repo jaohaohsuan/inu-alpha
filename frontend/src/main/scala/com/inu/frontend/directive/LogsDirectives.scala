@@ -1,6 +1,6 @@
 package com.inu.frontend.directive
 
-import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.get.{GetRequestBuilder, GetResponse}
 import org.elasticsearch.action.percolate.PercolateSourceBuilder
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders
@@ -15,7 +15,7 @@ trait LogsDirectives extends Directives {
 
   import QueryBuilders._
 
-  def prepareGetVtt = {
+  def prepareGetVtt: Directive1[GetRequestBuilder] = {
     path("""^logs-\d{4}\.\d{2}\.\d{2}$""".r / Segment / Segment).hflatMap {
       case index :: typ :: id :: HNil =>
         provide(client.prepareGet(index,typ,id)

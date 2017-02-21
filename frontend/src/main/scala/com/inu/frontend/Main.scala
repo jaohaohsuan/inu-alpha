@@ -13,6 +13,7 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import spray.can.Http
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import org.elasticsearch.transport.client.PreBuiltTransportClient
 
 import scala.concurrent.duration._
 
@@ -26,11 +27,12 @@ object Main extends App with LazyLogging {
 
   private lazy val client = {
     val esAddr = InetAddress.getByName(config.getString("elasticsearch.transport-address"))
-    val settings = org.elasticsearch.common.settings.Settings.settingsBuilder()
+
+    val settings = org.elasticsearch.common.settings.Settings.builder()
       .put("cluster.name", config.getString("elasticsearch.cluster-name"))
       .build()
 
-    TransportClient.builder().settings(settings).build()
+    new PreBuiltTransportClient(settings)
       .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
   }
 

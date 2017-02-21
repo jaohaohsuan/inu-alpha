@@ -2,22 +2,15 @@ package com.inu.frontend.directive
 
 import com.inu.frontend.elasticsearch.SearchHitHighlightFields
 import com.inu.frontend.elasticsearch.SearchHitHighlightFields._
-
-import scala.collection.JavaConversions._
-import org.elasticsearch.action.get.GetResponse
-import org.elasticsearch.action.percolate.PercolateResponse.Match
-import org.elasticsearch.index.get.GetField
-import org.json4s.JsonAST.JString
 import spray.routing._
 
-import scala.util.{Success, Try}
 import scala.util.matching.Regex
 
 trait VttDirectives extends Directives {
 
   type VttSubtitles = Map[String, String]
 
-  def format(gf: GetField): Directive1[VttSubtitles] = {
+  def format(vtt: Iterable[String]): Directive1[VttSubtitles] = {
     /*
     input sample:
 
@@ -25,8 +18,8 @@ trait VttDirectives extends Directives {
 
      */
     val split: Regex = """(.+-\d+)\s([\s\S]+)\s$""".r
-    val subs = gf.getValues.foldLeft(Map.empty[String, String]){ (acc, s) =>
-      s.toString match {
+    val subs = vtt.foldLeft(Map.empty[String, String]){ (acc, s) =>
+      s match {
         case split(cueid, content) =>
           //cueid:   customer0-1394
           //content: 00:00:01.394 --> 00:00:01.506 <v R0>是 </v>

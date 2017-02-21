@@ -112,6 +112,7 @@ lazy val frontend = create("frontend").
     scalaLogging,
     akkaCluster, akkaClusterTools,akkaClusterMetrics,
     elasticsearch,
+    elasticsearchClient,
     json4sExt,
     spray, sprayRouting,
     scalatest,

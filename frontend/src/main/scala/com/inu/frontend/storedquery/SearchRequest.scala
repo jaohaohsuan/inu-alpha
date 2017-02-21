@@ -26,10 +26,10 @@ object SearchRequest {
     import org.elasticsearch.index.query.QueryBuilders._
     Seq(
       queryString.map { queryStringQuery(_).field("_all") },
-      queryTags.map { matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
+      queryTags.map { matchQuery("tags", _).operator(org.elasticsearch.index.query.Operator.OR) }
     ).flatten.foldLeft(
         boolQuery()
-          .mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary"))
+          .mustNot(QueryBuilders.idsQuery("queries").addIds("temporary"))
           .mustNot(QueryBuilders.existsQuery("temporary"))
       )(_ must _)
   }
@@ -50,7 +50,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
 
   (for {
    // tags <- Future { "for demo only" }
-    searchResponse <- client.prepareSearch("stored-query").setTypes(".percolator")
+    searchResponse <- client.prepareSearch("stored-query").setTypes("queries")
       .setQuery(qb)
       .setFetchSource(Array("item"), null)
       .setSize(size).setFrom(from)

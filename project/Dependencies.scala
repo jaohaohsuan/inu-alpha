@@ -5,7 +5,8 @@ object Version {
   val akkaHttp      = "10.0.0"
   val scala         = "2.11.8"
   val spray         = "1.3.4"
-  val elasticsearch = "2.3.5"
+  val elasticsearch = "2.3.3"
+  val elasticsearch5 = "5.2.1"
 }
 
 object Library {
@@ -23,7 +24,6 @@ object Library {
   val akkaHttpSprayJsonExp     = "com.typesafe.akka"           %% "akka-http-spray-json"                 % Version.akkaHttp
   val akkaHttpXmlExp           = "com.typesafe.akka"           %% "akka-http-xml"                        % Version.akkaHttp
   val akkaPersistenceCassandra = "com.typesafe.akka"           %% "akka-persistence-cassandra"           % "0.21"
-
   val sourceCode               = "com.lihaoyi"                 %% "sourcecode"                           % "0.1.1"
   val kubernetes               = "io.fabric8.forge"             % "kubernetes"                           % "2.2.211"
   val spray                    = "io.spray"                    %% "spray-can"                            % Version.spray
@@ -33,7 +33,8 @@ object Library {
   val scalaLogging             = "com.typesafe.scala-logging"  %% "scala-logging"                        % "3.4.0"
   val json4sNative             = "org.json4s"                  %% "json4s-native"                        % "3.5.0"
   val json4sExt                = "org.json4s"                  %% "json4s-ext"                           % "3.5.0"
-  val elasticsearch            = "org.elasticsearch"            % "elasticsearch"                        % Version.elasticsearch
+  val elasticsearch            = "org.elasticsearch"            % "elasticsearch"                        % Version.elasticsearch5
+  val elasticsearchClient      = "org.elasticsearch.client"     % "transport"                            % Version.elasticsearch5
   val nscalaTime               = "com.github.nscala-time"      %% "nscala-time"                          % "2.14.0"
   val scopt                    = "com.github.scopt"            %% "scopt"                                % "3.5.0"
   val shapeless                = "com.chuusai"                 %% "shapeless"                            % "2.3.2"

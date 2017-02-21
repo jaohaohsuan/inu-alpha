@@ -6,13 +6,14 @@ import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.index.query.QueryBuilder
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.aggregations.{Aggregation, AggregationBuilders}
-import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAggregationBuilder}
+import org.elasticsearch.search.aggregations.AggregationBuilders
+import org.elasticsearch.search.aggregations.bucket.filters.FiltersAggregator.KeyedFilter
+import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAggregationBuilder, FiltersAggregator}
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder
 import org.json4s.JsonAST.{JArray, JString}
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import shapeless.{::, HNil}
-import spray.http.StatusCodes._
 import spray.http.Uri
 import spray.http.Uri.Path
 import spray.routing._
@@ -37,8 +38,9 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   implicit def executionContext: ExecutionContext
 
   import com.inu.frontend.elasticsearch.ImplicitConversions._
-  import scala.collection.JavaConversions._
   import org.json4s.JsonDSL._
+
+  import scala.collection.JavaConversions._
 
   def extractSourceItems(sr: SearchResponse): Directive1[List[(String, JValue)]] = {
     requestUri.flatMap { uri =>
@@ -104,6 +106,16 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
           parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
             case size :: from :: HNil => {
               //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+
+              val hi = new HighlightBuilder()
+                .requireFieldMatch(true)
+                .numOfFragments(0)
+                .preTags("<em>")
+                .postTags("</em>")
+                .field("agent*")
+                .field("customer*")
+                .field("dialogs")
+
               onSuccess(
                 Seq(
                   "startTime",
@@ -122,15 +134,10 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   "r1TotalInterruption",
                   "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
                   .setQuery(q)
+                  .highlighter(hi)
                   .setSize(size).setFrom(from)
-                  .addField("vtt")) { (acc, f) => acc.addField(f) }
-                  .setHighlighterRequireFieldMatch(true)
-                  .setHighlighterNumOfFragments(0)
-                  .setHighlighterPreTags("<em>")
-                  .setHighlighterPostTags("</em>")
-                  .addHighlightedField("agent*")
-                  .addHighlightedField("customer*")
-                  .addHighlightedField("dialogs").execute().future).flatMap { res =>
+                  .addStoredField("vtt")) { (acc, f) => acc.addStoredField(f) }
+                  .execute().future).flatMap { res =>
                 provide(res)
               }
             }
@@ -259,14 +266,10 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def datasourceAggregation: Directive1[FiltersAggregationBuilder] = {
     dataSourceFilters.flatMap { filters =>
-      val ds = filters.foldLeft(AggregationBuilders.filters("datasource")) { (acc, el) =>
+      provide(AggregationBuilders.filters("datasource", filters.map { el =>
         val JString(typ) = el \ "type"
-        import org.json4s.native.JsonMethods._
-        //val queryJson = compact(render(el \ "query" \ "query" ))
-        //println(queryJson)
-        acc.filter(typ, typeQuery(typ))
-      }
-      provide(ds)
+        new FiltersAggregator.KeyedFilter(typ, typeQuery(typ))
+      }: _*))
     }
   }
 
@@ -276,18 +279,8 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
         formatHits(searchSq).flatMap { conditionsMap =>
           parameters('conditionSet.?).flatMap {
             case Some(ids) if !ids.isEmpty =>
-              val individual = conditionsMap.filterKeys(ids.contains).values.foldLeft(AggregationBuilders.filters("individual")) { (acc, c) =>
-                //val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> Set(parse(c.query)))))
-                //val withUserFilterQuery = filter merge dd
-                //val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
-                //val indices = xs.collect { case JString(s) => s}
-                //val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
-                //println(s"conditionSetAggregation ${c.title}")
-                //println(s"${c.query}")
-                //println(s"${pretty(render(withUserFilterQuery))}")
-                acc.filter(c.title, wrapperQuery(c.query))
-              }
-              provide(agg.subAggregation(individual))
+              val filters = conditionsMap.filterKeys(ids.contains).values.map { c => new FiltersAggregator.KeyedFilter(c.title, wrapperQuery(c.query)) }
+              provide(agg.subAggregation(AggregationBuilders.filters("individual", filters.toList: _*)))
             case _ => provide(agg)
           }
         }
@@ -303,9 +296,8 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
           parameters('include.?).flatMap {
           case None => provide(agg)
           case Some(param1) =>
-            provide(agg.subAggregation(map.filterKeys(param1.contains).foldLeft(AggregationBuilders.filters("cross")){ case (acc, (_,el)) =>
-              acc.filter(el.title, boolQuery().filter(conditionSetQuery).must(wrapperQuery(el.query)))
-            }))
+            val filters = map.filterKeys(param1.contains).map { case (_,el) =>  new FiltersAggregator.KeyedFilter(el.title, boolQuery().filter(conditionSetQuery).must(wrapperQuery(el.query))) }
+            provide(AggregationBuilders.filters("cross", filters.toList:_*))
           }
         }
       }

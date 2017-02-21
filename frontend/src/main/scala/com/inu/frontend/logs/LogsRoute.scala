@@ -23,7 +23,7 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
       prepareGetVtt { q =>
         onSuccess(q.execute().future) { gr =>
           format(gr.getField("vtt")) { vttMap =>
-            percolate(gr) { p =>
+            percolate(gr.getType(), gr.getSourceAsString()) { p =>
               onSuccess(p.execute().future) { pr =>
                 extractFragments(pr.getMatches) { segments =>
                   respondWithMediaType(`text/vtt`) {

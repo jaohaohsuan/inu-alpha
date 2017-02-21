@@ -63,15 +63,14 @@ trait StoredQueryDirectives extends Directives {
     }
   }
 
-  def percolate(gr: GetResponse) = {
+  def percolate(docType: String, doc: String) = {
     headerValueByName("uid").flatMap { uid =>
       parameters("_id".?).flatMap {
         case _id => {
           val ids = _id.getOrElse("").replace("temporary", uid).split("""[\s,]+""").map{ id => s""""$id"""" }.toSet.mkString(",")
-          val doc = gr.getSourceAsString
           provide(client.preparePercolate()
             .setIndices("stored-query")
-            .setDocumentType(gr.getType)
+            .setDocumentType(docType)
             .setSource(s"""{
                            |    "filter" : { "ids" : { "type" : ".percolator", "values" : [ $ids ] } },
                            |    "doc" : $doc,

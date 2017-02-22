@@ -77,6 +77,8 @@ spec:
           httpGet:
             path: /hello
             port: 7880
+          periodSeconds: 5
+          initialDelaySeconds: 30
         resources:
           limits:
             cpu: 500m

@@ -99,52 +99,65 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
-      parameters('must_not.?).flatMap { ids =>
-        queryWithUserFilter(clauses.filterKeys{ k => !ids.contains(k) }.values.toList, (ids: Seq[String]).flatMap(clauses.get).toList).flatMap { q =>
-          parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
-            case size :: from :: HNil => {
-              //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
-              onSuccess(
-                Seq(
-                  "startTime",
-                  "endTime",
-                  "length",
-                  "endStatus",
-                  "projectName",
-                  "agentPhoneNo",
-                  "agentId",
-                  "agentName",
-                  "callDirection",
-                  "customerPhoneNo",
-                  "customerGender",
-                  "mixLongestSilence",
-                  "r0TotalInterruption",
-                  "r1TotalInterruption",
-                  "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
-                  .setQuery(q)
-                  .setSize(size).setFrom(from)
-                  .addField("vtt")) { (acc, f) => acc.addField(f) }
-                  .setHighlighterRequireFieldMatch(true)
-                  .setHighlighterNumOfFragments(0)
-                  .setHighlighterPreTags("<em>")
-                  .setHighlighterPostTags("</em>")
-                  .addHighlightedField("agent*")
-                  .addHighlightedField("customer*")
-                  .addHighlightedField("dialogs").execute().future).flatMap { res =>
-                provide(res)
+      parameters('must_not.?, 'logsFilterId.?).hflatMap {
+        case ids :: filterId :: HNil =>
+          logsfilter(filterId).flatMap { filter_clause =>
+            queryWithUserFilter(
+              clauses.filterKeys { k => !ids.contains(k) }.values.toList,
+              (ids: Seq[String]).flatMap(clauses.get).toList,
+              filter_clause
+            ).flatMap { q =>
+              parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
+                case size :: from :: HNil => {
+                  //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+                  onSuccess(
+                    Seq(
+                      "startTime",
+                      "endTime",
+                      "length",
+                      "endStatus",
+                      "projectName",
+                      "agentPhoneNo",
+                      "agentId",
+                      "agentName",
+                      "callDirection",
+                      "customerPhoneNo",
+                      "customerGender",
+                      "mixLongestSilence",
+                      "r0TotalInterruption",
+                      "r1TotalInterruption",
+                      "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
+                      .setQuery(q)
+                      .setSize(size).setFrom(from)
+                      .addField("vtt")) { (acc, f) => acc.addField(f) }
+                      .setHighlighterRequireFieldMatch(true)
+                      .setHighlighterNumOfFragments(0)
+                      .setHighlighterPreTags("<em>")
+                      .setHighlighterPostTags("</em>")
+                      .addHighlightedField("agent*")
+                      .addHighlightedField("customer*")
+                      .addHighlightedField("dialogs").execute().future).flatMap { res =>
+                    provide(res)
+                  }
+                }
+                case _ => reject
               }
             }
-            case _ => reject
           }
-        }
       }
     }
   }
 
-  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue]): Directive1[QueryBuilder] = {
+  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue], filter_clause: JObject = JObject(Nil)): Directive1[QueryBuilder] = {
     userFilter.flatMap { query =>
       import org.json4s.JsonDSL._
-      val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> must_clauses) ~~ ("must_not" -> must_not_clauses)))
+      val dd: JObject = "indices" -> ("query" ->
+        ("bool" ->
+          ("must"     -> must_clauses) ~~
+            ("must_not" -> must_not_clauses) ~~
+            ("filter"   -> filter_clause)
+          )
+        )
       val withUserFilterQuery = query merge dd
       val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
       val indices = xs.collect { case JString(s) => s }

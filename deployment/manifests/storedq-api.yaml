@@ -106,3 +106,5 @@ spec:
             value: myesdb
           - name: USER_PROFILE_HOST
             value: http://deployd.default.svc.cluster.local:2403
+          - name: DAPI_HOST
+            value: http://deployd.default.svc.cluster.local:2403

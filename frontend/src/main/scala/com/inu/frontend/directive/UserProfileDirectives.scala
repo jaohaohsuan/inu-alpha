@@ -62,17 +62,17 @@ trait UserProfileDirectives extends Directives {
     }
   }
 
-  def logsfilter(filterId: Option[String]): Directive1[JObject] = {
+  def logsfilter(filterId: Option[String]): Directive1[JValue] = {
     userSid.flatMap { sid =>
 
       val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.dapi.host")}/${config.getString("service.dapi.logsfilter")}?logsFilterId=${filterId.getOrElse("")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
       onSuccess(response).flatMap { res => res.entity match {
         case entity: NonEmpty =>
           import org.json4s.native.JsonMethods._
-          val result = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \\ "esQuery" match {
-            case j: JObject => j
-            case _ => JObject()
-          }
+
+          println(pretty(render(parse(entity.data.asString(HttpCharsets.`UTF-8`)))))
+          val result: JValue = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \\ "esQuery"
+          println(pretty(render(result)))
           provide(result)
         case _ => reject
       }

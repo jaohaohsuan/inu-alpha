@@ -148,7 +148,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
     }
   }
 
-  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue], filter_clause: JObject = JObject(Nil)): Directive1[QueryBuilder] = {
+  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue], filter_clause: JValue = JObject(Nil)): Directive1[QueryBuilder] = {
     userFilter.flatMap { query =>
       import org.json4s.JsonDSL._
       val dd: JObject = "indices" -> ("query" ->

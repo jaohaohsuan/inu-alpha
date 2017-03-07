@@ -70,18 +70,12 @@ trait UserProfileDirectives extends Directives {
         val req = HttpRequest(GET,
           Uri(s"${config.getString("service.dapi.host")}/${config.getString("service.dapi.logsfilter")}?logsFilterId=${filterId.getOrElse("")}"),
           headers = RawHeader("Authorization", s"bearer $sid") :: RawHeader("uid",uid) :: Nil)
-
-        println(s"${req.uri} \n ${req.headers}")
-
         val response = (IO(Http) ? req).mapTo[HttpResponse]
         onSuccess(response).flatMap { res =>
           res.entity match {
             case entity: NonEmpty =>
               import org.json4s.native.JsonMethods._
-
-              println(pretty(render(parse(entity.data.asString(HttpCharsets.`UTF-8`)))))
               val result: JValue = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \\ "esQuery"
-              println(pretty(render(result)))
               provide(result)
             case _ => reject
           }

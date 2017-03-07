@@ -2,7 +2,7 @@ package com.inu.frontend.directive
 
 import akka.actor.ActorSystem
 import akka.io.IO
-import org.json4s.JValue
+import org.json4s.{JObject, JValue}
 import spray.can.Http
 import spray.http._
 import spray.routing.{Directive1, Directives}
@@ -58,6 +58,24 @@ trait UserProfileDirectives extends Directives {
             provide(xs)
           case _ => reject
         }
+      }
+    }
+  }
+
+  def logsfilter(filterId: Option[String]): Directive1[JObject] = {
+    userSid.flatMap { sid =>
+
+      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.dapi.host")}/${config.getString("service.dapi.filter")}?logsFilterId=${filterId.getOrElse("")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
+      onSuccess(response).flatMap { res => res.entity match {
+        case entity: NonEmpty =>
+          import org.json4s.native.JsonMethods._
+          val result = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \\ "esQuery" match {
+            case j: JObject => j
+            case _ => JObject()
+          }
+          provide(result)
+        case _ => reject
+      }
       }
     }
   }

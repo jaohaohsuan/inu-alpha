@@ -159,6 +159,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
           )
         )
       val withUserFilterQuery = query merge dd
+      println(pretty(render(withUserFilterQuery)))
       val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
       val indices = xs.collect { case JString(s) => s }
       provide(indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none"))

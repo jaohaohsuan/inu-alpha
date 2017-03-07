@@ -76,6 +76,8 @@ lazy val cluster = create("cluster").
       new Dockerfile {
         from("openjdk:8-jre-alpine")
         runRaw("apk add --no-cache tzdata")
+        env("TZ", "Asia/Taipei")
+
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
         }
@@ -85,7 +87,7 @@ lazy val cluster = create("cluster").
         //add(classpath.files, "/app/libs/")
         //add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
-        env("TZ", "Asia/Taipei")
+
 
         entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
       }
@@ -136,7 +138,8 @@ lazy val frontend = create("frontend").
         }
         //add(classpath.files, "/app/libs/")
         //add(jarFile, "/app/")
-        packLibJars.value.map { case (file, proj) => add(file, "/app/") }
+
+        packLibJars.value.map { case (file, _) => add(file, "/app/") }
 
         env("TZ", "Asia/Taipei")
         //env("JAVA_OPTS", "")

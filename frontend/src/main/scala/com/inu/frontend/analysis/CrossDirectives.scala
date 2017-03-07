@@ -1,5 +1,6 @@
 package com.inu.frontend.analysis
 
+import akka.io.IO
 import com.inu.frontend.directive.{StoredQueryDirectives, UserProfileDirectives}
 import com.inu.protocol.media.CollectionJson.Template
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
@@ -14,7 +15,11 @@ import org.json4s.JsonAST.{JArray, JString}
 import org.json4s._
 import org.json4s.native.JsonMethods._
 import shapeless.{::, HNil}
-import spray.http.Uri
+import spray.can.Http
+import spray.http.HttpEntity.NonEmpty
+import spray.http.HttpHeaders.RawHeader
+import spray.http.HttpMethods.GET
+import spray.http.{HttpCharsets, HttpRequest, HttpResponse, Uri}
 import spray.http.Uri.Path
 import spray.routing._
 
@@ -93,7 +98,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
             val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
             ("href" -> s"${ids.map{ v => uri.withQuery("_id" -> v)}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~
-            Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
+              Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
         } toList)
       }
     }
@@ -101,57 +106,71 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
-      parameters('must_not.?).flatMap { ids =>
-        queryWithUserFilter(clauses.filterKeys{ k => !ids.contains(k) }.values.toList, (ids: Seq[String]).flatMap(clauses.get).toList).flatMap { q =>
-          parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
-            case size :: from :: HNil => {
-              //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
+      parameters('must_not.?, 'logsFilterId.?).hflatMap {
+      case ids :: filterId :: HNil =>
+        logsfilter(filterId).flatMap { bool_filter =>
+          queryWithUserFilter(
+            must_clauses = clauses.filterKeys { k => !ids.contains(k) }.values.toList,
+            must_not_clauses = (ids: Seq[String]).flatMap(clauses.get).toList,
+            filter_clause = bool_filter
+          ).flatMap { q =>
 
-              val hi = new HighlightBuilder()
-                .requireFieldMatch(true)
-                .numOfFragments(0)
-                .preTags("<em>")
-                .postTags("</em>")
-                .field("agent*")
-                .field("customer*")
-                .field("dialogs")
+            parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
+              case size :: from :: HNil => {
+                //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
 
-              onSuccess(
-                Seq(
-                  "startTime",
-                  "endTime",
-                  "length",
-                  "endStatus",
-                  "projectName",
-                  "agentPhoneNo",
-                  "agentId",
-                  "agentName",
-                  "callDirection",
-                  "customerPhoneNo",
-                  "customerGender",
-                  "mixLongestSilence",
-                  "r0TotalInterruption",
-                  "r1TotalInterruption",
-                  "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
-                  .setQuery(q)
-                  .highlighter(hi)
-                  .setSize(size).setFrom(from)
-                  .addStoredField("vtt")) { (acc, f) => acc.addStoredField(f) }
-                  .execute().future).flatMap { res =>
-                provide(res)
+                val hi = new HighlightBuilder()
+                  .requireFieldMatch(true)
+                  .numOfFragments(0)
+                  .preTags("<em>")
+                  .postTags("</em>")
+                  .field("agent*")
+                  .field("customer*")
+                  .field("dialogs")
+
+                onSuccess(
+                  Seq(
+                    "startTime",
+                    "endTime",
+                    "length",
+                    "endStatus",
+                    "projectName",
+                    "agentPhoneNo",
+                    "agentId",
+                    "agentName",
+                    "callDirection",
+                    "customerPhoneNo",
+                    "customerGender",
+                    "mixLongestSilence",
+                    "r0TotalInterruption",
+                    "r1TotalInterruption",
+                    "sumTotalInterruption").foldLeft(client.prepareSearch("logs-*")
+                    .setQuery(q)
+                    .highlighter(hi)
+                    .setSize(size).setFrom(from)
+                    .addStoredField("vtt")) { (acc, f) => acc.addStoredField(f) }
+                    .execute().future).flatMap { res =>
+                  provide(res)
+                }
               }
+              case _ => reject
             }
-            case _ => reject
           }
         }
       }
     }
   }
 
-  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue]): Directive1[QueryBuilder] = {
+  def queryWithUserFilter(must_clauses: List[JValue], must_not_clauses: List[JValue], filter_clause: JObject = JObject(Nil)): Directive1[QueryBuilder] = {
     userFilter.flatMap { query =>
       import org.json4s.JsonDSL._
-      val dd: JObject = "indices" -> ("query" -> ("bool" -> ("must" -> must_clauses) ~~ ("must_not" -> must_not_clauses)))
+      val dd: JObject = "indices" -> ("query" ->
+                                        ("bool" ->
+                                          ("must"     -> must_clauses) ~~
+                                          ("must_not" -> must_not_clauses) ~~
+                                          ("filter"   -> filter_clause)
+                                        )
+                                     )
       val withUserFilterQuery = query merge dd
       val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
       val indices = xs.collect { case JString(s) => s }
@@ -203,10 +222,10 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
                   client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
                     Template(Map("title" -> c.title,
-                                 "id" -> c.storedQueryId,
-                                 "state" -> "excludable",
-                                 queryField,
-                                 "hits" -> res.getHits.totalHits)).template ~~
+                      "id" -> c.storedQueryId,
+                      "state" -> "excludable",
+                      queryField,
+                      "hits" -> res.getHits.totalHits)).template ~~
                       ("links" -> Set(
                         parse(links.action0("excludable")),
                         parse(links.action1("excludable")),
@@ -244,10 +263,10 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   }
                   client.prepareSearch("logs-*").setQuery(q).setSize(0).execute().future.map { res =>
                     Template(Map("title" -> c.title,
-                                 "id" -> c.storedQueryId,
-                                 "state" -> "includable",
-                                 queryField,
-                                 "hits" -> res.getHits.totalHits)).template ~~
+                      "id" -> c.storedQueryId,
+                      "state" -> "includable",
+                      queryField,
+                      "hits" -> res.getHits.totalHits)).template ~~
                       ("links" -> Set(
                         parse(links.action0("includable")),
                         parse(links.action1("includable")),
@@ -275,16 +294,16 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def conditionSetAggregation(agg: FiltersAggregationBuilder): Directive1[FiltersAggregationBuilder] = {
     //userFilter.flatMap { filter =>
-      `conditionSet+include+must_not`.flatMap { searchSq =>
-        formatHits(searchSq).flatMap { conditionsMap =>
-          parameters('conditionSet.?).flatMap {
-            case Some(ids) if !ids.isEmpty =>
-              val filters = conditionsMap.filterKeys(ids.contains).values.map { c => new FiltersAggregator.KeyedFilter(c.title, wrapperQuery(c.query)) }
-              provide(agg.subAggregation(AggregationBuilders.filters("individual", filters.toList: _*)))
-            case _ => provide(agg)
-          }
+    `conditionSet+include+must_not`.flatMap { searchSq =>
+      formatHits(searchSq).flatMap { conditionsMap =>
+        parameters('conditionSet.?).flatMap {
+          case Some(ids) if !ids.isEmpty =>
+            val filters = conditionsMap.filterKeys(ids.contains).values.map { c => new FiltersAggregator.KeyedFilter(c.title, wrapperQuery(c.query)) }
+            provide(agg.subAggregation(AggregationBuilders.filters("individual", filters.toList: _*)))
+          case _ => provide(agg)
         }
       }
+    }
     //}
   }
 
@@ -294,10 +313,10 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
         parameters('conditionSet.?).flatMap { param0 =>
           val conditionSetQuery = map.filterKeys(param0.getOrElse("").contains).values.foldLeft(boolQuery()){ (bool, el) =>  bool.must(wrapperQuery(el.query))}
           parameters('include.?).flatMap {
-          case None => provide(agg)
-          case Some(param1) =>
-            val filters = map.filterKeys(param1.contains).map { case (_,el) =>  new FiltersAggregator.KeyedFilter(el.title, boolQuery().filter(conditionSetQuery).must(wrapperQuery(el.query))) }
-            provide(AggregationBuilders.filters("cross", filters.toList:_*))
+            case None => provide(agg)
+            case Some(param1) =>
+              val filters = map.filterKeys(param1.contains).map { case (_,el) =>  new FiltersAggregator.KeyedFilter(el.title, boolQuery().filter(conditionSetQuery).must(wrapperQuery(el.query))) }
+              provide(AggregationBuilders.filters("cross", filters.toList:_*))
           }
         }
       }

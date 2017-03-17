@@ -21,6 +21,19 @@ spec:
     metadata:
       labels:
         storedq: api
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+          {
+            "name": "cassandra-probe",
+            "image": "gcr.io/google-samples/cassandra:v11",
+            "command": [
+              "bash",
+              "-c",
+              "/usr/bin/nodetool -h cassandra3.default.svc.cluster.local -p 7199"
+            ],
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ]'
     spec:
       containers:
       - name: domain
@@ -41,8 +54,8 @@ spec:
           - "-Dakka.cluster.roles.2=backend"
           - "-Dakka.remote.netty.tcp.port=2551"
           - "-Dakka.cluster.seed-nodes.0=akka.tcp://storedq@127.0.0.1:2551"
-          - "-Dcassandra-snapshot-store.contact-points.0=10.254.83.159"
-          - "-Dcassandra-journal.contact-points.0=10.254.83.159"
+          - "-Dcassandra-snapshot-store.contact-points.0=cassandra3.default.svc.cluster.local"
+          - "-Dcassandra-journal.contact-points.0=cassandra3.default.svc.cluster.local"
           - "-cp"
           - "/app/libs/*:/app/*"
           - "com.inu.cluster.Main"
@@ -60,6 +73,12 @@ spec:
       - name: api
         image: 127.0.0.1:5000/inu/storedq-api:{{tag_name}}
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /hello
+            port: 7880
+          periodSeconds: 5
+          initialDelaySeconds: 30
         resources:
           limits:
             cpu: 500m
@@ -86,4 +105,6 @@ spec:
           - name: ES_CLUSTER_NAME
             value: myesdb
           - name: USER_PROFILE_HOST
+            value: http://deployd.default.svc.cluster.local:2403
+          - name: DAPI_HOST
             value: http://deployd.default.svc.cluster.local:2403

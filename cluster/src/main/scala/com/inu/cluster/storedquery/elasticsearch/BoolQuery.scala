@@ -20,6 +20,7 @@ object BoolQuery {
        val query: JValue = clause match {
           case SynonymBoolQuery(json) => json
           case MultiMatchQuery(json) => json
+          case SynonymMultiSpanNearQuery(json) => json
           case MultiSpanNearQuery(json) => json
           case NamedClause(_, _, occur, innerClauses) =>
             innerClauses.getOrElse(Map.empty).values.toList match {

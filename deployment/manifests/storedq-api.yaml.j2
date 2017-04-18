@@ -40,7 +40,7 @@ spec:
         resources:
           limits:
             memory: 2Gi
-        image: 127.0.0.1:5000/inu/storedq-cluster:{{tag_name}}
+        image: {{kube_registry_host}}storedq-cluster:{{tag_name}}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2551
@@ -71,7 +71,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
       - name: api
-        image: 127.0.0.1:5000/inu/storedq-api:{{tag_name}}
+        image: {{kube_registry_host}}storedq-api:{{tag_name}}
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

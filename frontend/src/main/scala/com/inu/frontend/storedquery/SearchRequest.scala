@@ -22,20 +22,27 @@ import scala.concurrent.duration._
 
 object SearchRequest {
 
-  def buildQueryDefinition(queryString: Option[String] = None, queryTags: Option[String] = None): BoolQueryBuilder = {
+  def buildQueryDefinition(queryString: Option[String] = None, queryTags: Option[String] = None, includeArchived: Boolean = false ): BoolQueryBuilder = {
     import org.elasticsearch.index.query.QueryBuilders._
-    Seq(
+    val bq = Seq(
       queryString.map { queryStringQuery(_).field("_all") },
       queryTags.map { matchQuery("tags", _).operator(MatchQueryBuilder.Operator.OR) }
     ).flatten.foldLeft(
-        boolQuery()
-          .mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary"))
-          .mustNot(QueryBuilders.existsQuery("temporary"))
-      )(_ must _)
+      boolQuery()
+        .mustNot(QueryBuilders.idsQuery(".percolator").ids("temporary"))
+        .mustNot(QueryBuilders.existsQuery("temporary"))
+    )(_ must _)
+
+
+    if(includeArchived)
+      bq
+    else
+      bq.mustNot(matchQuery("tags", "@archived") )
   }
 
-  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int = 10, from: Int = 0)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
-    Props(classOf[SearchRequest], ctx, client, buildQueryDefinition(queryString, queryTags), size, from)
+  def props(queryString: Option[String] = None, queryTags: Option[String] = None, size: Int = 10, from: Int = 0, includeArchived: Boolean = false)(implicit ctx: RequestContext, client: org.elasticsearch.client.Client) =
+    Props(classOf[SearchRequest], ctx, client, buildQueryDefinition(queryString, queryTags, includeArchived), size, from)
+
 }
 
 case class SearchRequest(ctx: RequestContext, implicit val client: Client,
@@ -98,6 +105,7 @@ case class SearchRequest(ctx: RequestContext, implicit val client: Client,
                     ("data" -> Set(
                       ("name" -> "q") ~~ ("prompt" -> "search title or any terms"),
                       ("name" -> "tags") ~~ ("prompt" -> allTags),
+                      ("name" -> "archived") ~~ ("prompt" -> false),
                       ("name" -> "size") ~~ ("prompt" -> "size of displayed items"),
                       ("name" -> "from") ~~ ("prompt" -> "items display from")
                     )) :: Nil)

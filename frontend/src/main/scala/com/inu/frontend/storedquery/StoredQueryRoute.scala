@@ -57,8 +57,8 @@ trait StoredQueryRoute extends HttpService with CollectionJsonSupport with LogsD
     requestUri { uri =>
       get {
         path("_query" / "template") {
-          parameters('q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, tags, size, from) => implicit ctx =>
-            actorRefFactory.actorOf(SearchRequest.props(q, tags, size, from))
+          parameters('q.?, 'tags.?, 'archived.as[Boolean] ? false, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ) { (q, tags, archived, size, from) => implicit ctx =>
+            actorRefFactory.actorOf(SearchRequest.props(q, tags, size, from, archived))
           }
         } ~
         pathPrefix("_query" / "template") {

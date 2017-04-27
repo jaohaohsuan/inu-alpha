@@ -1,6 +1,8 @@
 package com.inu.protocol.storedquery.messages
 
-case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty)
+case class StoredQuery(id: String = "", title: String = "", clauses: Map[Int, BoolClause] = Map.empty, tags: Set[String] = Set.empty) {
+  lazy val archived: Boolean = tags.contains("@archived")
+}
 
 case class StoredQueries(items: Map[String, StoredQuery] = Map.empty,
                          paths: Map[(String, String), Int] = Map.empty,

@@ -126,7 +126,7 @@ trait StoredQueryDirectives extends Directives {
       } yield (fullTags,mine)
 
       onComplete(fc).flatMap {
-        case scala.util.Success((fullTags,mine)) => provide((mine ++ fullTags).mkString(" "))
+        case scala.util.Success((fullTags,mine)) => provide((mine ++ fullTags).filterNot(_.startsWith("@")).mkString(" "))
         case scala.util.Failure(ex) => provide("")
       }
     }

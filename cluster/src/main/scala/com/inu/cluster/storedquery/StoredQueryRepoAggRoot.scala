@@ -34,7 +34,12 @@ object StoredQueryRepoAggRoot extends LazyLogging {
     def notExist()(implicit state: StoredQueries): Boolean = !state.items.contains(id)
   }
 
-  implicit def getEntity(id: String)(implicit state: StoredQueries): StoredQuery = state.items(id)
+  implicit def getEntity(id: String)(implicit state: StoredQueries): StoredQuery = {
+    val item = state.items(id)
+    if(item.archived)
+      item.copy(clauses = Map.empty)
+    item
+  }
 
   object CreateStoredQuery {
     def unapply(arg: Any): Option[Either[String, StoredQuery]] = {

@@ -61,7 +61,7 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
     case _ => true
   }
 
-  val changes = Flow[StoredQueries].mapConcat { case StoredQueries(items, _, changes@x :: xs) =>
+  val changes: Flow[StoredQueries, StoredQuery, NotUsed] = Flow[StoredQueries].mapConcat { case StoredQueries(items, _, x :: xs) =>
 
     x.reverse.flatMap(items.get).map(retrieveDependencies(_, items))
     //x.flatMap { e => items.get(e).map { x => retrieveDependencies(x, items) } }
@@ -72,7 +72,12 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
       e match {
         case (clauseId, n: NamedClause) =>
           items.get(n.storedQueryId) match {
-            case Some(innerItem) => acc.copy(clauses = acc.clauses + (clauseId -> n.copy(clauses = Some(retrieveDependencies(innerItem,items).clauses))))
+            case Some(innerItem) =>
+              val attributedTitle = if (innerItem.archived)
+                s"@archived ${innerItem.title}"
+              else
+                innerItem.title
+              acc.copy(clauses = acc.clauses + (clauseId -> n.copy(storedQueryTitle = attributedTitle, clauses = Some(retrieveDependencies(innerItem,items).clauses))))
             case None =>
               log.warning("{} doesn't exist", n)
               acc

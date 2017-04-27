@@ -36,8 +36,8 @@ object StoredQueryRepoAggRoot extends LazyLogging {
 
   implicit def getEntity(id: String)(implicit state: StoredQueries): StoredQuery = {
     val item = state.items(id)
-    if(item.archived)
-      item.copy(clauses = Map.empty)
+    //if(item.archived)
+    //  item.copy(clauses = Map.empty)
     item
   }
 

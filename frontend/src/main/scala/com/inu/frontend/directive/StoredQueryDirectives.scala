@@ -161,7 +161,9 @@ trait StoredQueryDirectives extends Directives {
               .excludeTemporary
               .search_all(q)
               .matchQuery("tags", tags)
-              .mustNot(idsQuery().ids(excludedIds)))
+              .mustNot(idsQuery().ids(excludedIds))
+              .mustNot(matchQuery("tags", "@archived"))
+            )
             .setFetchSource(Array("item"), null)
             .setSize(size).setFrom(from)
         )

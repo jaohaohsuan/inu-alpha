@@ -26,7 +26,7 @@ case class AddClauseRequest(ctx: RequestContext, storedQueryId: String, clause: 
     case ClauseAddedAck(clauseId) =>
       response {
         URI { href =>
-          respondWithHeader(RawHeader("Location", s"$href/$clauseId")){
+          respondWithHeader(RawHeader("Location", s"${href.resolve(s"${href.getPath}/$clauseId")}")){
             complete(Created)
           }
         }

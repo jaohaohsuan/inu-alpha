@@ -29,7 +29,7 @@ spec:
             "command": [
               "bash",
               "-c",
-              "/usr/bin/nodetool -h cassandra3.default.svc.cluster.local -p 7199"
+              "/usr/bin/nodetool -h cassandra3.default.svc.cluster.local -p 7199 | grep -i UN | grep 100.0"
             ],
             "imagePullPolicy": "IfNotPresent"
           }
@@ -47,8 +47,6 @@ spec:
           name: seed
         command:
           - "java"
-          - -Xms512m
-          - -Xmx512m
           - "-Dakka.cluster.roles.0=compute"
           - "-Dakka.cluster.roles.1=queryside"
           - "-Dakka.cluster.roles.2=backend"
@@ -70,6 +68,18 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        livenessProbe:
+          exec:
+            command:
+            - nc
+            - -zv
+            - 127.0.0.1
+            - "2551"
+          failureThreshold: 3
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
       - name: api
         image: {{kube_registry_host}}storedq-api:{{tag_name}}
         imagePullPolicy: IfNotPresent
@@ -83,8 +93,6 @@ spec:
           limits:
             cpu: 500m
             memory: 2Gi
-          requests:
-            memory: 256Mi
         command:
           - "java"
           - "-Dakka.cluster.roles.0=frontend"
@@ -96,7 +104,6 @@ spec:
         ports:
         - containerPort: 7879
         - containerPort: 2552
-
         env:
           - name: PEER_DISCOVERY_SERVICE
             value: storedq-cluster.default.svc.cluster.local

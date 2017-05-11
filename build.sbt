@@ -74,7 +74,7 @@ lazy val cluster = create("cluster").
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
-        from("openjdk:8-jre-alpine")
+        from("fabric8/java-alpine-openjdk8-jre")
         runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
@@ -86,8 +86,10 @@ lazy val cluster = create("cluster").
         //add(jarFile, "/app/")
         //env("JAVA_OPTS", "")
         env("TZ", "Asia/Taipei")
+        env("JAVA_CLASSPATH", "/app/libs/*:/app/*")
+        env("JAVA_MAIN_CLASS", mainclass)
 
-        entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
+        entryPoint("/deployments/run-java.sh")
       }
     },
     imageNames in docker := Seq(
@@ -128,7 +130,7 @@ lazy val frontend = create("frontend").
       val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
 
       new Dockerfile {
-        from("openjdk:8-jre-alpine")
+        from("fabric8/java-alpine-openjdk8-jre")
         runRaw("apk add --no-cache tzdata")
         classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
           add(files, "/app/libs/")
@@ -139,7 +141,10 @@ lazy val frontend = create("frontend").
 
         env("TZ", "Asia/Taipei")
         //env("JAVA_OPTS", "")
-        entryPoint("java", "-cp", "/app/libs/*:/app/*", mainclass)
+        env("JAVA_CLASSPATH", "/app/libs/*:/app/*")
+        env("JAVA_MAIN_CLASS", mainclass)
+
+        entryPoint("/deployments/run-java.sh")
       }
     },
     imageNames in docker := Seq(

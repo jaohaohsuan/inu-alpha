@@ -57,6 +57,25 @@ trait StoredQueryDirectives extends Directives {
       onComplete(f).flatMap {
         case scala.util.Success(res) if res.isExists =>
           provide(parse(res.getSourceAsString()))
+        case scala.util.Success(_) =>
+          provide(parse(
+            s"""{
+              |  "item": {
+              |    "href": "$_id",
+              |    "data": [
+              |       {
+              |         "name": "title",
+              |         "value": "temporary"
+              |       },
+              |       {
+              |         "name": "tags",
+              |         "value": ""
+              |       }
+              |    ]
+              |  },
+              |  "occurs": {},
+              |  "query": {}
+              |}""".stripMargin))
         case _ =>
           throw new Exception(s"StoredQuery resource $id is not exist.")
       }

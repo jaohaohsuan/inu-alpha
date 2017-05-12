@@ -61,7 +61,7 @@ trait StoredQueryDirectives extends Directives {
           provide(parse(
             s"""{
               |  "item": {
-              |    "href": "$_id",
+              |    "href": "${_id}",
               |    "data": [
               |       {
               |         "name": "title",

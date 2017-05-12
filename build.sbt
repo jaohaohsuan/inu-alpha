@@ -102,6 +102,11 @@ lazy val cluster = create("cluster").
         namespace = Some("127.0.0.1:5000/inu"),
         repository = "storedq-cluster",
         tag = Some("latest")
+      ),
+      ImageName(
+        namespace = Some("henryrao"),
+        repository = "storedq-cluster",
+        tag = Some(version.value)
       )
     )
     )
@@ -157,7 +162,13 @@ lazy val frontend = create("frontend").
         namespace = Some("127.0.0.1:5000/inu"),
         repository = "storedq-api",
         tag = Some("latest")
+      ),
+      ImageName(
+        namespace = Some("henryrao"),
+        repository = "storedq-api",
+        tag = Some(version.value)
       )
+
     )
 
     //,bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )

@@ -57,7 +57,7 @@ trait StoredQueryDirectives extends Directives {
       onComplete(f).flatMap {
         case scala.util.Success(res) if res.isExists =>
           provide(parse(res.getSourceAsString()))
-        case scala.util.Success(_) =>
+        case scala.util.Success(_) if id == "temporary" =>
           provide(parse(
             s"""{
               |  "item": {

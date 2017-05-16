@@ -17,7 +17,6 @@ podTemplate(
                     checkout scm
                 }
 
-
                 docker.image('henryrao/sbt:2.11.8').inside("") {
 
                     stage('build') {
@@ -32,23 +31,34 @@ podTemplate(
 
                 }
 
-//                stage('build image') {
-//                    dir('target/docker') {
-//                        def tag = sh(returnStdout: true, script: 'cat tag').trim()
-//                        def mainClass = sh(returnStdout: true, script: 'cat mainClass').trim()
-//                        image = docker.build("henryrao/akka-seeds:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
-//                    }
-//
-//                }
-//                stage('push image') {
-//                    withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'docker-login') {
-//                        image.push()
-//                        if( env.BRANCH_NAME == 'master' ){
-//                            image.push('latest')
-//                        }
-//
-//                    }
-//                }
+                def doaminimg
+                def apiimg
+
+                stage('build image') {
+                    parallel domain: {
+                        dir('cluster/target/docker') {
+                            def tag = sh(returnStdout: true, script: 'cat tag').trim()
+                            def mainClass = sh(returnStdout: true, script: 'cat mainClass').trim()
+                            doaminimg = doaminImage = docker.build("henryrao/storedq-domain:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
+                        }
+                    }, 'http-api': {
+                        dir('frontend/target/docker') {
+                            def tag = sh(returnStdout: true, script: 'cat tag').trim()
+                            def mainClass = sh(returnStdout: true, script: 'cat mainClass').trim()
+                            apiimg = docker.build("henryrao/storedq-api:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
+                        }
+                    },failFast: false
+                }
+
+                withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'docker-login') {
+                    stage('push image') {
+                        parallel domain: {
+                            doaminimg.push()
+                        }, 'http-api': {
+                            apiimg.push()
+                        },failFast: false
+                    }
+                }
 
 //                stage('pack') {
 //                    docker.image('henryrao/helm:2.3.1').inside('') { c ->

@@ -30,14 +30,14 @@ def create(title: String): Project = Project(title, file(title))
           (dependencyClasspath in Compile).value.files.foreach { f => IO.copyFile(f, dockerDir / "libs" / f.name )}
 
           (mainClass in Compile).value.foreach { content => IO.write( dockerDir / "mainClass", content ) }
-          IO.write( dockerDir / "tag", Version.akka )
+          IO.write( dockerDir / "tag", git.formattedShaVersion.value.getOrElse(version.value) )
 
           IO.copyFile(baseDirectory.value / "Dockerfile", dockerDir / "Dockerfile")
         }
         ): _*
-    ).enablePlugins(GitVersioning, BuildInfoPlugin)
+    ).enablePlugins(BuildInfoPlugin)
 
-lazy val root = project.in(file(".")).enablePlugins(GitVersioning)
+lazy val root = project.in(file("."))
 
 lazy val protocol = create("protocol")
   .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)

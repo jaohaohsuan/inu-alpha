@@ -17,20 +17,20 @@ podTemplate(
                     checkout scm
                 }
 
-                stage('build') {
-                    docker.image('henryrao/sbt:2.11.8').inside("") {
-                        stage('build') {
-                            sh 'du -sh ~/.ivy2'
-                            sh 'sbt frontend/cpJarsForDocker'
-                            sh 'sbt cluster/cpJarsForDocker'
-                        }
+
+                docker.image('henryrao/sbt:2.11.8').inside("") {
+
+                    stage('build') {
+                        sh 'du -sh ~/.ivy2'
+                        sh 'sbt frontend/cpJarsForDocker'
+                        sh 'sbt cluster/cpJarsForDocker'
                     }
-                }
 
-                stage('test') {
-                    sh 'sbt cluster/test'
-                }
+                    stage('test') {
+                        sh 'sbt cluster/test'
+                    }
 
+                }
 
 //                stage('build image') {
 //                    dir('target/docker') {

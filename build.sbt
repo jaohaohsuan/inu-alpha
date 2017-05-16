@@ -1,21 +1,17 @@
 import Library._
-import org.clapper.sbt.editsource.EditSourcePlugin.autoImport._
 import sbt.Keys._
-import sbtbuildinfo.BuildInfoPlugin.autoImport._
-import sbtrelease.ReleaseStateTransformations._
-import com.github.nscala_time.time.Imports._
-import xerial.sbt.Pack._
+
+lazy val cpJarsForDocker = taskKey[Unit]("prepare for building Docker image")
 
 def create(title: String): Project = Project(title, file(title))
     .settings(
-      packAutoSettings ++
       Revolver.settings ++
       Seq(
         scalaVersion          := Version.scala,
         scalacOptions        ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked", "-language:postfixOps", "-language:implicitConversions"),
         resolvers            ++= Dependencies.resolvers,
+        exportJars            := true,
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
-        shellPrompt           := { state => ">> " },
         git.useGitDescribe    := false,
         git.formattedShaVersion := git.gitHeadCommit.value map { sha =>
           sys.env.get("BUILD_NUMBER") match {
@@ -23,26 +19,25 @@ def create(title: String): Project = Project(title, file(title))
             case _ => s"${sha.take(7)}"
           }
         },
-        buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion)
-        ): _*
-    )
+        buildInfoKeys := Seq[BuildInfoKey](name, version in ThisBuild, scalaVersion, sbtVersion),
+        cpJarsForDocker := {
 
-lazy val root = project.in(file(".")).settings(
-  Seq(
-    scalaVersion := Version.scala,
-      sources in EditSource <++= baseDirectory.map{ d =>
-    (d / "deployment" ** "*.yaml").get ++ (d / "deployment" ** "*.sh").get
-  },
-  targetDirectory in EditSource <<= baseDirectory(_ / "target"),
-  flatten in EditSource := false,
-  variables in EditSource <+= version { ver => ("version", ver )},
-  releaseProcess := Seq[ReleaseStep](
-    checkSnapshotDependencies,
-    releaseStepTask(org.clapper.sbt.editsource.EditSourcePlugin.autoImport.clean in EditSource),
-    releaseStepTask(org.clapper.sbt.editsource.EditSourcePlugin.autoImport.edit in EditSource)
-  )
-  )
-).enablePlugins(GitVersioning, GitBranchPrompt)
+          val dockerDir = (target in Compile).value / "docker"
+
+          val jar = (packageBin in Compile).value
+          IO.copyFile(jar, dockerDir / "app" / jar.name)
+
+          (dependencyClasspath in Compile).value.files.foreach { f => IO.copyFile(f, dockerDir / "libs" / f.name )}
+
+          (mainClass in Compile).value.foreach { content => IO.write( dockerDir / "mainClass", content ) }
+          IO.write( dockerDir / "tag", Version.akka )
+
+          IO.copyFile(baseDirectory.value / "Dockerfile", dockerDir / "Dockerfile")
+        }
+        ): _*
+    ).enablePlugins(GitVersioning, BuildInfoPlugin)
+
+lazy val root = project.in(file(".")).enablePlugins(GitVersioning)
 
 lazy val protocol = create("protocol")
   .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)
@@ -51,7 +46,6 @@ lazy val protocol = create("protocol")
 //lazy val buildNumber = sys.props.getOrElse("BUILD_NUMBER", default = "0")
 
 lazy val cluster = create("cluster").
-  enablePlugins(DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin).
   dependsOn(protocol).
   settings(
     libraryDependencies ++= Seq(
@@ -62,57 +56,10 @@ lazy val cluster = create("cluster").
       scalatest,
       kryo
     ) ,
-    buildInfoPackage := s"com.inu.cluster.storedq",
-    mainClass in docker := Some("com.inu.cluster.Main"),
-    dockerfile in docker := {
-      //val jarFile: File = sbt.Keys.`package`.in(Compile, packageBin).value
-      val jarFiles = packLibJars.value.map { case (file, proj) => file }
-      val classpath = (managedClasspath in Compile).value
-      val mainclass = mainClass.in(docker).value.getOrElse("")
-
-      //val classpathString = packLibJars.value.map{ case (file, _) => "/app/libs/" + file.getName }.mkString(":") + ":" + s"/app/${jarFile.getName}"
-      val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
-
-      new Dockerfile {
-        from("fabric8/java-alpine-openjdk8-jre")
-        runRaw("apk add --no-cache tzdata")
-        classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
-          add(files, "/app/libs/")
-        }
-
-        packLibJars.value.map { case (file, proj) => add(file, "/app/") }
-
-        //add(classpath.files, "/app/libs/")
-        //add(jarFile, "/app/")
-        //env("JAVA_OPTS", "")
-        env("TZ", "Asia/Taipei")
-        env("JAVA_CLASSPATH", "/app/libs/*:/app/*")
-        env("JAVA_MAIN_CLASS", mainclass)
-
-        entryPoint("/deployments/run-java.sh")
-      }
-    },
-    imageNames in docker := Seq(
-      ImageName(
-        namespace = Some("127.0.0.1:5000/inu"),
-        repository = "storedq-cluster",
-        tag = Some(version.value)
-      ),
-      ImageName(
-        namespace = Some("127.0.0.1:5000/inu"),
-        repository = "storedq-cluster",
-        tag = Some("latest")
-      ),
-      ImageName(
-        namespace = Some("henryrao"),
-        repository = "storedq-cluster",
-        tag = Some(version.value)
-      )
-    )
+    buildInfoPackage := s"com.inu.cluster.storedq"
     )
 
 lazy val frontend = create("frontend").
-  enablePlugins(DockerPlugin, GitVersioning, GitBranchPrompt, BuildInfoPlugin).
   dependsOn(protocol).
   settings(
   libraryDependencies ++= Seq(
@@ -125,51 +72,6 @@ lazy val frontend = create("frontend").
     scalazCore,
     kryo
   ),
-    mainClass in docker := Some("com.inu.frontend.Main"),
-    buildInfoPackage := s"com.inu.frontend.storedq",
-    dockerfile in docker := {
-      //val jarFile: File = sbt.Keys.`package`.in(Compile).value
-      val classpath = (managedClasspath in Compile).value
-      val mainclass = mainClass.in(docker).value.getOrElse("")
-      //val classpathString = classpath.files.map("/app/libs/" + _.getName).mkString(":") + ":" + s"/app/${jarFile.getName}"
-      val `modify@` = (format: String, file: File) => new DateTime(file.lastModified()).toString(format)
-
-      new Dockerfile {
-        from("fabric8/java-alpine-openjdk8-jre")
-        runRaw("apk add --no-cache tzdata")
-        classpath.files.groupBy(`modify@`("MM/dd/yyyy",_)).map { case (g, files) =>
-          add(files, "/app/libs/")
-        }
-        //add(classpath.files, "/app/libs/")
-        //add(jarFile, "/app/")
-        packLibJars.value.map { case (file, proj) => add(file, "/app/") }
-
-        env("TZ", "Asia/Taipei")
-        //env("JAVA_OPTS", "")
-        env("JAVA_CLASSPATH", "/app/libs/*:/app/*")
-        env("JAVA_MAIN_CLASS", mainclass)
-
-        entryPoint("/deployments/run-java.sh")
-      }
-    },
-    imageNames in docker := Seq(
-      ImageName(
-        namespace = Some("127.0.0.1:5000/inu"),
-        repository = "storedq-api",
-        tag = Some(version.value)
-      ),
-      ImageName(
-        namespace = Some("127.0.0.1:5000/inu"),
-        repository = "storedq-api",
-        tag = Some("latest")
-      ),
-      ImageName(
-        namespace = Some("henryrao"),
-        repository = "storedq-api",
-        tag = Some(version.value)
-      )
-
-    )
-
-    //,bashScriptExtraDefines ++= IO.readLines(baseDirectory.value / "scripts" / "extra.sh" )
+    buildInfoPackage := s"com.inu.frontend.storedq"
   )
+

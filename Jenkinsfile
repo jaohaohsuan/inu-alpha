@@ -31,21 +31,21 @@ podTemplate(
 
                 }
 
-                def doaminimg
-                def apiimg
+                def domainImage
+                def apiImage
 
                 stage('build image') {
                     parallel domain: {
                         dir('cluster/target/docker') {
                             def tag = sh(returnStdout: true, script: 'cat tag').trim()
                             def mainClass = sh(returnStdout: true, script: 'cat mainClass').trim()
-                            doaminimg = doaminImage = docker.build("henryrao/storedq-domain:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
+                            domainImage = docker.build("henryrao/storedq-domain:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
                         }
                     }, 'http-api': {
                         dir('frontend/target/docker') {
                             def tag = sh(returnStdout: true, script: 'cat tag').trim()
                             def mainClass = sh(returnStdout: true, script: 'cat mainClass').trim()
-                            apiimg = docker.build("henryrao/storedq-api:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
+                            apiImage = docker.build("henryrao/storedq-api:${tag}", "--pull --build-arg JAVA_MAIN_CLASS=${mainClass} .")
                         }
                     },failFast: false
                 }
@@ -53,9 +53,9 @@ podTemplate(
                 withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'docker-login') {
                     stage('push image') {
                         parallel domain: {
-                            doaminimg.push()
+                            domainImage.push()
                         }, 'http-api': {
-                            apiimg.push()
+                            apiImage.push()
                         },failFast: false
                     }
                 }

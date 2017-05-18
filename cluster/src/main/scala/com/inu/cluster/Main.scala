@@ -38,4 +38,8 @@ object Main extends App {
     system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
   }
 
+  sys.addShutdownHook {
+    cluster.leave(cluster.selfAddress)
+  }
+
 }

@@ -40,7 +40,7 @@ def create(title: String): Project = Project(title, file(title))
 lazy val root = project.in(file("."))
 
 lazy val protocol = create("protocol")
-  .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime, kryo)
+  .settings(libraryDependencies ++= Seq(json4sNative, nscalaTime)
 )
 
 //lazy val buildNumber = sys.props.getOrElse("BUILD_NUMBER", default = "0")
@@ -53,8 +53,7 @@ lazy val cluster = create("cluster").
       akkaPersistence, akkaPersistenceCassandra,
       akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
       scalaLogging,
-      scalatest,
-      kryo
+      scalatest
     ) ,
     buildInfoPackage := s"com.inu.cluster.storedq"
     )
@@ -69,8 +68,7 @@ lazy val frontend = create("frontend").
     json4sExt,
     spray, sprayRouting,
     scalatest,
-    scalazCore,
-    kryo
+    scalazCore
   ),
     buildInfoPackage := s"com.inu.frontend.storedq"
   )

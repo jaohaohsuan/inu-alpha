@@ -17,16 +17,19 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: {{ .Values.service.internalPort }}
-        args:
-        - -Dstoredq.cluster-name={{ .Values.cluster.actorsystem }}
-        - -Dakka.cluster.roles.0=compute
-        - -Dakka.cluster.roles.1=queryside
-        - -Dakka.cluster.roles.2=backend
-        - -Dakka.remote.netty.tcp.port={{ .Values.service.internalPort }}
-        - -Dakka.cluster.seed-nodes.0=akka.tcp://{{ .Values.cluster.actorsystem }}@{{ .Values.cluster.seed0 }}
-        - -Dcassandra-snapshot-store.contact-points.0=cassandra-discovery.default.svc.cluster.local"
-        - -Dcassandra-journal.contact-points.0=cassandra-discovery.default.svc.cluster.local"
+        command:
+        - '/deployments/run-java.sh'
         env:
+        - name: JAVA_OPTIONS
+          value: |-
+            -Dstoredq.cluster-name={{ .Values.cluster.actorsystem }}
+            -Dakka.remote.netty.tcp.port={{ .Values.service.internalPort }}
+            -Dakka.cluster.roles.0=compute
+            -Dakka.cluster.roles.1=queryside
+            -Dakka.cluster.roles.2=backend
+            -Dakka.cluster.seed-nodes.0=akka.tcp://{{ .Values.cluster.actorsystem }}@{{ .Values.cluster.seed0 }}
+            -Dcassandra-snapshot-store.contact-points.0=cassandra-discovery.default.svc.cluster.local
+            -Dcassandra-journal.contact-points.0=cassandra-discovery.default.svc.cluster.local
         - name: ES_TRANSPORT_ADDRESS
           value: es-discovery.default.svc.cluster.local
         - name: ES_CLIENT_ADDRESS

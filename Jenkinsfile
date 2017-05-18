@@ -52,10 +52,11 @@ podTemplate(
 
                 withDockerRegistry(url: 'https://index.docker.io/v1/', credentialsId: 'docker-login') {
                     stage('push image') {
-                        parallel domain: {
+                        parallel dockerHub: {
                             domainImage.push()
-                        }, 'http-api': {
+                            domainImage.push('dev')
                             apiImage.push()
+                            apiImage.push('dev')
                         },failFast: false
                     }
                 }

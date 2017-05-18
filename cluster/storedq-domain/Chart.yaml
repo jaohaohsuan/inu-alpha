@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Stored Query Domain backend
+name: storedq-domain
+version: 0.1.0

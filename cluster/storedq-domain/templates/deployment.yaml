@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.service.internalPort }}
+        args:
+        - -Dstoredq.cluster-name={{ .Values.cluster.actorsystem }}
+        - -Dakka.cluster.roles.0=compute
+        - -Dakka.cluster.roles.1=queryside
+        - -Dakka.cluster.roles.2=backend
+        - -Dakka.remote.netty.tcp.port={{ .Values.service.internalPort }}
+        - -Dakka.cluster.seed-nodes.0=akka.tcp://{{ .Values.cluster.actorsystem }}@{{ .Values.cluster.seed0 }}
+        - -Dcassandra-snapshot-store.contact-points.0=cassandra-discovery.default.svc.cluster.local"
+        - -Dcassandra-journal.contact-points.0=cassandra-discovery.default.svc.cluster.local"
+        env:
+        - name: ES_TRANSPORT_ADDRESS
+          value: es-discovery.default.svc.cluster.local
+        - name: ES_CLIENT_ADDRESS
+          value: es.default.svc.cluster.local
+        - name: ES_CLUSTER_NAME
+          value: myesdb
+        - name: HOST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+{{ toYaml .Values.resources | indent 12 }}

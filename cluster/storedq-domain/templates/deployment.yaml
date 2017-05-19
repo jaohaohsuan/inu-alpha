@@ -8,6 +8,8 @@ spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
+      checksum/script-confMap: {{ include (print $.Template.BasePath "/script-confMap.yaml") . | sha256sum }}
+      checksum/conf-confMap: {{ include (print $.Template.BasePath "/conf-confMap.yaml") . | sha256sum }}
       labels:
         app: {{ template "fullname" . }}
     spec:

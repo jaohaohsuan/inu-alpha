@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "fullname" . }}
+  name: {{ template "fullname" . }}-script
 data:
   pre-stop.sh: |
     /usr/bin/curl -i -X DELETE http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}

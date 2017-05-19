@@ -9,7 +9,7 @@ import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 
 object Main extends App {
@@ -44,6 +44,17 @@ object Main extends App {
   val clusterMan = ClusterHttpManagement(cluster)
   clusterMan.start().onComplete { _ =>
     println("ClusterHttpManagement is up")
+  }
+
+  sys.addShutdownHook {
+    clusterMan.stop()
+    println("clusterHttpManagement is down")
+
+    cluster.leave(cluster.selfAddress)
+    cluster.down(cluster.selfAddress)
+    system.terminate()
+    Await.result(system.whenTerminated,Duration.Inf)
+    println("actorsystem has shutdown gracefully")
   }
 
 }

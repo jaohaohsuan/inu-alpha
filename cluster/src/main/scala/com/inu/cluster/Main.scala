@@ -2,6 +2,7 @@ package com.inu.cluster
 
 import akka.actor._
 import akka.cluster.Cluster
+import akka.cluster.http.management.ClusterHttpManagement
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
 import akka.util.Timeout
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
@@ -35,11 +36,12 @@ object Main extends App {
 
     system.actorOf(StoredQueryRepoView.propsWithBackoff)
 
-    system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+    //system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
   }
 
-  sys.addShutdownHook {
-    cluster.leave(cluster.selfAddress)
+  val clusterMan = ClusterHttpManagement(cluster)
+  clusterMan.start().onComplete { _ =>
+    println("ClusterHttpManagement is up")
   }
 
 }

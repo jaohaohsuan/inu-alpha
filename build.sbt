@@ -11,6 +11,7 @@ def create(title: String): Project = Project(title, file(title))
         scalacOptions        ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked", "-language:postfixOps", "-language:implicitConversions"),
         resolvers            ++= Dependencies.resolvers,
         exportJars            := true,
+        ivyScala := ivyScala.value map { _.copy(overrideScalaVersion = true) },
         libraryDependencies  ++= Seq(akkaSlf4j, logbackClassic),
         git.useGitDescribe    := false,
         git.formattedShaVersion := git.gitHeadCommit.value map { sha =>
@@ -54,6 +55,7 @@ lazy val cluster = create("cluster").
       akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
       scalaLogging,
       scalatest,
+      "com.lightbend.akka" %% "akka-management-cluster-http" % "0.3",
       kryo
     ) ,
     buildInfoPackage := s"com.inu.cluster.storedq"

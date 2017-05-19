@@ -16,8 +16,8 @@ spec:
         configMap:
           name: {{ template "fullname" . }}-script
       - name: conf
-          configMap:
-            name: {{ template "fullname" . }}-conf
+        configMap:
+          name: {{ template "fullname" . }}-conf
       containers:
       - name: {{ .Chart.Name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -40,17 +40,17 @@ spec:
               fieldPath: status.podIP
         volumeMounts:
           - name: script
-            mountPath: /scripts
+            mountPath: /script
         volumeMounts:
           - name: conf
             mountPath: /conf
         lifecycle:
           preStop:
             exec:
-              command: [ 'sh', '/scripts/pre-stop.sh' ]
+              command: [ 'sh', '/script/pre-stop.sh' ]
         readinessProbe:
           exec:
-            command: [ 'sh', '/scripts/healthz.sh']
+            command: [ 'sh', '/script/healthz.sh']
           initialDelaySeconds: 7
           periodSeconds: 5
         resources:

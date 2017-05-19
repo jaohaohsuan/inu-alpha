@@ -7,5 +7,6 @@ metadata:
 data:
   pre-stop.sh: |
     /usr/bin/curl -i -X DELETE http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}
+    /usr/bin/curl -i -X PUT -F 'operation=Down' http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}
   healthz.sh: |
     /usr/bin/curl -i http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}

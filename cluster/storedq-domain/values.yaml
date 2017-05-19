@@ -9,6 +9,7 @@ image:
 cluster:
   actorsystem: ClusterSystem
   seed0: "akka-seed-0.akka-seeds.default.svc.cluster.local:2551"
+  httpManPort: 7878
 service:
   internalPort: 2551
 resources:

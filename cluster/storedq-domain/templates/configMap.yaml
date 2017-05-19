@@ -1,0 +1,11 @@
+---
+{{- $membersPath := printf "/members/akka.tcp://%s@${HOST_NAME}:%v" .Values.cluster.actorsystem .Values.service.internalPort }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "fullname" . }}
+data:
+  pre-stop.sh: |
+    /usr/bin/curl -i -X DELETE http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}
+  healthz.sh: |
+    /usr/bin/curl -i http://127.0.0.1:{{ .Values.cluster.httpManPort }}{{ $membersPath }}

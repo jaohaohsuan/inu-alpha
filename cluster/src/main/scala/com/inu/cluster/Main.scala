@@ -9,14 +9,16 @@ import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 object Main extends App {
 
   val config: Config = ConfigFactory.load()
 
-  implicit val timeout = Timeout(5.seconds)
-  implicit val system = ActorSystem(config.getString("storedq.cluster-name"), config)
+  implicit val timeout              = Timeout(5.seconds)
+  implicit val system               = ActorSystem(config.getString("storedq.cluster-name"), config)
+  implicit val ec: ExecutionContext = system.dispatcher
 
   system.log.info("Configured seed nodes: " + config.getStringList("akka.cluster.seed-nodes").mkString(", "))
   system.log.info("Configured cassandra nodes: " + config.getStringList("cassandra-journal.contact-points").mkString(", "))

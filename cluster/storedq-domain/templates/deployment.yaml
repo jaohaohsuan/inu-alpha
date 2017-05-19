@@ -42,11 +42,10 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         volumeMounts:
-          - name: script
-            mountPath: /script
-        volumeMounts:
           - name: conf
             mountPath: /conf
+          - name: script
+            mountPath: /script
         lifecycle:
           preStop:
             exec:

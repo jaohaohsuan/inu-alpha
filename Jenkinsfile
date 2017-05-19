@@ -15,6 +15,7 @@ podTemplate(
                 def image
                 stage('checkout') {
                     checkout scm
+                    sh 'docker pull henryrao/sbt:2.11.8'
                 }
 
                 docker.image('henryrao/sbt:2.11.8').inside("") {

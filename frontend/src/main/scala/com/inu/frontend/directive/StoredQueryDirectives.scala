@@ -142,10 +142,10 @@ trait StoredQueryDirectives extends Directives {
       val fc = for {
         fullTags <- fetchTags()
         mine <- fetchTags(QueryBuilders.idsQuery(".percolator").ids(uid))
-      } yield (fullTags.map(_.trim).distinct,mine)
+      } yield (fullTags, mine)
 
       onComplete(fc).flatMap {
-        case scala.util.Success((fullTags,mine)) => provide((mine ++ fullTags).filterNot(_.startsWith("@")).mkString(" "))
+        case scala.util.Success((fullTags,mine)) => provide((mine ++ fullTags).map(_.trim).distinct.filterNot(_.startsWith("@")).mkString(" "))
         case scala.util.Failure(ex) => provide("")
       }
     }

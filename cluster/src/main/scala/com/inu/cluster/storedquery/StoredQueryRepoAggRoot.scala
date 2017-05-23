@@ -203,6 +203,8 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
   val receiveCommand: Receive = {
 
+    case "backoff" => context stop self
+
     case Initial if !state.items.contains("temporary") =>
       doPersist(ItemCreated("temporary", "temporary"), PersistedAck(sender(), Some(StoredQueryCreatedAck("temporary"))))
 

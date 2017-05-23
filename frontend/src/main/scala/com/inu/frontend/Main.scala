@@ -14,6 +14,7 @@ import spray.can.Http
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 
@@ -34,10 +35,11 @@ object Main extends App with LazyLogging {
       .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
   }
 
-  Cluster(system).registerOnMemberUp {
+  val cluster = Cluster(system)
+  cluster.registerOnMemberUp {
 
     system.actorOf(ClusterSingletonProxy.props(
-      singletonManagerPath = "/user/StoredQueryRepoAggRoot",
+      singletonManagerPath = "/user/backendGuardian/StoredQueryRepoAggRoot",
       settings = ClusterSingletonProxySettings(system).withRole("backend")
     ), name = "StoredQueryRepoAggRoot-Proxy")
 
@@ -64,5 +66,14 @@ object Main extends App with LazyLogging {
           println("dig service could not bind to " +  s"$host:7880, ${cmd.failureMessage}")
           sys.exit(1)
       }
+  }
+
+  sys.addShutdownHook {
+    cluster.leave(cluster.selfAddress)
+    cluster.down(cluster.selfAddress)
+    system.terminate()
+
+    Await.result(system.whenTerminated, Duration.Inf)
+    system.log.info("actorsystem shutdown gracefully")
   }
 }

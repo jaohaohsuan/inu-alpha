@@ -8,6 +8,7 @@ import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.collection.JavaConversions._
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object Main extends App {
@@ -29,13 +30,30 @@ object Main extends App {
 
   val cluster = Cluster(system)
 
+  val backendGuardian = system.actorOf(Props[StoredQueryGuardian],"backendGuardian")
+
+  val propsOfStoredQueryAggRoot = (ClusterSingletonManager.props(
+    singletonProps = StoredQueryRepoAggRoot.props,
+    terminationMessage = "backoff",
+    settings = ClusterSingletonManagerSettings(system).withRole("backend").withSingletonName("singleton")
+  ), "StoredQueryRepoAggRoot")
+
   cluster.registerOnMemberUp {
 
-    system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "StoredQueryRepoAggRoot")
+    backendGuardian ! propsOfStoredQueryAggRoot
 
-    system.actorOf(StoredQueryRepoView.propsWithBackoff)
+    backendGuardian ! (StoredQueryRepoView.props, "StoredQueryRepoView")
 
     system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
+  }
+
+  sys.addShutdownHook {
+    cluster.leave(cluster.selfAddress)
+    cluster.down(cluster.selfAddress)
+    system.terminate()
+
+    Await.result(system.whenTerminated, Duration.Inf)
+    system.log.info("actorsystem shutdown gracefully")
   }
 
 }

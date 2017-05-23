@@ -285,4 +285,8 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
   def doPersist(evt: Event, ack: PersistedAck) = persist(evt)(afterPersisted(ack))
 
+  override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
+    super.onPersistFailure(cause, event, seqNr)
+    throw cause
+  }
 }

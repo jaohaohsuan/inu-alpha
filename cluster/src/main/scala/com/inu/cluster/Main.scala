@@ -30,19 +30,11 @@ object Main extends App {
 
   val cluster = Cluster(system)
 
-  val backendGuardian = system.actorOf(Props[StoredQueryGuardian],"backendGuardian")
-
-  val propsOfStoredQueryAggRoot = (ClusterSingletonManager.props(
-    singletonProps = StoredQueryRepoAggRoot.props,
-    terminationMessage = "backoff",
-    settings = ClusterSingletonManagerSettings(system).withRole("backend").withSingletonName("singleton")
-  ), "StoredQueryRepoAggRoot")
-
   cluster.registerOnMemberUp {
 
-    backendGuardian ! propsOfStoredQueryAggRoot
+    system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "storedQueryRepoAggRootGuardian")
 
-    backendGuardian ! (StoredQueryRepoView.props, "StoredQueryRepoView")
+    system.actorOf(StoredQueryRepoView.props, "StoredQueryRepoView")
 
     system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
   }

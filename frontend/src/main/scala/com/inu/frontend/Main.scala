@@ -39,7 +39,7 @@ object Main extends App with LazyLogging {
   cluster.registerOnMemberUp {
 
     system.actorOf(ClusterSingletonProxy.props(
-      singletonManagerPath = "/user/backendGuardian/StoredQueryRepoAggRoot",
+      singletonManagerPath = "/user/storedQueryRepoAggRootGuardian",
       settings = ClusterSingletonProxySettings(system).withRole("backend")
     ), name = "StoredQueryRepoAggRoot-Proxy")
 

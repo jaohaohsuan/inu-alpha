@@ -22,10 +22,10 @@ object StoredQueryRepoAggRoot extends LazyLogging {
 
   def propsWithBackoff = BackoffSupervisor.props(
     Backoff.onStop(
-      childProps = StoredQueryRepoAggRoot.props,
+      childProps = props,
       childName = "StoredQueryRepoAggRoot",
       minBackoff = 3.seconds,
-      maxBackoff = 30.seconds,
+      maxBackoff = 3 minute,
       randomFactor = 0.2
     ))
 
@@ -203,7 +203,7 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
   val receiveCommand: Receive = {
 
-    case "backoff" => context stop self
+    case PoisonPill => context stop self
 
     case Initial if !state.items.contains("temporary") =>
       doPersist(ItemCreated("temporary", "temporary"), PersistedAck(sender(), Some(StoredQueryCreatedAck("temporary"))))
@@ -285,8 +285,7 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
   def doPersist(evt: Event, ack: PersistedAck) = persist(evt)(afterPersisted(ack))
 
-  override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
-    super.onPersistFailure(cause, event, seqNr)
-    throw cause
+  override def preStart() = {
+    log.info("StoredQueryRepoAggRoot up")
   }
 }

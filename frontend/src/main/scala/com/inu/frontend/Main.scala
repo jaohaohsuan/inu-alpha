@@ -35,6 +35,8 @@ object Main extends App with LazyLogging {
       .addTransportAddress(new InetSocketTransportAddress(esAddr, config.getInt("elasticsearch.transport-tcp")))
   }
 
+  system.actorOf(Props[SeedNodeListener])
+
   val cluster = Cluster(system)
   cluster.registerOnMemberUp {
 

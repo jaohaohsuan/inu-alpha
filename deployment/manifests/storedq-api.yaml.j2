@@ -50,6 +50,7 @@ spec:
           - "-Dakka.cluster.roles.0=compute"
           - "-Dakka.cluster.roles.1=queryside"
           - "-Dakka.cluster.roles.2=backend"
+          - "-Dakka.cluster.roles.3=seed"
           - "-Dakka.remote.netty.tcp.port=2551"
           - "-Dakka.cluster.seed-nodes.0=akka.tcp://storedq@127.0.0.1:2551"
           - "-Dcassandra-snapshot-store.contact-points.0=cassandra3.default.svc.cluster.local"

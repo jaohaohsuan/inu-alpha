@@ -3,7 +3,9 @@ package com.inu.cluster
 import akka.actor._
 import akka.cluster.Cluster
 import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings}
+import akka.pattern.{Backoff, BackoffSupervisor}
 import akka.util.Timeout
+import com.inu.cluster.storedquery.StoredQueryRepoAggRoot.props
 import com.inu.cluster.storedquery.{StoredQueryRepoAggRoot, StoredQueryRepoView}
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -34,7 +36,14 @@ object Main extends App {
 
     system.actorOf(StoredQueryRepoAggRoot.propsWithBackoff.singleton(), "storedQueryRepoAggRootGuardian")
 
-    system.actorOf(StoredQueryRepoView.props, "StoredQueryRepoView")
+    system.actorOf(BackoffSupervisor.props(
+      Backoff.onStop(
+        childProps = StoredQueryRepoView.props,
+        childName = "StoredQueryRepoView",
+        minBackoff = 3.seconds,
+        maxBackoff = 3 minute,
+        randomFactor = 0.2
+      )))
 
     system.log.info(s"running version ${com.inu.cluster.storedq.BuildInfo.version}")
   }

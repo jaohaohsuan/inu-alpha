@@ -1,13 +1,10 @@
 package com.inu.frontend.directive
 
-import org.elasticsearch.action.get.GetResponse
-import org.elasticsearch.action.percolate.PercolateSourceBuilder
+import akka.http.scaladsl.server._
 import org.elasticsearch.action.search.SearchRequestBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import spray.routing._
-import shapeless._
 
 trait LogsDirectives extends Directives {
 
@@ -16,8 +13,8 @@ trait LogsDirectives extends Directives {
   import QueryBuilders._
 
   def prepareGetVtt = {
-    path("""^logs-\d{4}\.\d{2}\.\d{2}$""".r / Segment / Segment).hflatMap {
-      case index :: typ :: id :: HNil =>
+    path("""^logs-\d{4}\.\d{2}\.\d{2}$""".r / Segment / Segment).tflatMap {
+      case (index, typ, id) =>
         provide(client.prepareGet(index,typ,id)
                       .setFields("vtt")
                       .setFetchSource(Array("dialogs", "agent*", "customer*"), null))
@@ -25,7 +22,7 @@ trait LogsDirectives extends Directives {
   }
 
   def userFields = {
-    provide(Seq(
+    Seq(
       "startTime",
       "endTime",
       "length",
@@ -36,20 +33,19 @@ trait LogsDirectives extends Directives {
       "agentName",
       "callDirection",
       "customerPhoneNo",
-      "customerGender"))
+      "customerGender")
   }
 
   def prepareSearchLogs(query: JValue): Directive1[SearchRequestBuilder] = {
-    userFields.flatMap { fields =>
-      parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
-        case size :: from :: HNil => {
+
+      parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).tflatMap {
+        case (size, from) => {
           //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
           //val JArray(xs) = query \ "indices" \ "indices"
           //val indices = xs.map { case JString(s) => s}
 
-
           provide(
-            fields.foldLeft(client.prepareSearch()
+            userFields.foldLeft(client.prepareSearch()
               .setQuery(constantScoreQuery(wrapperQuery(compact(render(query)))))
               .setSize(size).setFrom(from)
               .addField("vtt")){ (acc, f) => acc.addField(f) }
@@ -64,7 +60,7 @@ trait LogsDirectives extends Directives {
         }
         case _ => reject
       }
-    }
+
   }
 
 }

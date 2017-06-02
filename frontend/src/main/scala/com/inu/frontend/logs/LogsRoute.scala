@@ -2,8 +2,8 @@ package com.inu.frontend.logs
 
 import com.inu.frontend.WebvttSupport
 import com.inu.frontend.directive.{LogsDirectives, StoredQueryDirectives, VttDirectives}
-import spray.routing.{HttpService, Route}
-import spray.http.StatusCodes._
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.server.Route
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.json4s.JsonAST.JString
 
@@ -11,7 +11,7 @@ import scala.concurrent.ExecutionContext
 import org.json4s._
 import org.json4s.native.JsonMethods._
 
-trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with VttDirectives with StoredQueryDirectives {
+trait LogsRoute extends WebvttSupport with LogsDirectives with VttDirectives with StoredQueryDirectives {
 
   implicit def executionContext: ExecutionContext
 
@@ -30,9 +30,7 @@ trait LogsRoute extends WebvttSupport with HttpService with LogsDirectives with 
             percolate(gr) { p =>
               onSuccess(p.execute().future) { pr =>
                 extractFragments(parse(pr.json) \\ classOf[JString]) { segments =>
-                  respondWithMediaType(`text/vtt`) {
                     complete(OK, vttMap.highlightWith(segments))
-                  }
                 }
               }
             }

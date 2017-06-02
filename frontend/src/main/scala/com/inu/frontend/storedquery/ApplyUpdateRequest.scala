@@ -3,8 +3,8 @@ package com.inu.frontend.storedquery
 import akka.actor.Props
 import com.inu.frontend.PerRequest
 import com.inu.protocol.storedquery.messages._
-import spray.http.StatusCodes._
-import spray.routing.RequestContext
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.server.RequestContext
 
 case class StoredQueryItem(title: String, tags: Option[String]) {
   require( title.nonEmpty )

@@ -7,12 +7,12 @@ import com.inu.protocol.media.CollectionJson.Template
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.json4s.{JObject, JValue}
 import org.json4s.JsonAST.{JArray, JField, JString}
-import spray.http.StatusCodes._
-import shapeless._
-import spray.http.Uri.Path
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.Uri.{Path,Query}
+import akka.http.scaladsl.server._
 
 import scala.collection.JavaConversions._
-import spray.routing._
+
 
 case class PreviewStatus(count: Long, query: JValue)
 
@@ -32,8 +32,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
   def extractHighlights(r: SearchResponse)(ids: String): Directive1[List[JObject]] = {
     // TODO: 重复代码
     import com.inu.frontend.elasticsearch._
-    requestUri.hmap {
-      case uri :: HNil => {
+    extractUri.map { uri => {
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
         r.getHits.map {
           case hit@SearchHitHighlightFields(loc, fragments) =>
@@ -42,7 +41,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
             val extractor(year, month, day, id) = loc
             val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${uri.withQuery("_id" -> ids).withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
+            ("href" -> s"${uri.withQuery(Query("_id" -> ids)).withPath(Path(s"/sapi/$loc"))}") ~~ Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
         } toList
       }
     }
@@ -57,7 +56,7 @@ case class PreviewRequest(ctx: RequestContext, s: SearchRequestBuilder, storedQu
   def processResult: Receive = {
     case res: SearchResponse =>
       response {
-        requestUri { uri =>
+        extractUri { uri =>
           pagination(res)(uri) { p =>
             extractHighlights(res)(storedQueryId) { items =>
               val status = ("rel" -> "status") ~~ ("href" -> s"${uri / "status"}")

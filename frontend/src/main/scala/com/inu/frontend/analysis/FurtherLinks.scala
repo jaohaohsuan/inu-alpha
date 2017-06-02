@@ -1,13 +1,14 @@
 package com.inu.frontend.analysis
 
-import spray.http.Uri
+import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri.Query
 
 case class FurtherLinks(uri: Uri, storedQueryId: String) {
 
-  def include = append("conditionSet", remove("must_not",remove("include", uri.query.toMap))).toSeq
-  def exclude = append("include", remove("must_not",remove("conditionSet", uri.query.toMap))).toSeq
-  def must_not = append("must_not", uri.query.toMap)
-  lazy val deleteIncludable = remove("include", uri.query.toMap.-("must_not")).toSeq
+  def include = append("conditionSet", remove("must_not",remove("include", uri.query().toMap))).toSeq
+  def exclude = append("include", remove("must_not",remove("conditionSet", uri.query().toMap))).toSeq
+  def must_not = append("must_not", uri.query().toMap)
+  lazy val deleteIncludable = remove("include", uri.query().toMap.-("must_not")).toSeq
 
   private def remove(key: String, map: Map[String, String]): Map[String, String] = {
     map.getOrElse(key, storedQueryId).replace(storedQueryId, "").trim match {
@@ -26,21 +27,21 @@ case class FurtherLinks(uri: Uri, storedQueryId: String) {
 
   def action2: String = {
 
-    val queryField = List(uri.query.get("conditionSet") match {
+    val queryField = List(uri.query().get("conditionSet") match {
       case Some(value) if value.contains(storedQueryId) => s""", "query" : "must" """
       case _ => ""
     },
-    uri.query.get("include") match {
+    uri.query().get("include") match {
       case Some(value) if value.contains(storedQueryId) => s""", "query" : "none" """
       case _ => ""
     }).filterNot(_.isEmpty).headOption.getOrElse("")
 
-    uri.query.get("must_not") match {
+    uri.query().get("must_not") match {
       case Some(value) if value.contains(storedQueryId) =>
 
-        s"""{"rel" : "action", "href" : "${uri.withQuery(remove("must_not", must_not).toSeq: _*)}" $queryField }"""
+        s"""{"rel" : "action", "href" : "${uri.withQuery(Query(remove("must_not", must_not).toSeq: _*))}" $queryField }"""
       case _ =>
-        s"""{"rel" : "action", "href" : "${uri.withQuery(must_not.toSeq: _*)}", "query" : "must_not" }"""
+        s"""{"rel" : "action", "href" : "${uri.withQuery(Query(must_not.toSeq: _*))}", "query" : "must_not" }"""
     }
   }
 
@@ -49,7 +50,7 @@ case class FurtherLinks(uri: Uri, storedQueryId: String) {
       case "includable" => Some(deleteIncludable)
       case _ => None
     }).map { map =>
-      s"""{"rel" : "remove", "href" : "${uri.withQuery(map: _*)}", "prompt" : "delete" }"""
+      s"""{"rel" : "remove", "href" : "${uri.withQuery(Query(map: _*))}", "prompt" : "delete" }"""
     }.getOrElse("")
   }
 
@@ -59,7 +60,7 @@ case class FurtherLinks(uri: Uri, storedQueryId: String) {
       case "includable" => Some(include, "include", "must")
       case _ => None
     }).map { case (map, prompt, query) =>
-      s"""{"rel" : "action", "href" : "${uri.withQuery(map: _*)}", "prompt" : "$prompt", "query" : "$query" }"""
+      s"""{"rel" : "action", "href" : "${uri.withQuery(Query(map: _*))}", "prompt" : "$prompt", "query" : "$query" }"""
     }.getOrElse("")
   }
 }

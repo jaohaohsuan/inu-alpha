@@ -3,8 +3,8 @@ package com.inu.frontend.storedquery
 import akka.actor.Props
 import com.inu.frontend.PerRequest
 import com.inu.protocol.storedquery.messages.{Command, RejectAck, StoredQueryCreatedAck}
-import spray.http.StatusCodes._
-import spray.routing.RequestContext
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.server.RequestContext
 
 /**
   * Created by henry on 6/15/16.

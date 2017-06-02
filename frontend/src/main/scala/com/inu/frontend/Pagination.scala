@@ -3,7 +3,7 @@ package com.inu.frontend
 import org.elasticsearch.action.search.SearchResponse
 import org.json4s.JValue
 import org.json4s.JsonAST.JObject
-import spray.http.Uri
+import akka.http.scaladsl.model.Uri
 
 import scala.language.implicitConversions
 import scalaz._
@@ -16,7 +16,7 @@ object Pagination {
   implicit def extractHitsOfTotal(r: SearchResponse): Long = r.getHits.totalHits()
 }
 
-case class Pagination(size: Int, from: Int, totals: Long = 0)(implicit uri: spray.http.Uri) {
+case class Pagination(size: Int, from: Int, totals: Long = 0)(implicit uri: akka.http.scaladsl.model.Uri) {
 
   import UriImplicitConversions._
 

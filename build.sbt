@@ -52,7 +52,7 @@ lazy val cluster = create("cluster").
     libraryDependencies ++= Seq(
       akkaCluster, akkaClusterTools,akkaClusterMetrics,
       akkaPersistence, akkaPersistenceCassandra,
-      akkaPersistenceQuery, akkaHttpCore, akkaHttpExp,
+      akkaPersistenceQuery, akkaHttp,
       scalaLogging,
       scalatest,
       "com.lightbend.akka" %% "akka-management-cluster-http" % "0.3",
@@ -64,12 +64,12 @@ lazy val cluster = create("cluster").
 lazy val frontend = create("frontend").
   dependsOn(protocol).
   settings(
-  libraryDependencies ++= Seq(
+    libraryDependencies ++= Seq(
     scalaLogging,
     akkaCluster, akkaClusterTools,akkaClusterMetrics,
     elasticsearch,
-    json4sExt,
-    spray, sprayRouting,
+    akkaHttp,
+    json4sExt, akkaHttpJson4s,
     scalatest,
     scalazCore,
     kryo

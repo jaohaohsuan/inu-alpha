@@ -1,5 +1,6 @@
 package com.inu.frontend.analysis
 
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import com.inu.frontend.CollectionJsonSupport
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import com.inu.protocol.media.CollectionJson.Template
@@ -7,16 +8,16 @@ import org.elasticsearch.common.xcontent.{ToXContent, XContentFactory, XContentT
 import org.elasticsearch.search.aggregations.bucket.filters.Filters
 import org.json4s.JsonDSL._
 import org.json4s._
-import spray.http.StatusCodes._
-import spray.routing._
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.server.Route
 
-
-trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDirectives {
+trait AnalysisRoute extends CollectionJsonSupport with CrossDirectives {
 
   //val builder =  XContentFactory.contentBuilder(XContentType.JSON);
+  import de.heikoseeberger.akkahttpjson4s.Json4sSupport._
+
   lazy val graph =
-    respondWithMediaType(spray.http.MediaTypes.`application/json`) {
-      datasourceAggregation { agg0 =>
+    datasourceAggregation { agg0 =>
           path("graph0") {
             conditionSetAggregation(agg0) { agg1 =>
 //              println("conditionSetAggregation")
@@ -37,6 +38,7 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
                   }
                   ("key" -> bucket.getKeyAsString) ~~ ("values" -> values) :: acc
                 }
+                // use json4s marshaller
                 complete(OK, JArray(arr))
               }
             }
@@ -53,16 +55,17 @@ trait AnalysisRoute extends HttpService with CollectionJsonSupport with CrossDir
                   }
                   ("key" -> bucket.getKeyAsString) ~~ ("values" -> values.reverse) :: acc
                 }
+                // use json4s marshaller
                 complete(OK, JArray(arr))
               }
             }
           }
       }
-    }
+
 
   lazy val `_analysis`: Route =
     get {
-      requestUri { uri =>
+      extractUri { uri =>
         import com.inu.frontend.UriImplicitConversions._
         pathPrefix( "_analysis" ) {
           pathEnd {

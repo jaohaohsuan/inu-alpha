@@ -4,8 +4,8 @@ import java.net.URI
 
 import akka.actor.Status.Failure
 import akka.actor._
-import spray.http.StatusCodes._
-import spray.routing._
+import akka.http.scaladsl.server._
+import akka.http.scaladsl.model.StatusCodes._
 
 trait PerRequest extends Actor with Directives {
 
@@ -36,7 +36,7 @@ trait PerRequest extends Actor with Directives {
     case Failure(ex) =>
       //log.error(ex, s"${ctx.request.uri}")
       response {
-        requestUri { uri =>
+        extractUri { uri =>
           complete(InternalServerError,
             s"""{
                |  "collection" : {

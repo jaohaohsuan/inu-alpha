@@ -1,5 +1,6 @@
 package com.inu.frontend.directive
 
+import akka.http.scaladsl.server.{Directive, Directive1, Directives}
 import com.inu.frontend.elasticsearch.ImplicitConversions._
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.search.SearchRequestBuilder
@@ -9,8 +10,6 @@ import org.elasticsearch.search.aggregations.AggregationBuilders
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import shapeless._
-import spray.routing._
 
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
@@ -113,8 +112,8 @@ trait StoredQueryDirectives extends Directives {
 
   def `conditionSet+include+must_not`: Directive1[SearchRequestBuilder] = {
     import QueryBuilders._
-    parameters('conditionSet.?, 'include.?, 'must_not.?).hflatMap {
-      case conditionSet :: include :: must_not :: HNil =>
+    parameters('conditionSet.?, 'include.?, 'must_not.?).tflatMap {
+      case (conditionSet, include, must_not) =>
         implicit def percolatorIdsQuery(ids: Seq[String]): IdsQueryBuilder = QueryBuilders.idsQuery(".percolator").addIds(ids)
 
         val noReturnQuery = boolQuery().mustNot(matchAllQuery())
@@ -171,8 +170,8 @@ trait StoredQueryDirectives extends Directives {
 //  } ))
 
   def prepareSearchPercolator: Directive1[SearchRequestBuilder] = {
-    parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ).hflatMap {
-      case conditionSet :: include :: q :: tags :: size :: from :: HNil =>
+    parameters('conditionSet.?, 'include.?, 'q.?, 'tags.?, 'size.as[Int] ? 10, 'from.as[Int] ? 0 ).tflatMap {
+      case (conditionSet, include, q, tags, size, from) =>
         val excludedIds = (conditionSet: Seq[String]) ++ include
         provide(
           client.prepareSearch("stored-query").setTypes(".percolator")

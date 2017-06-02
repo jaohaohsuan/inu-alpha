@@ -1,8 +1,8 @@
 package com.inu.frontend.directive
 
+import akka.http.scaladsl.server.{Directive1, Directives}
 import com.inu.frontend.elasticsearch.SearchHitHighlightFields
 import com.inu.frontend.elasticsearch.SearchHitHighlightFields._
-import spray.routing._
 
 import scala.util.matching.Regex
 

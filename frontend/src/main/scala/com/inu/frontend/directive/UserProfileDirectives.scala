@@ -1,18 +1,21 @@
 package com.inu.frontend.directive
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.client.RequestBuilding
+import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.server._
+import akka.http.scaladsl.model.HttpMethods._
+import akka.http.scaladsl.server.Directives.extractMaterializer
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.io.IO
 import org.json4s.{JObject, JValue}
-import spray.can.Http
-import spray.http._
-import spray.routing.{Directive1, Directives}
 import akka.pattern._
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import org.json4s.JsonAST.JArray
-import spray.http.HttpEntity._
-import spray.http.HttpHeaders.RawHeader
-import spray.http.HttpMethods._
+import org.json4s.JsonAST.{JArray, JValue}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,22 +30,37 @@ trait UserProfileDirectives extends Directives {
   implicit def system: ActorSystem
   implicit val timeout: Timeout = Timeout(15.seconds)
 
+
+  import com.inu.frontend.utils.encoding.NativeJson4sSupport._
+  import org.json4s.native.JsonMethods._
+
   private val config = ConfigFactory.load()
 
+  lazy val userProfileEndpoint: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]] =
+    Http().outgoingConnection(host = config.getString("service.user-profile.host"), port = config.getInt("service.user-profile.port"))
+
+  lazy val dapiEndpoint =
+    Http().outgoingConnection(host = config.getString("service.dapi.host"), port = config.getInt("service.dapi.port"))
+
   def userSid: Directive1[String]= {
-    cookie("sid").flatMap {
-      case sid => provide(sid.content)
+    cookie("sid").flatMap { sid => provide(sid.value)
     }
   }
 
+
   def userFilter: Directive1[JValue] = {
     userSid.flatMap { sid =>
-      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filter")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
-      onSuccess(response).flatMap { res => res.entity match {
-          case entity: NonEmpty =>
-            import org.json4s.native.JsonMethods._
-            provide(parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "query")
-          case _ => reject
+      extractMaterializer.flatMap { implicit mat =>
+
+        val request = RequestBuilding.Get(s"/${config.getString("service.user-profile.filter")}").addHeader(RawHeader("Authorization", s"bearer $sid"))
+        val response = Source.single(request).via(userProfileEndpoint).runWith(Sink.head).flatMap { resp =>
+          Unmarshal(resp.entity).to[String].map { str => parse(str) \ "query" }
+        }
+        onComplete(response).flatMap {
+          case scala.util.Success(query) => provide(query)
+          case scala.util.Failure(ex) =>
+            system.log.error(ex,"unable to get userFilter")
+            reject
         }
       }
     }
@@ -50,13 +68,20 @@ trait UserProfileDirectives extends Directives {
 
   def dataSourceFilters : Directive1[List[JValue]]= {
     userSid.flatMap { sid =>
-      val response = (IO(Http) ? HttpRequest(GET, Uri(s"${config.getString("service.user-profile.host")}/${config.getString("service.user-profile.filters")}"), headers = RawHeader("Authorization", s"bearer $sid") :: Nil)).mapTo[HttpResponse]
-      onSuccess(response).flatMap { res => res.entity match {
-          case entity: NonEmpty =>
-            import org.json4s.native.JsonMethods._
-            val JArray(xs) = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \ "esQueries"
-            provide(xs)
-          case _ => reject
+      extractMaterializer.flatMap { implicit mat =>
+
+        val request = RequestBuilding.Get(s"/${config.getString("service.user-profile.filters")}").addHeader(RawHeader("Authorization", s"bearer $sid"))
+        val response = Source.single(request).via(userProfileEndpoint).runWith(Sink.head).flatMap { resp =>
+          Unmarshal(resp.entity).to[String].map { str =>
+            val JArray(xs) = parse(str) \ "esQueries"
+            xs
+          }
+        }
+        onComplete(response).flatMap {
+          case scala.util.Success(esQueries) => provide(esQueries)
+          case scala.util.Failure(ex) =>
+            system.log.error(ex,"unable to get userFilters")
+            reject
         }
       }
     }
@@ -67,22 +92,21 @@ trait UserProfileDirectives extends Directives {
     headerValueByName("uid").flatMap { uid =>
       userSid.flatMap { sid =>
 
-        val req = HttpRequest(GET,
-          Uri(s"${config.getString("service.dapi.host")}/${config.getString("service.dapi.logsfilter")}?logsFilterId=${filterId.getOrElse("")}"),
-          headers = RawHeader("Authorization", s"bearer $sid") :: RawHeader("uid",uid) :: Nil)
-        val response = (IO(Http) ? req).mapTo[HttpResponse]
-        onSuccess(response).flatMap { res =>
-          res.entity match {
-            case entity: NonEmpty =>
-              import org.json4s.native.JsonMethods._
-              val result: JValue = parse(entity.data.asString(HttpCharsets.`UTF-8`)) \\ "esQuery"
-              provide(result)
-            case _ => reject
+        extractMaterializer.flatMap { implicit mat =>
+
+          val request = RequestBuilding.Get(s"/${config.getString("service.dapi.logsfilter")}?logsFilterId=${filterId.getOrElse("")}").addHeader(RawHeader("Authorization", s"bearer $sid"))
+          val response = Source.single(request).via(userProfileEndpoint).runWith(Sink.head).flatMap { resp =>
+            Unmarshal(resp.entity).to[String].map { str => parse(str) \ "esQuery" }
+          }
+          onComplete(response).flatMap {
+            case scala.util.Success(esQueries) => provide(esQueries)
+            case scala.util.Failure(ex) =>
+              system.log.error(ex,"unable to get userFilters")
+              reject
           }
         }
       }
     }
-
   }
 
 }

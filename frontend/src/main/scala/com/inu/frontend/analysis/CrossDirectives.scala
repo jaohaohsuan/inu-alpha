@@ -11,11 +11,10 @@ import org.elasticsearch.search.aggregations.bucket.filters.{Filters, FiltersAgg
 import org.json4s.JsonAST.{JArray, JString}
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import shapeless.{::, HNil}
-import spray.http.StatusCodes._
-import spray.http.Uri
-import spray.http.Uri.Path
-import spray.routing._
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri.{Path,Query}
+import akka.http.scaladsl.server._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,7 +40,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   import org.json4s.JsonDSL._
 
   def extractSourceItems(sr: SearchResponse): Directive1[List[(String, JValue)]] = {
-    requestUri.flatMap { uri =>
+    extractUri.flatMap { uri =>
       import com.inu.frontend.UriImplicitConversions._
       val dropQuery = uri.drop("q", "tags", "size", "from")
 
@@ -58,7 +57,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
         val action = ("href" -> s"""${dropQuery.appendToValueOfKey("include")(id)}""".replaceFirst("""/source""", "")) ~~
           ("rel" -> "action")
 
-        (id,item merge (("links" -> JArray(action :: Nil)) ~~ ("href" -> s"${dropQuery.withPath(Uri.Path(s"/sapi/_query/template/$id")).withQuery()}")))
+        (id,item merge (("links" -> JArray(action :: Nil)) ~~ ("href" -> s"${dropQuery.withPath(Uri.Path(s"/sapi/_query/template/$id")).withQuery(Query())}")))
       }
       provide(items)
     }
@@ -71,8 +70,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   }
 
   def conditionSet(map: Map[String, Condition]): Directive1[Map[String, JValue]] = {
-    parameters('conditionSet.?).hflatMap {
-      case ids :: HNil =>
+    parameters('conditionSet.?).flatMap { ids  =>
         provide(map.filterKeys(ids.getOrElse("").contains).map { case (k,v) => k -> parse(v.query)})
     }
   }
@@ -81,7 +79,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
     // TODO: 重复代码
     import com.inu.frontend.elasticsearch._
     parameters('conditionSet.?).flatMap { ids =>
-      requestUri.flatMap { uri =>
+      extractUri.flatMap { uri =>
         val extractor = """logs-(\d{4})\.(\d{2})\.(\d{2}).*\/([\w-]+$)""".r
         provide(r.getHits.map {
           case hit@SearchHitHighlightFields(loc, fragments) =>
@@ -90,7 +88,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
             val extractor(year, month, day, id) = loc
             val audioUrl = "audioUrl" -> s"$year$month$day/$id"
             // uri.toString().replaceFirst("\\/_.*$", "") 砍host:port/a/b/c 的path
-            ("href" -> s"${ids.map{ v => uri.withQuery("_id" -> v)}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~
+            ("href" -> s"${ids.map{ v => uri.withQuery(Query("_id" -> v))}.getOrElse(uri).withPath(Path(s"/sapi/$loc"))}") ~~
             Template(Map(highlight, keywords, audioUrl, "id" -> s"$year$month$day") ++ hit.getFields.toMap.map{ case (k, v) => k -> v.value }).template
         } toList)
       }
@@ -99,16 +97,16 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
 
   def logs(map: Map[String, Condition]): Directive1[SearchResponse] = {
     conditionSet(map).flatMap { clauses =>
-      parameters('must_not.?, 'logsFilterId.?).hflatMap {
-        case ids :: filterId :: HNil =>
+      parameters('must_not.?, 'logsFilterId.?).tflatMap {
+        case (ids, filterId) =>
           logsfilter(filterId).flatMap { filter_clause =>
             queryWithUserFilter(
               clauses.filterKeys { k => !ids.contains(k) }.values.toList,
               (ids: Seq[String]).flatMap(clauses.get).toList,
               filter_clause
             ).flatMap { q =>
-              parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).hflatMap {
-                case size :: from :: HNil => {
+              parameter('size.as[Int] ? 10, 'from.as[Int] ? 0).tflatMap {
+                case (size,from) => {
                   //val noReturnQuery = boolQuery().mustNot(matchAllQuery())
                   onSuccess(
                     Seq(
@@ -173,7 +171,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
             .setQuery(qb)
             .setSize(0)
             .execute().future).flatMap { res =>
-            requestUri.flatMap { uri =>
+            extractUri.flatMap { uri =>
               // TODO: 生成用户可以查询的type进行分类
               // val logsLink = """{ "rel" : "logs", "render" : "grid", "name": "%s", "href" : "%s"}"""
               // typ.map { _.split("""(\s+|,)""").map { t => logsLink.format(t, uri.withPath(uri.path / "logs").withExistQuery(("type", t))) }.toList }
@@ -192,7 +190,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   def exclude(map: Map[String, Condition]): Directive1[List[JObject]] = {
     parameters('conditionSet.?).flatMap { exclude =>
       conditionSet(map).flatMap { set =>
-        requestUri.flatMap { uri =>
+        extractUri.flatMap { uri =>
           userFilter.flatMap { query =>
             val f = for {
               items <- Future.traverse(map.filterKeys(exclude.getOrElse("").contains)) {
@@ -202,7 +200,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   val withUserFilterQuery = query merge dd
                   val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
                   val indices = xs.collect { case JString(s) => s}
-                  val queryField =  uri.query.get("must_not") match {
+                  val queryField =  uri.query().get("must_not") match {
                     case Some(value) if value.contains(c.storedQueryId) => "query" -> "must_not"
                     case _ => "query" -> "must"
                   }
@@ -233,7 +231,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
   def include(map: Map[String, Condition]): Directive1[List[JObject]] = {
     parameters('include.?).flatMap { include =>
       conditionSet(map).flatMap { set =>
-        requestUri.flatMap { uri =>
+        extractUri.flatMap { uri =>
           userFilter.flatMap { query =>
             val f = for {
               items <- Future.traverse(map.filterKeys(include.getOrElse("").contains)) {
@@ -244,7 +242,7 @@ trait CrossDirectives extends Directives with StoredQueryDirectives with UserPro
                   val JArray(xs) = withUserFilterQuery \ "indices" \ "indices"
                   val indices = xs.collect { case JString(s) => s}
                   val q = indicesQuery(wrapperQuery(compact(render(withUserFilterQuery \ "indices" \ "query"))), indices: _*).noMatchQuery("none")
-                  val queryField =  uri.query.get("must_not") match {
+                  val queryField =  uri.query().get("must_not") match {
                     case Some(value) if value.contains(c.storedQueryId) => "query" -> "must_not"
                     case _ => "query" -> "none"
                   }

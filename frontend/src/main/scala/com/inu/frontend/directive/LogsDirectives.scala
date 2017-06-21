@@ -20,7 +20,7 @@ trait LogsDirectives extends Directives {
       case index :: typ :: id :: HNil =>
         provide(client.prepareGet(index,typ,id)
                       .setFields("vtt")
-                      .setFetchSource(Array("dialogs", "agent*", "customer*"), null))
+                      .setFetchSource(false))
     }
   }
 

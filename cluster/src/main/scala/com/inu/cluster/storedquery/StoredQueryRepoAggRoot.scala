@@ -62,7 +62,7 @@ object StoredQueryRepoAggRoot extends LazyLogging {
   object ApplyStoredQueryUpdate {
     def unapply(arg: Any): Option[StoredQuery] = {
       arg match {
-        case (ItemUpdated(id, newTitle, newTags), StoredQueryRepo(repo)) => repo.get(id).map(_.copy(title = newTitle, tags = newTags))
+        case (ItemUpdated(id, newTitle, newTags), StoredQueryRepo(repo)) => repo.get(id).map(_.copy(title = newTitle.trim, tags = newTags))
         case _ => None
       }
     }
@@ -226,7 +226,7 @@ class StoredQueryRepoAggRoot extends PersistentActor with ActorLogging {
 
     case UpdateStoredQuery(storedQueryId, _, _) if storedQueryId.notExist() => sender() ! RejectAck(s"$storedQueryId is not exist.")
 
-    case UpdateStoredQuery(_, "", _) => sender() ! RejectAck(s"title can not be blank")
+    case UpdateStoredQuery(_, title, _) if title.trim().isEmpty => sender() ! RejectAck(s"title can not be blank")
 
     case UpdateStoredQuery(storedQueryId, title, tags) =>
       doPersist(ItemUpdated(storedQueryId, title, tags.getOrElse("").split("""[\s,]+""").toSet), PersistedAck(sender(),Some(UpdatedAck)))

@@ -3,7 +3,7 @@ podTemplate(
         label: pod_label,
         containers: [
                 containerTemplate(name: 'jnlp', image: env.JNLP_SLAVE_IMAGE, args: '${computer.jnlpmac} ${computer.name}', alwaysPullImage: true),
-                containerTemplate(name: 'sbt', image: "${env.PRIVATE_REGISTRY}/library/sbt:2.11.8-fabric8", ttyEnabled: true, command: 'cat', alwaysPullImage: true),
+                containerTemplate(name: 'sbt', image: "${env.PRIVATE_REGISTRY}/library/sbt:2.11-fabric8", ttyEnabled: true, command: 'cat', alwaysPullImage: true),
                 containerTemplate(name: 'dind', image: 'docker:stable-dind', privileged: true, ttyEnabled: true, command: 'dockerd', args: '--host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=vfs')
         ],
         volumes: [

@@ -4,7 +4,6 @@ lazy val cpJarsForDocker = taskKey[Unit]("prepare for building Docker image")
 
 def create(title: String): Project = Project(title, file(title))
     .settings(
-      Revolver.settings ++
       Seq(
         scalaVersion          := Version.scala,
         scalacOptions        ++= Seq("-encoding", "UTF-8", "-deprecation", "-feature", "-unchecked", "-language:postfixOps", "-language:implicitConversions"),

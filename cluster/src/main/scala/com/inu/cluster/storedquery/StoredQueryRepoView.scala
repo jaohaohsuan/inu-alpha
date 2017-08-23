@@ -44,6 +44,7 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
   val source = readJournal.eventsByPersistenceId("StoredQueryRepoAggRoot", 0, Long.MaxValue)
 
   val illegalIdRegx = """[^\w]+""".r
+  val titleFilter = s"""${sys.env("STOREDQUERY_TITLE_REGEX")}""".r.pattern
 
   val states = Flow[EventEnvelope].scan(StoredQueries()){
     case (acc, evl @ EventEnvelope(_,_,_, evt: ItemCreated)) if illegalIdRegx.findFirstIn(evt.id).nonEmpty =>
@@ -54,6 +55,11 @@ class StoredQueryRepoView extends Actor with PercolatorWriter with ActorLogging 
       acc
     case (acc, evl @ EventEnvelope(_, _, _, evt: Event)) =>
       log.debug("replaying: {}", evl)
+      evt match {
+        case ItemUpdated(id, title, tags) if titleFilter.matcher(title).matches() => log.info(s"$id $title $tags")
+        case ItemCreated(id, title, _, tags) if titleFilter.matcher(title).matches() => log.info(s"$id $title $tags")
+        case _ =>
+      }
       acc.update(evt)
     case (acc, _) => acc
   }.filter {
